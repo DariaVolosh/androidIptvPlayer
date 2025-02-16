@@ -9,6 +9,7 @@ import com.example.iptvplayer.data.MediaDataSource
 import com.example.iptvplayer.domain.GetMediaDataSourceUseCase
 import com.example.iptvplayer.domain.GetTsSegmentsUseCase
 import com.example.iptvplayer.domain.SetMediaUrlUseCase
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import tv.danmaku.ijk.media.player.IjkMediaPlayer
 import java.util.LinkedList
@@ -25,6 +26,8 @@ class MediaViewModel @Inject constructor(
     val isDataSourceSet: LiveData<Boolean> = _isDataSourceSet
 
     private val urlQueue = LinkedList<String>()
+    private var isPlayerReset = true
+    private var tsJob: Job? = null
 
     private suspend fun setNextUrl(url: String, isFirstSegment: Boolean) {
         setMediaUrlUseCase.setMediaUrl(url) { mediaSource ->
@@ -37,17 +40,34 @@ class MediaViewModel @Inject constructor(
             Log.i("lel", "startPlayback $mediaSource")
             ijkPlayer?.prepareAsync()
         } catch (e: Exception) {
-            Log.i("lel", "startPlayback excpetion${e.message}")
+            Log.i("lel", "startPlayback exception ${e.message}")
         }
     }
 
     fun setMediaUrl(url: String) {
-        viewModelScope.launch {
+        if (ijkPlayer != null) {
+            ijkPlayer?.reset()
+            isPlayerReset = true
+            _isDataSourceSet.postValue(false)
+        }
+
+        tsJob?.cancel()
+
+        tsJob = viewModelScope.launch {
             getTsSegmentsUseCase.extractTsSegments(url).collect { u ->
-                if (ijkPlayer == null) {
+                Log.i("emission", "collected $u")
+                if (ijkPlayer == null || isPlayerReset) {
                     ijkPlayer = IjkMediaPlayer()
+                    isPlayerReset = false
+                    IjkMediaPlayer.native_setLogLevel(IjkMediaPlayer.IJK_LOG_DEBUG);
+
                     ijkPlayer?.setDataSource(getMediaDataSourceUseCase.getMediaDataSource({
-                        setNextUrl(urlQueue.poll() ?: "", false)
+                        urlQueue.poll()?.let {
+                            url -> setNextUrl(url, false)
+                            true
+                        }
+
+                        false
                     }))
 
                     setNextUrl(u, true)

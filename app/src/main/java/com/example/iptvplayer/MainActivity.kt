@@ -11,13 +11,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.media3.common.util.Log
 import androidx.media3.common.util.UnstableApi
 import com.example.iptvplayer.ui.theme.IptvPlayerTheme
 import com.example.iptvplayer.view.channels.ChannelList
@@ -49,9 +46,10 @@ fun MainScreen(
     channelsViewModel: ChannelsViewModel,
     mediaViewModel: MediaViewModel
 ) {
-    val context = LocalContext.current
-    val channels by channelsViewModel.channels.observeAsState()
     val isDataSourceSet by mediaViewModel.isDataSourceSet.observeAsState()
+
+    val ijk = IjkMediaPlayer()
+
 
     Box(
         modifier = Modifier.fillMaxSize()

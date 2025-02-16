@@ -1,6 +1,7 @@
 package com.example.iptvplayer.data
 
 import android.util.Log
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import javax.inject.Inject
@@ -40,8 +41,11 @@ class M3U8PlaylistRepository @Inject constructor(): PlaylistRepository {
         rootUrl: String,
         readFile: suspend (String) -> List<String>
     ) = flow {
+        val emittedSegments = mutableSetOf<String>()
+
         suspend fun recursiveExtractTsSegments(rootUrl: String) {
             val fileContent = readFile(rootUrl)
+            Log.i("content", fileContent.toString())
             val baseUrl = rootUrl.substring(0, rootUrl.lastIndexOf("/") + 1)
 
             for (line in fileContent) {
@@ -52,11 +56,18 @@ class M3U8PlaylistRepository @Inject constructor(): PlaylistRepository {
                 }
 
                 if (line.indexOf(".ts") != -1) {
-                    emit(baseUrl + line)
+                    if ((baseUrl + line !in emittedSegments)) {
+                        Log.i("emission", "emitted ${baseUrl + line}")
+                        emittedSegments.add(baseUrl + line)
+                        emit(baseUrl + line)
+                    }
                 }
             }
         }
 
-        recursiveExtractTsSegments(rootUrl)
+        while (true) {
+            recursiveExtractTsSegments(rootUrl)
+            delay(1000)
+        }
     }
 }
