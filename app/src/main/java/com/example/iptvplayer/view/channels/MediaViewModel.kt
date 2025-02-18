@@ -76,6 +76,7 @@ class MediaViewModel @Inject constructor(
         }
 
         tsJob?.cancel()
+        urlQueue.clear()
 
         tsJob = viewModelScope.launch {
             getTsSegmentsUseCase.extractTsSegments(url).collect { u ->

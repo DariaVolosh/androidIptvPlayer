@@ -67,7 +67,7 @@ class M3U8PlaylistRepository @Inject constructor(): PlaylistRepository {
 
         while (true) {
             recursiveExtractTsSegments(rootUrl)
-            delay(1000)
+            delay(4000)
         }
     }
 }

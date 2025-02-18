@@ -2,7 +2,6 @@ package com.example.iptvplayer.view.channels
 
 import android.util.Log
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -39,7 +38,8 @@ fun Channel(
     logo: String,
     index: Int,
     isFocused: Boolean,
-    updateFocusedChannel: (Int) -> Unit,
+    onChannelClicked: () -> Unit,
+    onFocusedChannel: (Int) -> Unit,
     playMedia: () -> Unit
 ) {
     val focusRequester = remember { FocusRequester() }
@@ -61,15 +61,13 @@ fun Channel(
                 Log.i("LOL", event.toString())
                 if (event.type == KeyEventType.KeyDown) {
                     when (event.key) {
-                        Key.DirectionDown -> updateFocusedChannel(index + 1)
-                        Key.DirectionUp -> updateFocusedChannel(index - 1)
+                        Key.DirectionDown -> onFocusedChannel(index + 1)
+                        Key.DirectionUp -> onFocusedChannel(index - 1)
+                        Key.DirectionCenter -> onChannelClicked()
                     }
                 }
 
                 true
-            }
-            .clickable {
-                updateFocusedChannel(index)
             }
             .fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,

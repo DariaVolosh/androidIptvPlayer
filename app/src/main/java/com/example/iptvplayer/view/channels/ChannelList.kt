@@ -9,9 +9,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
@@ -20,12 +17,12 @@ import androidx.compose.ui.unit.dp
 fun ChannelList(
     channelsViewModel: ChannelsViewModel,
     modifier: Modifier,
+    focusedChannel: Int,
+    onChannelClicked: () -> Unit,
+    onFocusedChannel: (Int) -> Unit,
     playMedia: (String) -> Unit
 ) {
     val channels by channelsViewModel.channels.observeAsState()
-    var focusedChannel by remember {
-        mutableIntStateOf(0)
-    }
 
     LaunchedEffect(Unit) {
         channelsViewModel.parsePlaylist()
@@ -36,7 +33,7 @@ fun ChannelList(
             .background(Brush.horizontalGradient(
                 listOf(
                     MaterialTheme.colorScheme.primary,
-                    MaterialTheme.colorScheme.secondary
+                    MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f)
                 )
             ))
             .padding(15.dp),
@@ -49,7 +46,8 @@ fun ChannelList(
                     channels[index].logo,
                     index,
                     index == focusedChannel,
-                    { ch -> focusedChannel = ch}
+                    onChannelClicked,
+                    {ch -> onFocusedChannel(ch)}
                 ) {
                     playMedia(channels[index].url)
                 }

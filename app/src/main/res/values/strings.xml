@@ -1,4 +1,13 @@
 <resources>
     <string name="app_name">IptvPlayer</string>
+
     <string name="channel_logo">Channel logo</string>
+
+    <string name="calendar">Calendar</string>
+    <string name="previous_program">Previous program</string>
+    <string name="back">Back</string>
+    <string name="pause">Pause</string>
+    <string name="forward">Forward</string>
+    <string name="next_program">Next program</string>
+    <string name="go_live">Go live</string>
 </resources>

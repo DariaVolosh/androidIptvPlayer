@@ -12,7 +12,7 @@ fun EpgList(
 ) {
     LazyColumn(
         modifier = modifier
-            .background(MaterialTheme.colorScheme.secondary)
+            .background(MaterialTheme.colorScheme.secondary.copy(0.4f))
     ) {
 
     }
