@@ -6,6 +6,6 @@ import javax.inject.Inject
 class GetMediaDataSourceUseCase @Inject constructor(
     private val mediaRepository: MediaRepository
 ) {
-    fun getMediaDataSource(onBufferingFinish: suspend () -> Boolean)
-        = mediaRepository.getMediaDataSource(onBufferingFinish)
+    fun getMediaDataSource()
+        = mediaRepository.getMediaDataSource()
 }

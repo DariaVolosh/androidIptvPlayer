@@ -8,8 +8,10 @@ import androidx.lifecycle.viewModelScope
 import com.example.iptvplayer.data.MediaDataSource
 import com.example.iptvplayer.domain.GetMediaDataSourceUseCase
 import com.example.iptvplayer.domain.GetTsSegmentsUseCase
+import com.example.iptvplayer.domain.HandleNextSegmentRequestedUseCase
 import com.example.iptvplayer.domain.SetMediaUrlUseCase
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import tv.danmaku.ijk.media.player.IjkMediaPlayer
 import java.util.LinkedList
@@ -18,7 +20,8 @@ import javax.inject.Inject
 class MediaViewModel @Inject constructor(
     private val getTsSegmentsUseCase: GetTsSegmentsUseCase,
     private val getMediaDataSourceUseCase: GetMediaDataSourceUseCase,
-    private val setMediaUrlUseCase: SetMediaUrlUseCase
+    private val setMediaUrlUseCase: SetMediaUrlUseCase,
+    private val handleNextSegmentRequestedUseCase: HandleNextSegmentRequestedUseCase
 ): ViewModel() {
     var ijkPlayer: IjkMediaPlayer? = null
 
@@ -27,11 +30,14 @@ class MediaViewModel @Inject constructor(
 
     private val urlQueue = LinkedList<String>()
     private var isPlayerReset = true
-    private var tsJob: Job? = null
+    private var firstSegmentRead = false
 
-    private suspend fun setNextUrl(url: String, isFirstSegment: Boolean) {
+    private var tsJob: Job? = null
+    private var segmentRequestJob: Job? = null
+
+    private suspend fun setNextUrl(url: String) {
         setMediaUrlUseCase.setMediaUrl(url) { mediaSource ->
-            if (isFirstSegment) startPlayback(mediaSource)
+            if (!firstSegmentRead) startPlayback(mediaSource)
         }
     }
 
@@ -39,8 +45,25 @@ class MediaViewModel @Inject constructor(
         try {
             Log.i("lel", "startPlayback $mediaSource")
             ijkPlayer?.prepareAsync()
+            firstSegmentRead = true
         } catch (e: Exception) {
             Log.i("lel", "startPlayback exception ${e.message}")
+        }
+    }
+
+    private fun setOnSegmentRequestCallback() {
+        handleNextSegmentRequestedUseCase.setOnNextSegmentRequestedCallback {
+            segmentRequestJob?.cancel()
+            segmentRequestJob = viewModelScope.launch {
+                while (true) {
+                    urlQueue.poll()?.let { url ->
+                        setNextUrl(url)
+                        segmentRequestJob?.cancel()
+                    }
+
+                    delay(2000)
+                }
+            }
         }
     }
 
@@ -48,6 +71,7 @@ class MediaViewModel @Inject constructor(
         if (ijkPlayer != null) {
             ijkPlayer?.reset()
             isPlayerReset = true
+            firstSegmentRead = false
             _isDataSourceSet.postValue(false)
         }
 
@@ -58,23 +82,18 @@ class MediaViewModel @Inject constructor(
                 Log.i("emission", "collected $u")
                 if (ijkPlayer == null || isPlayerReset) {
                     ijkPlayer = IjkMediaPlayer()
-                    isPlayerReset = false
-                    IjkMediaPlayer.native_setLogLevel(IjkMediaPlayer.IJK_LOG_DEBUG);
+                    ijkPlayer?.setDataSource(getMediaDataSourceUseCase.getMediaDataSource())
+                    IjkMediaPlayer.native_setLogLevel(IjkMediaPlayer.IJK_LOG_DEBUG)
 
-                    ijkPlayer?.setDataSource(getMediaDataSourceUseCase.getMediaDataSource({
-                        urlQueue.poll()?.let {
-                            url -> setNextUrl(url, false)
-                            true
-                        }
-
-                        false
-                    }))
-
-                    setNextUrl(u, true)
+                    setOnSegmentRequestCallback()
+                    setNextUrl(u)
 
                     ijkPlayer?.setOnPreparedListener {
                         _isDataSourceSet.postValue(true)
                     }
+
+                    isPlayerReset = false
+
                 } else {
                     urlQueue.add(u)
                 }

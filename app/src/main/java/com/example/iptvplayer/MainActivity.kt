@@ -21,7 +21,6 @@ import com.example.iptvplayer.view.channels.ChannelList
 import com.example.iptvplayer.view.channels.ChannelsViewModel
 import com.example.iptvplayer.view.channels.MediaViewModel
 import com.example.iptvplayer.view.epg.EpgList
-import tv.danmaku.ijk.media.player.IjkMediaPlayer
 import javax.inject.Inject
 
 class MainActivity : ComponentActivity() {
@@ -47,9 +46,6 @@ fun MainScreen(
     mediaViewModel: MediaViewModel
 ) {
     val isDataSourceSet by mediaViewModel.isDataSourceSet.observeAsState()
-
-    val ijk = IjkMediaPlayer()
-
 
     Box(
         modifier = Modifier.fillMaxSize()
@@ -90,7 +86,7 @@ fun MainScreen(
             }
 
             EpgList(
-                Modifier.fillMaxWidth(0.5f)
+                Modifier.fillMaxSize()
             )
         }
     }
