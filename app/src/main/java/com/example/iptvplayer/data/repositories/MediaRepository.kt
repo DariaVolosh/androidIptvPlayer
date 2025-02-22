@@ -1,4 +1,4 @@
-package com.example.iptvplayer.data
+package com.example.iptvplayer.data.repositories
 
 import android.util.Log
 import kotlinx.coroutines.Dispatchers

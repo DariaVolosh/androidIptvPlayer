@@ -1,6 +1,6 @@
 package com.example.iptvplayer.domain
 
-import com.example.iptvplayer.data.FileUtilsRepository
+import com.example.iptvplayer.data.repositories.FileUtilsRepository
 import javax.inject.Inject
 
 class ReadFileUseCase @Inject constructor(

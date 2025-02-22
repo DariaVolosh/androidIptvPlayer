@@ -20,9 +20,12 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.example.iptvplayer.R
+import com.example.iptvplayer.view.channels.ArchiveViewModel
+import com.example.iptvplayer.view.channels.MediaViewModel
 
 
 @OptIn(ExperimentalGlideComposeApi::class)
@@ -30,9 +33,22 @@ import com.example.iptvplayer.R
 fun ChannelInfo(
     index: Int,
     name: String,
+    url: String,
     logo: String,
-    modifier: Modifier
+    modifier: Modifier,
 ) {
+    val archiveViewModel: ArchiveViewModel = viewModel()
+    val mediaViewModel: MediaViewModel = viewModel()
+
+    val handleBackOnClick = {
+        archiveViewModel.seekBack()
+    }
+
+    val handleOnFingerLiftedUp = {
+        val archiveUrl = archiveViewModel.getArchiveUrl(url)
+        mediaViewModel.setMediaUrl(archiveUrl)
+    }
+
     Column (
         modifier = modifier
             .background(MaterialTheme.colorScheme.secondary.copy(0.8f))
@@ -131,13 +147,13 @@ fun ChannelInfo(
                         .fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    PlaybackControl(R.drawable.calendar, R.string.calendar)
-                    PlaybackControl(R.drawable.previous_program, R.string.previous_program)
-                    PlaybackControl(R.drawable.back, R.string.back)
-                    PlaybackControl(R.drawable.pause, R.string.pause)
-                    PlaybackControl(R.drawable.forward, R.string.forward)
-                    PlaybackControl(R.drawable.next_program, R.string.next_program)
-                    PlaybackControl(R.drawable.go_live, R.string.go_live)
+                    PlaybackControl(R.drawable.calendar, R.string.calendar, {}) {}
+                    PlaybackControl(R.drawable.previous_program, R.string.previous_program, {}) {}
+                    PlaybackControl(R.drawable.back, R.string.back, handleBackOnClick, handleOnFingerLiftedUp)
+                    PlaybackControl(R.drawable.pause, R.string.pause, {}) {}
+                    PlaybackControl(R.drawable.forward, R.string.forward, {}) {}
+                    PlaybackControl(R.drawable.next_program, R.string.next_program, {}) {}
+                    PlaybackControl(R.drawable.go_live, R.string.go_live, {}) {}
                 }
             }
 

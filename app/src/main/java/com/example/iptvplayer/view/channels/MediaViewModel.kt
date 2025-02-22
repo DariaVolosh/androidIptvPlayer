@@ -5,11 +5,12 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.iptvplayer.data.MediaDataSource
+import com.example.iptvplayer.data.repositories.MediaDataSource
 import com.example.iptvplayer.domain.GetMediaDataSourceUseCase
 import com.example.iptvplayer.domain.GetTsSegmentsUseCase
 import com.example.iptvplayer.domain.HandleNextSegmentRequestedUseCase
 import com.example.iptvplayer.domain.SetMediaUrlUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -17,6 +18,7 @@ import tv.danmaku.ijk.media.player.IjkMediaPlayer
 import java.util.LinkedList
 import javax.inject.Inject
 
+@HiltViewModel
 class MediaViewModel @Inject constructor(
     private val getTsSegmentsUseCase: GetTsSegmentsUseCase,
     private val getMediaDataSourceUseCase: GetMediaDataSourceUseCase,
@@ -34,6 +36,10 @@ class MediaViewModel @Inject constructor(
 
     private var tsJob: Job? = null
     private var segmentRequestJob: Job? = null
+
+    init {
+        Log.i("shit init", this.toString())
+    }
 
     private suspend fun setNextUrl(url: String) {
         setMediaUrlUseCase.setMediaUrl(url) { mediaSource ->
@@ -101,28 +107,4 @@ class MediaViewModel @Inject constructor(
             }
         }
     }
-
-
-
-    /*@OptIn(UnstableApi::class)
-    fun playMedia(url: String, context: Context) {
-        if (exoPlayer == null) {
-            val rendererFactory = DefaultRenderersFactory(context)
-                .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
-
-            exoPlayer = ExoPlayer.Builder(context).setRenderersFactory(rendererFactory).build()
-            exoPlayer?.addListener(object: Player.Listener {
-                override fun onPlaybackStateChanged(playbackState: Int) {
-                    if (exoPlayer?.isPlaying == true) {
-                        _isPlaying.postValue(true)
-                    }
-                }
-            })
-        }
-
-        exoPlayer?.setMediaItem(MediaItem.fromUri(url))
-        exoPlayer?.prepare()
-        exoPlayer?.play()
-    } */
-
 }

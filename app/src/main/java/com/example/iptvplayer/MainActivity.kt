@@ -21,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.media3.common.util.UnstableApi
 import com.example.iptvplayer.ui.theme.IptvPlayerTheme
 import com.example.iptvplayer.view.channelInfo.ChannelInfo
@@ -28,20 +29,18 @@ import com.example.iptvplayer.view.channels.ChannelList
 import com.example.iptvplayer.view.channels.ChannelsViewModel
 import com.example.iptvplayer.view.channels.MediaViewModel
 import com.example.iptvplayer.view.epg.EpgList
-import kotlinx.coroutines.delay
-import javax.inject.Inject
+import com.example.iptvplayer.view.epg.EpgViewModel
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    @Inject lateinit var channelsViewModel: ChannelsViewModel
-    @Inject lateinit var mediaViewModel: MediaViewModel
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         (applicationContext as MyApp).appComponent.inject(this)
 
         setContent {
             IptvPlayerTheme {
-                MainScreen(channelsViewModel, mediaViewModel)
+                MainScreen()
             }
         }
     }
@@ -49,21 +48,36 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(UnstableApi::class)
 @Composable
-fun MainScreen(
-    channelsViewModel: ChannelsViewModel,
-    mediaViewModel: MediaViewModel
-) {
+fun MainScreen() {
+    val mediaViewModel: MediaViewModel = hiltViewModel()
+    val channelsViewModel: ChannelsViewModel = hiltViewModel()
+    val epgViewModel: EpgViewModel = hiltViewModel()
+
     val isDataSourceSet by mediaViewModel.isDataSourceSet.observeAsState()
+
     val channels by channelsViewModel.channels.observeAsState()
+    val channelNames by channelsViewModel.channelNames.observeAsState()
+
+    val currentChannelEpg by epgViewModel.currentChannelEpg.observeAsState()
 
     var isChannelClicked by remember { mutableStateOf(false) }
     var focusedChannel by remember { mutableIntStateOf(0) }
     var isChannelInfoShown by remember { mutableStateOf(false) }
 
-    LaunchedEffect(isChannelInfoShown) {
+    /*LaunchedEffect(isChannelInfoShown) {
         if (isChannelInfoShown) {
             delay(4000)
             isChannelInfoShown = false
+        }
+    } */
+
+    LaunchedEffect(Unit) {
+        channelsViewModel.parsePlaylist()
+    }
+
+    LaunchedEffect(channelNames) {
+        channelNames?.let { channelNames ->
+            epgViewModel.saveEpgData(channelNames)
         }
     }
 
@@ -93,22 +107,30 @@ fun MainScreen(
             Row(
                 Modifier.fillMaxSize()
             ) {
-                ChannelList(
-                    channelsViewModel,
-                    Modifier.fillMaxWidth(0.5f),
-                    focusedChannel,
-                    {
-                        isChannelInfoShown = true
-                        isChannelClicked = true
-                    },
-                    { ch -> focusedChannel = ch}
-                ) { url ->
-                    mediaViewModel.setMediaUrl(url)
+                channels?.let { channels ->
+                    ChannelList(
+                        Modifier.fillMaxWidth(0.5f),
+                        channels,
+                        focusedChannel,
+                        {
+                            isChannelInfoShown = true
+                            isChannelClicked = true
+                        },
+                        { ch ->
+                            epgViewModel.fetchChannelEpg(channels[ch].name)
+                            focusedChannel = ch
+                        }
+                    ) { url ->
+                        mediaViewModel.setMediaUrl(url)
+                    }
                 }
 
-                EpgList(
-                    Modifier.fillMaxSize()
-                )
+                currentChannelEpg?.let { currentChannelEpg ->
+                    EpgList(
+                        Modifier.fillMaxSize(),
+                        currentChannelEpg
+                    )
+                }
             }
         } else {
             if (isChannelInfoShown) {
@@ -117,6 +139,7 @@ fun MainScreen(
                         focusedChannel,
                         channels[focusedChannel].name,
                         channels[focusedChannel].logo,
+                        channels[focusedChannel].url,
                         modifier = Modifier.align(Alignment.BottomCenter)
                     )
                 }

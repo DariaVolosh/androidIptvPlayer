@@ -7,9 +7,11 @@ import androidx.lifecycle.viewModelScope
 import com.example.iptvplayer.data.PlaylistChannel
 import com.example.iptvplayer.domain.GetChannelsDataUseCase
 import com.example.iptvplayer.domain.ReadFileUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+@HiltViewModel
 class ChannelsViewModel @Inject constructor(
     private val readFileUseCase: ReadFileUseCase,
     private val getChannelsDataUseCase: GetChannelsDataUseCase
@@ -17,11 +19,20 @@ class ChannelsViewModel @Inject constructor(
     private val _channels: MutableLiveData<List<PlaylistChannel>> = MutableLiveData()
     val channels: LiveData<List<PlaylistChannel>> = _channels
 
+    private val _channelNames: MutableLiveData<Set<String>> = MutableLiveData()
+    val channelNames: LiveData<Set<String>> = _channelNames
+
     fun parsePlaylist() {
         viewModelScope.launch {
             val playlistContent =
                 readFileUseCase.readFile("http://193.176.212.58:8080/tv/playlists/oktv2?token=oktv2")
             _channels.value = getChannelsDataUseCase.getChannelsData(playlistContent)
+
+            val channelNames = _channels.value?.map { ch ->
+                ch.name
+            }?.toSet() ?: setOf()
+
+            _channelNames.value = channelNames
         }
     }
 }

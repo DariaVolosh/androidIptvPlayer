@@ -1,6 +1,7 @@
-package com.example.iptvplayer.data
+package com.example.iptvplayer.data.repositories
 
 import android.util.Log
+import com.example.iptvplayer.data.PlaylistChannel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -45,7 +46,6 @@ class M3U8PlaylistRepository @Inject constructor(): PlaylistRepository {
 
         suspend fun recursiveExtractTsSegments(rootUrl: String) {
             val fileContent = readFile(rootUrl)
-            Log.i("content", fileContent.toString())
             val baseUrl = rootUrl.substring(0, rootUrl.lastIndexOf("/") + 1)
 
             for (line in fileContent) {

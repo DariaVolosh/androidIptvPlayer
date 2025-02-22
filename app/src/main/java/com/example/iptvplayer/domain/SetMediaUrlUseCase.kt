@@ -1,7 +1,7 @@
 package com.example.iptvplayer.domain
 
-import com.example.iptvplayer.data.MediaDataSource
-import com.example.iptvplayer.data.MediaRepository
+import com.example.iptvplayer.data.repositories.MediaDataSource
+import com.example.iptvplayer.data.repositories.MediaRepository
 import javax.inject.Inject
 
 class SetMediaUrlUseCase @Inject constructor(

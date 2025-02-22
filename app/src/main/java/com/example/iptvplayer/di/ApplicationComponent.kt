@@ -4,7 +4,7 @@ import com.example.iptvplayer.MainActivity
 import dagger.Component
 import javax.inject.Singleton
 
-@Component
+@Component(modules = [XmlPullParserModule::class])
 @Singleton
 interface ApplicationComponent {
     fun inject(activity: MainActivity)
