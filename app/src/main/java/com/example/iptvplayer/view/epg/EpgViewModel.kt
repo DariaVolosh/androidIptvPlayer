@@ -1,34 +1,39 @@
 package com.example.iptvplayer.view.epg
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.iptvplayer.domain.FetchChannelEpgUseCase
-import com.example.iptvplayer.domain.SaveEpgDataUseCase
-import com.example.iptvplayer.room.Epg
+import com.example.iptvplayer.data.Epg
+import com.example.iptvplayer.data.Utils
+import com.example.iptvplayer.domain.GetEpgByIdUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class EpgViewModel @Inject constructor(
-    private val saveEpgDataUseCase: SaveEpgDataUseCase,
-    private val fetchChannelEpgUseCase: FetchChannelEpgUseCase
+    private val getEpgByIdUseCase: GetEpgByIdUseCase
 ): ViewModel() {
-    private val _currentChannelEpg: MutableLiveData<List<Epg>> = MutableLiveData()
-    val currentChannelEpg: LiveData<List<Epg>> = _currentChannelEpg
+    private val _epgList: MutableLiveData<List<Epg>> = MutableLiveData()
+    val epgList: LiveData<List<Epg>> = _epgList
 
-    fun saveEpgData(channelNames: Set<String>) {
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun getEpgById(id: String) {
         viewModelScope.launch {
-            saveEpgDataUseCase.saveEpgData(channelNames)
-        }
-    }
+            val epgList = getEpgByIdUseCase.getEpgById(id)
+            val epgTimesFormattedList = mutableListOf<Epg>()
 
-    fun fetchChannelEpg(channelName: String) {
-        viewModelScope.launch {
-            val epg = fetchChannelEpgUseCase.fetchChannelEpg(channelName)
-            _currentChannelEpg.value = epg
+            for (epg in epgList) {
+                val formattedStartTime = Utils.convertToGmt4(epg.startTime.toLong())
+                val formattedStopTime = Utils.convertToGmt4(epg.stopTime.toLong())
+                val formattedTimeEpg = Epg(formattedStartTime, formattedStopTime, epg.title)
+                epgTimesFormattedList += formattedTimeEpg
+            }
+
+            _epgList.postValue(epgTimesFormattedList)
         }
     }
 }

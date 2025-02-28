@@ -8,6 +8,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.unit.dp
 import com.example.iptvplayer.data.PlaylistChannel
 
@@ -16,8 +17,7 @@ fun ChannelList(
     modifier: Modifier,
     channels: List<PlaylistChannel>,
     focusedChannel: Int,
-    onChannelClicked: () -> Unit,
-    onFocusedChannel: (Int) -> Unit,
+    channelOnKeyEvent: (Key) -> Unit,
     playMedia: (String) -> Unit
 ) {
     LazyColumn(
@@ -37,8 +37,7 @@ fun ChannelList(
                 channels[index].logo,
                 index,
                 index == focusedChannel,
-                onChannelClicked,
-                {ch -> onFocusedChannel(ch)}
+                {key -> channelOnKeyEvent(key)},
             ) {
                 playMedia(channels[index].url)
             }

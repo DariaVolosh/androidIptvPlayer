@@ -26,6 +26,10 @@ class M3U8PlaylistRepository @Inject constructor(): PlaylistRepository {
                 val logoStartIndex = line.indexOf("tvg-logo") + 10
                 val logoEndIndex = line.indexOf('"', logoStartIndex)
 
+                val idStartIndex = line.indexOf("tvg-id") + 8
+                val idEndIndex = line.indexOf('"', idStartIndex)
+
+                currentChannelData.id = line.substring(idStartIndex, idEndIndex)
                 currentChannelData.name = line.substring(nameStartIndex, nameEndIndex)
                 currentChannelData.logo = line.substring(logoStartIndex, logoEndIndex)
             } else {

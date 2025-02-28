@@ -1,92 +1,57 @@
 package com.example.iptvplayer.data.repositories
 
 import android.util.Log
-import com.example.iptvplayer.room.Channel
-import com.example.iptvplayer.room.ChannelDao
-import com.example.iptvplayer.room.Epg
-import com.example.iptvplayer.room.EpgDao
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import org.xmlpull.v1.XmlPullParser
-import java.io.InputStream
+import com.example.iptvplayer.data.Epg
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 class EpgRepository @Inject constructor(
-    private val channelDao: ChannelDao,
-    private val epgDao: EpgDao,
-    private val xmlPullParser: XmlPullParser
+    private val firestore: FirebaseFirestore
 ) {
-    suspend fun parseEpgChannelsData(inputStream: InputStream, channelNames: Set<String>) {
-        withContext(Dispatchers.IO) {
-            xmlPullParser.setInput(inputStream, "UTF-8")
 
-            var eventType = xmlPullParser.eventType
-            var tagName = ""
-            var channel = Channel()
-            var epg = Epg()
+    suspend fun getCountryCodeById(id: String): String {
+        val code = CompletableDeferred<String>()
 
-            while (xmlPullParser.eventType != XmlPullParser.END_DOCUMENT) {
-                when (eventType) {
-                    XmlPullParser.START_TAG -> {
-                        tagName = xmlPullParser.name
-
-                        if (tagName == "channel") {
-                            channel.channelId = xmlPullParser.getAttributeValue(null, "id")
-
-                        } else if (tagName == "programme") {
-                            val channelId = xmlPullParser.getAttributeValue(null, "channel")
-                            if (channelDao.idExists(channelId)) {
-                                val programStart = xmlPullParser.getAttributeValue(null, "start")
-                                val programEnd = xmlPullParser.getAttributeValue(null, "stop")
-
-                                epg.programStart = programStart
-                                epg.programEnd = programEnd
-                                epg.channelId = channelId
-                            }
-                        }
-                    }
-
-                    XmlPullParser.TEXT -> {
-                        if (tagName == "display-name") {
-                            val channelName = xmlPullParser.text
-
-                            if (channelNames.contains(channelName)) {
-                                channel.channelName = channelName
-                                try {
-                                    channelDao.insertChannel(channel)
-                                } catch (e: Exception) {
-
-                                }
-
-                                Log.i("insertChannel", channel.toString())
-
-                                channel = Channel("", "")
-                            }
-                        } else if (tagName == "title") {
-                            val programmeTitle = xmlPullParser.text
-
-                            if (epg.channelId != "") {
-                                epg.programName = programmeTitle
-                                // comment out to prevent fetching epg again for now
-                                //epgDao.insertEpg(epg)
-                                Log.i("insertEpg", epg.toString())
-                                epg = Epg()
-                            }
-                        }
-                    }
-                }
-
-                eventType = xmlPullParser.next()
+        firestore
+            .collection("channel_id_to_country_mapping_prod").document("mapping")
+            .get()
+            .addOnSuccessListener { result ->
+                Log.i("onSuccessLmao", result[id].toString())
+                code.complete(result[id].toString())
             }
-        }
+
+        return code.await()
     }
 
-    suspend fun fetchChannelEpg(channelName: String): List<Epg> =
-        withContext(Dispatchers.IO) {
-            val channelId = channelDao.getChannelIdByName(channelName)
-            Log.i("EPG LOL", "$channelId shit")
-            val epg = epgDao.getCurrentChannelEpg(channelId)
-            Log.i("EPG LOL", epg.toString())
-            epg
+    suspend fun getEpgById(id: String, countryCode: String): List<Epg> {
+        val daysResult = firestore
+            .collection("epg_prod").document(countryCode)
+            .collection("channels_id").document(id)
+            .collection("years").document("2025")
+            .collection("months").document("2")
+            .collection("days")
+            .get().await()
+
+        val epgList = mutableListOf<Epg>()
+
+        for (day in daysResult.documents) {
+            val epgResult = day.reference.collection("programmes_list").get().await()
+            val epgDocumentResult = epgResult.documents[0].reference.get().await()
+            epgDocumentResult.data?.let { epgData ->
+                for (key in epgData.toSortedMap().keys) {
+                    try {
+                        val epgInfo = epgData[key] as Map<*,*>
+                        val epg = Epg(key, epgInfo["stop_time"].toString(), epgInfo["title"].toString())
+                        epgList.add(epg)
+                    } catch (e: ClassCastException) {
+
+                    }
+                }
+            }
         }
+
+        return epgList
+    }
 }

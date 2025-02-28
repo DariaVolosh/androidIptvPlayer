@@ -38,13 +38,13 @@ fun Channel(
     logo: String,
     index: Int,
     isFocused: Boolean,
-    onChannelClicked: () -> Unit,
-    onFocusedChannel: (Int) -> Unit,
+    onKeyEvent: (Key) -> Unit,
     playMedia: () -> Unit
 ) {
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(isFocused) {
+        Log.i("CHANNEL_IS_FOCUSED", isFocused.toString())
         if (isFocused) {
             focusRequester.requestFocus()
             playMedia()
@@ -58,13 +58,9 @@ fun Channel(
             .focusRequester(focusRequester)
             .focusable()
             .onKeyEvent { event ->
-                Log.i("LOL", event.toString())
+                Log.i("channel_key_event", event.toString())
                 if (event.type == KeyEventType.KeyDown) {
-                    when (event.key) {
-                        Key.DirectionDown -> onFocusedChannel(index + 1)
-                        Key.DirectionUp -> onFocusedChannel(index - 1)
-                        Key.DirectionCenter -> onChannelClicked()
-                    }
+                    onKeyEvent(event.key)
                 }
 
                 true

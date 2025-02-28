@@ -1,11 +1,13 @@
 package com.example.iptvplayer
 
+import android.os.Build
 import android.os.Bundle
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.OptIn
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.media3.common.util.UnstableApi
@@ -34,6 +37,7 @@ import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         (applicationContext as MyApp).appComponent.inject(this)
@@ -46,6 +50,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(UnstableApi::class)
 @Composable
 fun MainScreen() {
@@ -56,13 +61,14 @@ fun MainScreen() {
     val isDataSourceSet by mediaViewModel.isDataSourceSet.observeAsState()
 
     val channels by channelsViewModel.channels.observeAsState()
-    val channelNames by channelsViewModel.channelNames.observeAsState()
-
-    val currentChannelEpg by epgViewModel.currentChannelEpg.observeAsState()
+    val currentChannelEpg by epgViewModel.epgList.observeAsState()
 
     var isChannelClicked by remember { mutableStateOf(false) }
-    var focusedChannel by remember { mutableIntStateOf(0) }
     var isChannelInfoShown by remember { mutableStateOf(false) }
+
+    var focusedChannel by remember { mutableIntStateOf(0) }
+    var focusedEpg by remember { mutableIntStateOf(0) }
+    var isChannelsListFocused by remember { mutableStateOf(true) }
 
     /*LaunchedEffect(isChannelInfoShown) {
         if (isChannelInfoShown) {
@@ -75,9 +81,37 @@ fun MainScreen() {
         channelsViewModel.parsePlaylist()
     }
 
-    LaunchedEffect(channelNames) {
-        channelNames?.let { channelNames ->
-            epgViewModel.saveEpgData(channelNames)
+    val handleChannelOnKeyEvent: (Key) -> Unit = { key ->
+        when (key) {
+            Key.DirectionDown -> {
+                focusedChannel += 1
+                if (focusedEpg != 0) focusedEpg = 0
+            }
+            Key.DirectionUp -> {
+                focusedChannel -= 1
+                if (focusedEpg != 0) focusedEpg = 0
+            }
+            Key.DirectionRight -> isChannelsListFocused = false
+            Key.DirectionCenter -> {
+                isChannelInfoShown = true
+                isChannelClicked = true
+            }
+        }
+    }
+
+    val handleEpgOnKeyEvent: (Key) -> Unit =  { key ->
+        when (key) {
+            Key.DirectionDown -> focusedEpg += 1
+            Key.DirectionUp -> focusedEpg -= 1
+            Key.DirectionLeft -> {
+                isChannelsListFocused = true
+            }
+        }
+    }
+
+    LaunchedEffect(focusedChannel) {
+        channels?.let { channels ->
+            epgViewModel.getEpgById(channels[focusedChannel].id)
         }
     }
 
@@ -111,15 +145,8 @@ fun MainScreen() {
                     ChannelList(
                         Modifier.fillMaxWidth(0.5f),
                         channels,
-                        focusedChannel,
-                        {
-                            isChannelInfoShown = true
-                            isChannelClicked = true
-                        },
-                        { ch ->
-                            epgViewModel.fetchChannelEpg(channels[ch].name)
-                            focusedChannel = ch
-                        }
+                        if (isChannelsListFocused) focusedChannel else -1,
+                        {key -> handleChannelOnKeyEvent(key)},
                     ) { url ->
                         mediaViewModel.setMediaUrl(url)
                     }
@@ -128,8 +155,11 @@ fun MainScreen() {
                 currentChannelEpg?.let { currentChannelEpg ->
                     EpgList(
                         Modifier.fillMaxSize(),
-                        currentChannelEpg
-                    )
+                        currentChannelEpg,
+                        if (!isChannelsListFocused) focusedEpg else -1
+                    ) {
+                        key -> handleEpgOnKeyEvent(key)
+                    }
                 }
             }
         } else {
