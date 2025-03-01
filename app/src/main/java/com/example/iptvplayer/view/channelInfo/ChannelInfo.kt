@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -55,25 +56,40 @@ fun ChannelInfo(
     val archiveViewModel: ArchiveViewModel = viewModel()
     val mediaViewModel: MediaViewModel = viewModel()
 
+    val timePattern = "HH:mm"
+    val datePattern = "EEEE d MMMM HH:mm:ss"
+
     // current programme progress in percents
     var currentProgrammeProgress by remember {
         mutableFloatStateOf(0f)
     }
 
+    var currentFullDate by remember {
+        mutableStateOf("")
+    }
+
     LaunchedEffect(currentProgramme) {
         var currentTime = getCurrentTime()
         val decimalFormat = DecimalFormat("#.##", DecimalFormatSymbols(Locale.US))
-        val datePattern = "dd MMMM HH:mm"
-        val delay = 10000
+        val progressUpdatePeriod = 10 // in seconds
+        var secondsPassed = 0
 
         while(true) {
-            val timeElapsedSinceProgrammeStart = currentTime - currentProgramme.startTime
-            Log.i("PROGRAMME", "${formatDate(currentTime, datePattern)} $timeElapsedSinceProgrammeStart")
-            currentProgrammeProgress = decimalFormat.format(timeElapsedSinceProgrammeStart.toFloat() * 100 / currentProgramme.duration).toFloat()
-            Log.i("PERCENT", currentProgrammeProgress.toString())
-            delay(delay.toLong())
+            if (secondsPassed == 0) {
+                val timeElapsedSinceProgrammeStart = currentTime - currentProgramme.startTime
+                Log.i("PROGRAMME", "${formatDate(currentTime, datePattern)} $timeElapsedSinceProgrammeStart")
+                currentProgrammeProgress = decimalFormat.format(timeElapsedSinceProgrammeStart.toFloat() * 100 / currentProgramme.duration).toFloat()
+                Log.i("PERCENT", currentProgrammeProgress.toString())
+            }
+            delay(1000)
+
             // converting milliseconds to seconds
-            currentTime += delay / 1000
+            currentTime += 1
+            secondsPassed += 1
+
+            if (secondsPassed == progressUpdatePeriod) secondsPassed = 0
+            currentFullDate = formatDate(currentTime, datePattern)
+            Log.i("current full date", currentFullDate)
         }
     }
 
@@ -85,8 +101,6 @@ fun ChannelInfo(
         val archiveUrl = archiveViewModel.getArchiveUrl(channel.url)
         mediaViewModel.setMediaUrl(archiveUrl)
     }
-
-    val timePattern = "HH:mm"
 
     Column (
         modifier = modifier
@@ -170,13 +184,13 @@ fun ChannelInfo(
                     Text(
                         modifier = Modifier.padding(end = 15.dp),
                         fontSize = 22.sp,
-                        text = "Thursday 12 Sep 04:00:00",
+                        text = currentFullDate,
                         color = MaterialTheme.colorScheme.onSecondary
                     )
 
                     Text(
                         fontSize = 22.sp,
-                        text = "Erin Burnett OutFront",
+                        text = currentProgramme.title,
                         color = MaterialTheme.colorScheme.onSecondary
                     )
                 }
