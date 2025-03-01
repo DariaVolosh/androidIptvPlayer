@@ -1,7 +1,8 @@
 package com.example.iptvplayer.data
 
 data class Epg(
-    val startTime: String,
-    val stopTime: String,
+    val startTime: Long,
+    val stopTime: Long,
+    val duration: Long,
     val title: String
 )

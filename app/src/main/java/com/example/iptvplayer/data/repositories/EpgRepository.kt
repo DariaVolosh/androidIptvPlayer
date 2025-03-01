@@ -26,27 +26,35 @@ class EpgRepository @Inject constructor(
     }
 
     suspend fun getEpgById(id: String, countryCode: String): List<Epg> {
-        val daysResult = firestore
+        val monthsResult = firestore
             .collection("epg_prod").document(countryCode)
             .collection("channels_id").document(id)
             .collection("years").document("2025")
-            .collection("months").document("2")
-            .collection("days")
-            .get().await()
+            .collection("months").get().await()
 
         val epgList = mutableListOf<Epg>()
 
-        for (day in daysResult.documents) {
-            val epgResult = day.reference.collection("programmes_list").get().await()
-            val epgDocumentResult = epgResult.documents[0].reference.get().await()
-            epgDocumentResult.data?.let { epgData ->
-                for (key in epgData.toSortedMap().keys) {
-                    try {
-                        val epgInfo = epgData[key] as Map<*,*>
-                        val epg = Epg(key, epgInfo["stop_time"].toString(), epgInfo["title"].toString())
-                        epgList.add(epg)
-                    } catch (e: ClassCastException) {
+        for (month in monthsResult.documents) {
+            val daysResult = month.reference.collection("days").get().await()
 
+            for (day in daysResult.documents) {
+                val epgResult = day.reference.collection("programmes_list").get().await()
+                val epgDocumentResult = epgResult.documents[0].reference.get().await()
+
+                epgDocumentResult.data?.let { epgData ->
+                    for (key in epgData.toSortedMap().keys) {
+                        try {
+                            val epgInfo = epgData[key] as Map<*,*>
+                            val epg = Epg(
+                                key.toLong(),
+                                epgInfo["stop_time"].toString().toLong(),
+                                epgInfo["stop_time"].toString().toLong() - key.toLong(),
+                                epgInfo["title"].toString()
+                            )
+                            epgList += epg
+                        } catch (e: Exception) {
+
+                        }
                     }
                 }
             }

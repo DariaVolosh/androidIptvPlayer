@@ -61,14 +61,14 @@ fun MainScreen() {
     val isDataSourceSet by mediaViewModel.isDataSourceSet.observeAsState()
 
     val channels by channelsViewModel.channels.observeAsState()
-    val currentChannelEpg by epgViewModel.epgList.observeAsState()
+    val epg by epgViewModel.epgList.observeAsState()
 
     var isChannelClicked by remember { mutableStateOf(false) }
     var isChannelInfoShown by remember { mutableStateOf(false) }
+    var isChannelsListFocused by remember { mutableStateOf(true) }
 
     var focusedChannel by remember { mutableIntStateOf(0) }
-    var focusedEpg by remember { mutableIntStateOf(0) }
-    var isChannelsListFocused by remember { mutableStateOf(true) }
+    var focusedProgramme by remember { mutableIntStateOf(0) }
 
     /*LaunchedEffect(isChannelInfoShown) {
         if (isChannelInfoShown) {
@@ -81,15 +81,21 @@ fun MainScreen() {
         channelsViewModel.parsePlaylist()
     }
 
+    LaunchedEffect(epg) {
+        if (epg?.size != 0) {
+            focusedProgramme = epgViewModel.currentProgramme
+        }
+    }
+
     val handleChannelOnKeyEvent: (Key) -> Unit = { key ->
         when (key) {
             Key.DirectionDown -> {
-                focusedChannel += 1
-                if (focusedEpg != 0) focusedEpg = 0
+                channels?.size?.let { size ->
+                    if (focusedChannel + 1 < size) focusedChannel += 1
+                }
             }
             Key.DirectionUp -> {
-                focusedChannel -= 1
-                if (focusedEpg != 0) focusedEpg = 0
+                if (focusedChannel - 1 >= 0) focusedChannel -= 1
             }
             Key.DirectionRight -> isChannelsListFocused = false
             Key.DirectionCenter -> {
@@ -101,8 +107,14 @@ fun MainScreen() {
 
     val handleEpgOnKeyEvent: (Key) -> Unit =  { key ->
         when (key) {
-            Key.DirectionDown -> focusedEpg += 1
-            Key.DirectionUp -> focusedEpg -= 1
+            Key.DirectionDown -> {
+                epg?.size?.let { size ->
+                    if (focusedProgramme + 1 < size) focusedProgramme += 1
+                }
+            }
+            Key.DirectionUp -> {
+                if (focusedProgramme - 1 >= 0) focusedProgramme -= 1
+            }
             Key.DirectionLeft -> {
                 isChannelsListFocused = true
             }
@@ -152,11 +164,11 @@ fun MainScreen() {
                     }
                 }
 
-                currentChannelEpg?.let { currentChannelEpg ->
+                epg?.let { currentChannelEpg ->
                     EpgList(
                         Modifier.fillMaxSize(),
                         currentChannelEpg,
-                        if (!isChannelsListFocused) focusedEpg else -1
+                        if (!isChannelsListFocused) focusedProgramme else -1
                     ) {
                         key -> handleEpgOnKeyEvent(key)
                     }
@@ -164,14 +176,15 @@ fun MainScreen() {
             }
         } else {
             if (isChannelInfoShown) {
-                channels?.let { channels ->
-                    ChannelInfo(
-                        focusedChannel,
-                        channels[focusedChannel].name,
-                        channels[focusedChannel].logo,
-                        channels[focusedChannel].url,
-                        modifier = Modifier.align(Alignment.BottomCenter)
-                    )
+                channels?.get(focusedChannel)?.let { channel ->
+                    epg?.get(focusedProgramme)?.let { epg ->
+                        ChannelInfo(
+                            focusedChannel,
+                            channel,
+                            epg,
+                            Modifier.align(Alignment.BottomCenter)
+                        )
+                    }
                 }
             }
         }

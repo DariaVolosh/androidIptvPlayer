@@ -33,10 +33,6 @@ fun PlaybackControl(
             onControl()
             delay(1000)
         }
-
-        if (!isLongPressed) {
-            onFingerLiftedUp()
-        }
     }
 
     Image(
@@ -49,6 +45,7 @@ fun PlaybackControl(
                     onPress = {
                         awaitRelease()
                         isLongPressed = false
+                        onFingerLiftedUp()
                     }
                 )
             }
