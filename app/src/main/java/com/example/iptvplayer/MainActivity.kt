@@ -183,7 +183,13 @@ fun MainScreen() {
                             channel,
                             epg,
                             Modifier.align(Alignment.BottomCenter)
-                        )
+                        ) { backward ->
+                            if (backward) {
+                                focusedProgramme -= 1
+                            } else {
+                                focusedProgramme += 1
+                            }
+                        }
                     }
                 }
             }

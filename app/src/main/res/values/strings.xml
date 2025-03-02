@@ -7,6 +7,7 @@
     <string name="previous_program">Previous program</string>
     <string name="back">Back</string>
     <string name="pause">Pause</string>
+    <string name="play">Play</string>
     <string name="forward">Forward</string>
     <string name="next_program">Next program</string>
     <string name="go_live">Go live</string>

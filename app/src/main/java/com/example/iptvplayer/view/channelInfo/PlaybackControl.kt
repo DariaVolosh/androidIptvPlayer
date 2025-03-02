@@ -20,7 +20,8 @@ import kotlinx.coroutines.delay
 fun PlaybackControl(
     image: Int,
     contentDescription: Int,
-    onControl: () -> Unit,
+    onPressed: () -> Unit,
+    onLongPressed: () -> Unit,
     onFingerLiftedUp: () -> Unit
 ) {
 
@@ -30,7 +31,7 @@ fun PlaybackControl(
 
     LaunchedEffect(isLongPressed) {
         while (isLongPressed) {
-            onControl()
+            onLongPressed()
             delay(1000)
         }
     }
@@ -43,6 +44,7 @@ fun PlaybackControl(
                         isLongPressed = true
                     },
                     onPress = {
+                        onPressed()
                         awaitRelease()
                         isLongPressed = false
                         onFingerLiftedUp()

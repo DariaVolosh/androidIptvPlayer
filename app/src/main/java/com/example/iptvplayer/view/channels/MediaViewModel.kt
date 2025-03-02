@@ -30,6 +30,9 @@ class MediaViewModel @Inject constructor(
     private val _isDataSourceSet: MutableLiveData<Boolean> = MutableLiveData(false)
     val isDataSourceSet: LiveData<Boolean> = _isDataSourceSet
 
+    private val _isPaused: MutableLiveData<Boolean> = MutableLiveData(false)
+    val isPaused: LiveData<Boolean> = _isPaused
+
     private val urlQueue = LinkedList<String>()
     private var isPlayerReset = true
     private var firstSegmentRead = false
@@ -106,5 +109,15 @@ class MediaViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun pause() {
+        ijkPlayer?.pause()
+        _isPaused.value = true
+    }
+
+    fun play() {
+        ijkPlayer?.start()
+        _isPaused.value = false
     }
 }

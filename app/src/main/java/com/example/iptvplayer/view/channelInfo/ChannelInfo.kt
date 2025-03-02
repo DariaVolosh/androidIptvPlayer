@@ -20,7 +20,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -52,6 +54,7 @@ fun ChannelInfo(
     channel: PlaylistChannel,
     currentProgramme: Epg,
     modifier: Modifier,
+    adjustCurrentProgramme: (Boolean) -> Unit
 ) {
     val archiveViewModel: ArchiveViewModel = viewModel()
     val mediaViewModel: MediaViewModel = viewModel()
@@ -59,28 +62,70 @@ fun ChannelInfo(
     val timePattern = "HH:mm"
     val datePattern = "EEEE d MMMM HH:mm:ss"
 
+    val decimalFormat = DecimalFormat("#.##", DecimalFormatSymbols(Locale.US))
+
     // current programme progress in percents
-    var currentProgrammeProgress by remember {
-        mutableFloatStateOf(0f)
+    var currentProgrammeProgress by remember { mutableFloatStateOf(0f) }
+    var currentFullDate by remember { mutableStateOf("") }
+    var currentTime by remember { mutableLongStateOf(0)}
+
+    var timeFetched by remember { mutableStateOf(false) }
+    var seekingStarted by remember { mutableStateOf(false) }
+
+    val archiveSegmentUrl by archiveViewModel.archiveSegmentUrl.observeAsState()
+    val seekSeconds by archiveViewModel.seekSeconds.observeAsState()
+
+    val isPaused by mediaViewModel.isPaused.observeAsState()
+
+    val updateProgrammeProgress: () -> Unit = {
+        var currentSeek = 0
+        seekSeconds?.let { seek ->
+            if (seekingStarted) {
+                currentSeek = seek - seek / 2
+                currentTime += currentSeek
+            }
+        }
+
+        Log.i("seek channel info", currentSeek.toString())
+        Log.i("seek channel info", formatDate(currentTime, datePattern))
+
+        val timeElapsedSinceProgrammeStart =
+            currentTime - currentProgramme.startTime
+        if (timeElapsedSinceProgrammeStart < 0) adjustCurrentProgramme(true)
+        Log.i("PROGRAMME", "${formatDate(currentTime, datePattern)} $timeElapsedSinceProgrammeStart")
+        currentProgrammeProgress = decimalFormat.format(timeElapsedSinceProgrammeStart.toFloat() * 100 / currentProgramme.duration).toFloat()
+        Log.i("PERCENT", currentProgrammeProgress.toString())
     }
 
-    var currentFullDate by remember {
-        mutableStateOf("")
+    val handleBackOnClick = {
+        seekingStarted = true
+        archiveViewModel.seekBack()
     }
 
-    LaunchedEffect(currentProgramme) {
-        var currentTime = getCurrentTime()
-        val decimalFormat = DecimalFormat("#.##", DecimalFormatSymbols(Locale.US))
+    val handlePauseOnClick = {
+        mediaViewModel.pause()
+    }
+
+    val handlePlayOnClick = {
+        mediaViewModel.play()
+    }
+
+    val handleOnFingerLiftedUp = {
+        seekingStarted = false
+        archiveViewModel.getArchiveUrl(channel.url, currentTime)
+    }
+
+    LaunchedEffect(Unit) {
+        currentTime = getCurrentTime()
+        timeFetched = true
+    }
+
+    LaunchedEffect(seekingStarted, timeFetched, isPaused) {
         val progressUpdatePeriod = 10 // in seconds
         var secondsPassed = 0
 
-        while(true) {
-            if (secondsPassed == 0) {
-                val timeElapsedSinceProgrammeStart = currentTime - currentProgramme.startTime
-                Log.i("PROGRAMME", "${formatDate(currentTime, datePattern)} $timeElapsedSinceProgrammeStart")
-                currentProgrammeProgress = decimalFormat.format(timeElapsedSinceProgrammeStart.toFloat() * 100 / currentProgramme.duration).toFloat()
-                Log.i("PERCENT", currentProgrammeProgress.toString())
-            }
+        while (!seekingStarted && timeFetched && isPaused == false) {
+            if (secondsPassed == 0) updateProgrammeProgress()
             delay(1000)
 
             // converting milliseconds to seconds
@@ -93,13 +138,19 @@ fun ChannelInfo(
         }
     }
 
-    val handleBackOnClick = {
-        archiveViewModel.seekBack()
+    LaunchedEffect(archiveSegmentUrl) {
+        archiveSegmentUrl?.let { url ->
+            mediaViewModel.setMediaUrl(url)
+        }
     }
 
-    val handleOnFingerLiftedUp = {
-        val archiveUrl = archiveViewModel.getArchiveUrl(channel.url)
-        mediaViewModel.setMediaUrl(archiveUrl)
+    LaunchedEffect(seekSeconds) {
+        seekSeconds?.let { seek ->
+            if (seek != 0) {
+                updateProgrammeProgress()
+                currentFullDate = formatDate(currentTime, datePattern)
+            }
+        }
     }
 
     Column (
@@ -200,13 +251,17 @@ fun ChannelInfo(
                         .fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    PlaybackControl(R.drawable.calendar, R.string.calendar, {}) {}
-                    PlaybackControl(R.drawable.previous_program, R.string.previous_program, {}) {}
-                    PlaybackControl(R.drawable.back, R.string.back, handleBackOnClick, handleOnFingerLiftedUp)
-                    PlaybackControl(R.drawable.pause, R.string.pause, {}) {}
-                    PlaybackControl(R.drawable.forward, R.string.forward, {}) {}
-                    PlaybackControl(R.drawable.next_program, R.string.next_program, {}) {}
-                    PlaybackControl(R.drawable.go_live, R.string.go_live, {}) {}
+                    PlaybackControl(R.drawable.calendar, R.string.calendar, {}, {}) {}
+                    PlaybackControl(R.drawable.previous_program, R.string.previous_program, {}, {}) {}
+                    PlaybackControl(R.drawable.back, R.string.back, {}, handleBackOnClick, handleOnFingerLiftedUp)
+                    if (isPaused == true) {
+                        PlaybackControl(R.drawable.play, R.string.play, handlePlayOnClick, {}) {}
+                    } else {
+                        PlaybackControl(R.drawable.pause, R.string.pause, handlePauseOnClick, {}) {}
+                    }
+                    PlaybackControl(R.drawable.forward, R.string.forward, {}, {}) {}
+                    PlaybackControl(R.drawable.next_program, R.string.next_program, {}, {}) {}
+                    PlaybackControl(R.drawable.go_live, R.string.go_live, {}, {}) {}
                 }
             }
 
