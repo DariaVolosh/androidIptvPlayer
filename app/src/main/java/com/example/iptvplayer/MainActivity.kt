@@ -2,12 +2,14 @@ package com.example.iptvplayer
 
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.OptIn
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,12 +24,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.media3.common.util.UnstableApi
 import com.example.iptvplayer.ui.theme.IptvPlayerTheme
 import com.example.iptvplayer.view.channelInfo.ChannelInfo
+import com.example.iptvplayer.view.channels.ArchiveViewModel
 import com.example.iptvplayer.view.channels.ChannelList
 import com.example.iptvplayer.view.channels.ChannelsViewModel
 import com.example.iptvplayer.view.channels.MediaViewModel
@@ -57,11 +66,13 @@ fun MainScreen() {
     val mediaViewModel: MediaViewModel = hiltViewModel()
     val channelsViewModel: ChannelsViewModel = hiltViewModel()
     val epgViewModel: EpgViewModel = hiltViewModel()
+    val archiveViewModel: ArchiveViewModel = hiltViewModel()
 
     val isDataSourceSet by mediaViewModel.isDataSourceSet.observeAsState()
 
     val channels by channelsViewModel.channels.observeAsState()
     val epg by epgViewModel.epgList.observeAsState()
+    val archiveSegmentUrl by archiveViewModel.archiveSegmentUrl.observeAsState()
 
     var isChannelClicked by remember { mutableStateOf(false) }
     var isChannelInfoShown by remember { mutableStateOf(false) }
@@ -69,13 +80,6 @@ fun MainScreen() {
 
     var focusedChannel by remember { mutableIntStateOf(0) }
     var focusedProgramme by remember { mutableIntStateOf(0) }
-
-    /*LaunchedEffect(isChannelInfoShown) {
-        if (isChannelInfoShown) {
-            delay(4000)
-            isChannelInfoShown = false
-        }
-    } */
 
     LaunchedEffect(Unit) {
         channelsViewModel.parsePlaylist()
@@ -118,6 +122,17 @@ fun MainScreen() {
             Key.DirectionLeft -> {
                 isChannelsListFocused = true
             }
+            Key.DirectionCenter -> {
+                epg?.get(focusedProgramme)?.let { epg ->
+                    archiveViewModel.setCurrentTime(epg.startTime)
+
+                    channels?.get(focusedChannel)?.let { channel ->
+                        archiveViewModel.getArchiveUrl(channel.url)
+                    }
+                }
+                isChannelInfoShown = true
+                isChannelClicked = true
+            }
         }
     }
 
@@ -127,10 +142,34 @@ fun MainScreen() {
         }
     }
 
+    LaunchedEffect(archiveSegmentUrl) {
+        archiveSegmentUrl?.let {url ->
+            mediaViewModel.setMediaUrl(url)
+        }
+    }
+
+    Log.i("SHIT2", "composed")
+
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
         if (isDataSourceSet == true) {
+            val focusRequester = FocusRequester()
+            val modifier = if (!isChannelInfoShown && isChannelClicked)
+                Modifier
+                    .focusRequester(focusRequester)
+                    .focusable()
+                    .onKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown) {
+                            if (event.key == Key.DirectionCenter) {
+                                isChannelClicked = false
+                            }
+                        }
+
+                        true
+                    }
+                else Modifier
+
             AndroidView(factory = { context ->
                 SurfaceView(context).apply {
                     holder.addCallback(object: SurfaceHolder.Callback {
@@ -146,7 +185,9 @@ fun MainScreen() {
                         override fun surfaceDestroyed(holder: SurfaceHolder) {}
                     })
                 }
-            }, modifier = Modifier.fillMaxSize())
+            }, modifier = modifier
+                .fillMaxSize()
+            )
         }
 
         if (!isChannelClicked) {
@@ -182,14 +223,9 @@ fun MainScreen() {
                             focusedChannel,
                             channel,
                             epg,
-                            Modifier.align(Alignment.BottomCenter)
-                        ) { backward ->
-                            if (backward) {
-                                focusedProgramme -= 1
-                            } else {
-                                focusedProgramme += 1
-                            }
-                        }
+                            Modifier.align(Alignment.BottomCenter),
+                            { backward -> if (backward) focusedProgramme -= 1 else focusedProgramme += 1 }
+                        ) { show -> isChannelInfoShown = show }
                     }
                 }
             }

@@ -6,7 +6,6 @@ import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,7 +21,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -33,14 +32,13 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.example.iptvplayer.R
 import com.example.iptvplayer.data.Epg
 import com.example.iptvplayer.data.PlaylistChannel
 import com.example.iptvplayer.data.Utils.formatDate
-import com.example.iptvplayer.data.Utils.getCurrentTime
 import com.example.iptvplayer.view.channels.ArchiveViewModel
 import com.example.iptvplayer.view.channels.MediaViewModel
 import kotlinx.coroutines.delay
@@ -54,10 +52,11 @@ fun ChannelInfo(
     channel: PlaylistChannel,
     currentProgramme: Epg,
     modifier: Modifier,
-    adjustCurrentProgramme: (Boolean) -> Unit
+    adjustCurrentProgramme: (Boolean) -> Unit,
+    showChannelInfo: (Boolean) -> Unit
 ) {
-    val archiveViewModel: ArchiveViewModel = viewModel()
-    val mediaViewModel: MediaViewModel = viewModel()
+    val archiveViewModel: ArchiveViewModel = hiltViewModel()
+    val mediaViewModel: MediaViewModel = hiltViewModel()
 
     val timePattern = "HH:mm"
     val datePattern = "EEEE d MMMM HH:mm:ss"
@@ -67,57 +66,48 @@ fun ChannelInfo(
     // current programme progress in percents
     var currentProgrammeProgress by remember { mutableFloatStateOf(0f) }
     var currentFullDate by remember { mutableStateOf("") }
-    var currentTime by remember { mutableLongStateOf(0)}
 
     var timeFetched by remember { mutableStateOf(false) }
     var seekingStarted by remember { mutableStateOf(false) }
+    var secondsNotInteracted by remember { mutableIntStateOf(0) }
 
-    val archiveSegmentUrl by archiveViewModel.archiveSegmentUrl.observeAsState()
     val seekSeconds by archiveViewModel.seekSeconds.observeAsState()
+    val currentTime by archiveViewModel.currentTime.observeAsState()
 
     val isPaused by mediaViewModel.isPaused.observeAsState()
 
     val updateProgrammeProgress: () -> Unit = {
         var currentSeek = 0
-        seekSeconds?.let { seek ->
-            if (seekingStarted) {
-                currentSeek = seek - seek / 2
-                currentTime += currentSeek
+
+        currentTime?.let { time ->
+            seekSeconds?.let { seek ->
+                if (seekingStarted) {
+                    currentSeek = seek - seek / 2
+                    archiveViewModel.setCurrentTime(time + currentSeek)
+                }
             }
+
+            Log.i("seek channel info", currentSeek.toString())
+            Log.i("seek channel info", formatDate(time, datePattern))
+
+            val timeElapsedSinceProgrammeStart =
+                time - currentProgramme.startTime
+            if (timeElapsedSinceProgrammeStart < 0) adjustCurrentProgramme(true)
+            Log.i("PROGRAMME", "${formatDate(time, datePattern)} $timeElapsedSinceProgrammeStart")
+            currentProgrammeProgress = decimalFormat.format(timeElapsedSinceProgrammeStart.toFloat() * 100 / currentProgramme.duration).toFloat()
+            Log.i("PERCENT", currentProgrammeProgress.toString())
         }
-
-        Log.i("seek channel info", currentSeek.toString())
-        Log.i("seek channel info", formatDate(currentTime, datePattern))
-
-        val timeElapsedSinceProgrammeStart =
-            currentTime - currentProgramme.startTime
-        if (timeElapsedSinceProgrammeStart < 0) adjustCurrentProgramme(true)
-        Log.i("PROGRAMME", "${formatDate(currentTime, datePattern)} $timeElapsedSinceProgrammeStart")
-        currentProgrammeProgress = decimalFormat.format(timeElapsedSinceProgrammeStart.toFloat() * 100 / currentProgramme.duration).toFloat()
-        Log.i("PERCENT", currentProgrammeProgress.toString())
-    }
-
-    val handleBackOnClick = {
-        seekingStarted = true
-        archiveViewModel.seekBack()
-    }
-
-    val handlePauseOnClick = {
-        mediaViewModel.pause()
-    }
-
-    val handlePlayOnClick = {
-        mediaViewModel.play()
-    }
-
-    val handleOnFingerLiftedUp = {
-        seekingStarted = false
-        archiveViewModel.getArchiveUrl(channel.url, currentTime)
     }
 
     LaunchedEffect(Unit) {
-        currentTime = getCurrentTime()
         timeFetched = true
+
+        while (secondsNotInteracted < 4) {
+            secondsNotInteracted++
+            delay(1000)
+        }
+
+        //showChannelInfo(false)
     }
 
     LaunchedEffect(seekingStarted, timeFetched, isPaused) {
@@ -129,18 +119,12 @@ fun ChannelInfo(
             delay(1000)
 
             // converting milliseconds to seconds
-            currentTime += 1
+            archiveViewModel.setCurrentTime(currentTime?.plus(1) ?: 0)
             secondsPassed += 1
 
             if (secondsPassed == progressUpdatePeriod) secondsPassed = 0
-            currentFullDate = formatDate(currentTime, datePattern)
+            currentFullDate = formatDate(currentTime ?: 0, datePattern)
             Log.i("current full date", currentFullDate)
-        }
-    }
-
-    LaunchedEffect(archiveSegmentUrl) {
-        archiveSegmentUrl?.let { url ->
-            mediaViewModel.setMediaUrl(url)
         }
     }
 
@@ -148,7 +132,7 @@ fun ChannelInfo(
         seekSeconds?.let { seek ->
             if (seek != 0) {
                 updateProgrammeProgress()
-                currentFullDate = formatDate(currentTime, datePattern)
+                currentFullDate = formatDate(currentTime ?: 0, datePattern)
             }
         }
     }
@@ -246,23 +230,13 @@ fun ChannelInfo(
                     )
                 }
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    PlaybackControl(R.drawable.calendar, R.string.calendar, {}, {}) {}
-                    PlaybackControl(R.drawable.previous_program, R.string.previous_program, {}, {}) {}
-                    PlaybackControl(R.drawable.back, R.string.back, {}, handleBackOnClick, handleOnFingerLiftedUp)
-                    if (isPaused == true) {
-                        PlaybackControl(R.drawable.play, R.string.play, handlePlayOnClick, {}) {}
-                    } else {
-                        PlaybackControl(R.drawable.pause, R.string.pause, handlePauseOnClick, {}) {}
-                    }
-                    PlaybackControl(R.drawable.forward, R.string.forward, {}, {}) {}
-                    PlaybackControl(R.drawable.next_program, R.string.next_program, {}, {}) {}
-                    PlaybackControl(R.drawable.go_live, R.string.go_live, {}, {}) {}
-                }
+                Log.i("SHIT4", "RECOMPOSED")
+
+                PlaybackControls(
+                    { started -> seekingStarted = started },
+                    { secondsNotInteracted = 0 },
+                    channel
+                )
             }
 
             Row(

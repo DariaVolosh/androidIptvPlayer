@@ -21,6 +21,9 @@ class ArchiveViewModel @Inject constructor(
     private val _seekSeconds: MutableLiveData<Int> = MutableLiveData(0)
     val seekSeconds: LiveData<Int> = _seekSeconds
 
+    private val _currentTime: MutableLiveData<Long> = MutableLiveData()
+    val currentTime: LiveData<Long> = _currentTime
+
     fun seekBack() {
         _seekSeconds.value?.let { seek ->
             _seekSeconds.postValue(if (seek == 0) -1 else seek * 2)
@@ -29,17 +32,23 @@ class ArchiveViewModel @Inject constructor(
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
-    fun getArchiveUrl(url: String, currentTime: Long) {
+    fun getArchiveUrl(url: String) {
         viewModelScope.launch {
             seekSeconds.value?.let { seek ->
-                val datePattern = "EEEE d MMMM HH:mm:ss"
-                Log.i("seek ger archive", seek.toString())
-                val startTime =  currentTime + seek
-                val baseUrl = url.substring(0, url.lastIndexOf("/") + 1)
-                val archiveUrl = baseUrl + "index-$startTime-now.m3u8"
-                _archiveSegmentUrl.postValue(archiveUrl)
-                _seekSeconds.postValue(0)
+                currentTime.value?.let { time ->
+                    val datePattern = "EEEE d MMMM HH:mm:ss"
+                    Log.i("seek ger archive", seek.toString())
+                    val startTime =  time + seek
+                    val baseUrl = url.substring(0, url.lastIndexOf("/") + 1)
+                    val archiveUrl = baseUrl + "index-$startTime-now.m3u8"
+                    _archiveSegmentUrl.postValue(archiveUrl)
+                    _seekSeconds.postValue(0)
+                }
             }
         }
+    }
+
+    fun setCurrentTime(time: Long) {
+        _currentTime.value = time
     }
 }
