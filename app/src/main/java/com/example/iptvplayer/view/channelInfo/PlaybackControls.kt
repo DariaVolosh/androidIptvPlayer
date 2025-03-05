@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.R
+import com.example.iptvplayer.data.Epg
 import com.example.iptvplayer.data.PlaylistChannel
 import com.example.iptvplayer.view.channels.ArchiveViewModel
 import com.example.iptvplayer.view.channels.MediaViewModel
@@ -25,6 +26,8 @@ import com.example.iptvplayer.view.channels.MediaViewModel
 fun PlaybackControls(
     onSeekingStarted: (Boolean) -> Unit,
     resetSecondsNotInteracted: () -> Unit,
+    adjustCurrentProgram: (Boolean) -> Unit,
+    getProgram: (Boolean) -> Epg,
     channel: PlaylistChannel
 ) {
     var focusedControl by remember { mutableIntStateOf(R.string.pause) }
@@ -34,6 +37,26 @@ fun PlaybackControls(
 
     val isPaused by mediaViewModel.isPaused.observeAsState()
     val archiveSegmentUrl by archiveViewModel.archiveSegmentUrl.observeAsState()
+
+    val handlePreviousProgramClick = {
+        resetSecondsNotInteracted()
+        val prevProgram = getProgram(true)
+        archiveViewModel.setCurrentTime(prevProgram.startTime)
+        archiveViewModel.getArchiveUrl(channel.url)
+        onSeekingStarted(true)
+        adjustCurrentProgram(true)
+        onSeekingStarted(false)
+    }
+
+    val handleNextProgramClick = {
+        resetSecondsNotInteracted()
+        val nextProgram = getProgram(false)
+        archiveViewModel.setCurrentTime(nextProgram.startTime)
+        archiveViewModel.getArchiveUrl(channel.url)
+        onSeekingStarted(true)
+        adjustCurrentProgram(false)
+        onSeekingStarted(false)
+    }
 
     val handleBackOnClick = {
         resetSecondsNotInteracted()
@@ -72,7 +95,7 @@ fun PlaybackControls(
             R.drawable.previous_program, R.string.previous_program,
             focusedControl == R.string.previous_program,
             {control -> handleOnControlFocusChanged(control)},
-            {}, {}, {}
+            handlePreviousProgramClick, {}, {}
         ),
 
         PlaybackControl(
@@ -109,7 +132,7 @@ fun PlaybackControls(
             R.drawable.next_program, R.string.next_program,
             focusedControl == R.string.next_program,
             {control -> handleOnControlFocusChanged(control)},
-            {}, {}, {}
+            handleNextProgramClick, {}, {}
         ),
 
         PlaybackControl(
@@ -126,6 +149,7 @@ fun PlaybackControls(
 
     LaunchedEffect(archiveSegmentUrl) {
         archiveSegmentUrl?.let { url ->
+            Log.i("REALLY", "ARCHIVE $url")
             mediaViewModel.setMediaUrl(url)
         }
     }

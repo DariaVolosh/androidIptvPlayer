@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -48,10 +47,11 @@ import java.util.Locale
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 fun ChannelInfo(
-    index: Int,
+    focusedChannel: Int,
     channel: PlaylistChannel,
     currentProgramme: Epg,
     modifier: Modifier,
+    getProgram: (Boolean) -> Epg,
     adjustCurrentProgramme: (Boolean) -> Unit,
     showChannelInfo: (Boolean) -> Unit
 ) {
@@ -76,7 +76,10 @@ fun ChannelInfo(
 
     val isPaused by mediaViewModel.isPaused.observeAsState()
 
-    val updateProgrammeProgress: () -> Unit = {
+    Log.i("REALLY", "${currentProgramme} CHANNEL INFO")
+
+    // epg closure from outside scope, that is why passed as parameter
+    val updateProgrammeProgress: (Epg) -> Unit = { currentProgramme ->
         var currentSeek = 0
 
         currentTime?.let { time ->
@@ -89,6 +92,7 @@ fun ChannelInfo(
 
             Log.i("seek channel info", currentSeek.toString())
             Log.i("seek channel info", formatDate(time, datePattern))
+            Log.i("REALLY", "UPDATE PROGRAM PROCESS ${currentProgramme.toString()}")
 
             val timeElapsedSinceProgrammeStart =
                 time - currentProgramme.startTime
@@ -110,12 +114,12 @@ fun ChannelInfo(
         //showChannelInfo(false)
     }
 
-    LaunchedEffect(seekingStarted, timeFetched, isPaused) {
+    LaunchedEffect(seekingStarted, timeFetched, isPaused, currentProgramme) {
         val progressUpdatePeriod = 10 // in seconds
         var secondsPassed = 0
 
         while (!seekingStarted && timeFetched && isPaused == false) {
-            if (secondsPassed == 0) updateProgrammeProgress()
+            if (secondsPassed == 0) updateProgrammeProgress(currentProgramme)
             delay(1000)
 
             // converting milliseconds to seconds
@@ -128,10 +132,10 @@ fun ChannelInfo(
         }
     }
 
-    LaunchedEffect(seekSeconds) {
+    LaunchedEffect(seekSeconds, currentProgramme) {
         seekSeconds?.let { seek ->
             if (seek != 0) {
-                updateProgrammeProgress()
+                updateProgrammeProgress(currentProgramme)
                 currentFullDate = formatDate(currentTime ?: 0, datePattern)
             }
         }
@@ -156,11 +160,7 @@ fun ChannelInfo(
                 color = MaterialTheme.colorScheme.onSecondary
             )
 
-            LinearProgressIndicator(
-                modifier = Modifier.weight(1f),
-                progress = {(currentProgrammeProgress / 100)},
-                color = MaterialTheme.colorScheme.onSecondary
-            )
+            LinearProgressWithDot(Modifier.weight(1f), currentProgrammeProgress)
 
             Text(
                 modifier = Modifier.padding(start = 15.dp),
@@ -185,7 +185,7 @@ fun ChannelInfo(
                 ) {
                     Text(
                         modifier = Modifier.padding(end = 7.dp),
-                        text = "${index + 1}.",
+                        text = "${focusedChannel + 1}.",
                         fontSize = 24.sp,
                         color = MaterialTheme.colorScheme.onSecondary
                     )
@@ -235,6 +235,8 @@ fun ChannelInfo(
                 PlaybackControls(
                     { started -> seekingStarted = started },
                     { secondsNotInteracted = 0 },
+                    { backward -> adjustCurrentProgramme(backward) },
+                    { i -> getProgram(i)},
                     channel
                 )
             }

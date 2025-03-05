@@ -72,7 +72,6 @@ fun MainScreen() {
 
     val channels by channelsViewModel.channels.observeAsState()
     val epg by epgViewModel.epgList.observeAsState()
-    val archiveSegmentUrl by archiveViewModel.archiveSegmentUrl.observeAsState()
 
     var isChannelClicked by remember { mutableStateOf(false) }
     var isChannelInfoShown by remember { mutableStateOf(false) }
@@ -142,13 +141,7 @@ fun MainScreen() {
         }
     }
 
-    LaunchedEffect(archiveSegmentUrl) {
-        archiveSegmentUrl?.let {url ->
-            mediaViewModel.setMediaUrl(url)
-        }
-    }
-
-    Log.i("SHIT2", "composed")
+    Log.i("SHIT2", "$focusedProgramme")
 
     Box(
         modifier = Modifier.fillMaxSize()
@@ -218,12 +211,15 @@ fun MainScreen() {
         } else {
             if (isChannelInfoShown) {
                 channels?.get(focusedChannel)?.let { channel ->
-                    epg?.get(focusedProgramme)?.let { epg ->
+                    epg?.get(focusedProgramme)?.let { e ->
                         ChannelInfo(
                             focusedChannel,
                             channel,
-                            epg,
+                            e,
                             Modifier.align(Alignment.BottomCenter),
+                            { previous -> epg?.let { epg ->
+                                epg[if (previous) focusedProgramme - 1 else focusedProgramme + 1]
+                            } ?: e },
                             { backward -> if (backward) focusedProgramme -= 1 else focusedProgramme += 1 }
                         ) { show -> isChannelInfoShown = show }
                     }

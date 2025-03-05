@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
@@ -80,12 +81,12 @@ fun PlaybackControl(
                 if (event.key == Key.DirectionCenter) {
                     if (event.type == KeyEventType.KeyDown) {
                         Log.i("SHIT1", "Key down $name")
-                        isKeyPressed = true
                         playbackControlInfo.onPressed()
-                        if (!isLongPressed) {
+                        if (!isKeyPressed) {
+                            isKeyPressed = true
                             coroutineScope.launch {
                                 delay(500)
-                                isLongPressed = true
+                                if (isKeyPressed) isLongPressed = true
                             }
                         }
                     } else {
@@ -115,7 +116,8 @@ fun PlaybackControl(
 
                 true
 
-            }.size( if (playbackControlInfo.isFocused) 40.dp else 35.dp ),
+            }.size(40.dp)
+            .alpha(if (playbackControlInfo.isFocused) 1f else 0.6f),
         painter = painterResource(playbackControlInfo.image),
         contentDescription = stringResource(playbackControlInfo.contentDescription)
     )
