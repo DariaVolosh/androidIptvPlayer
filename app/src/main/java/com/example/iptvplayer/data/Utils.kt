@@ -14,15 +14,43 @@ import java.util.TimeZone
 
 object Utils {
     @RequiresApi(Build.VERSION_CODES.O)
-    fun convertToGmt4(date: Long): Long {
-        val calendar = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tbilisi"))
+    fun getCalendar(date: Long, timeZone: TimeZone? = null): Calendar {
+        // defaults to current system locale (in tbilisi case - gmt+4), receives utc time as a parameter
+        val calendar = Calendar.getInstance()
+        if (timeZone != null) {
+            calendar.timeZone = timeZone
+        }
         calendar.time = Date(date * 1000)
+        return calendar
+    }
+
+    fun getCalendarDay(calendar: Calendar): Int {
+        return calendar.get(Calendar.DAY_OF_MONTH)
+    }
+
+    fun getCalendarMonth(calendar: Calendar): Int {
+        return calendar.get(Calendar.MONTH)
+    }
+
+    fun getCalendarTimeInSeconds(calendar: Calendar): Long {
         return calendar.timeInMillis / 1000
     }
 
-    fun formatDate(date: Long, pattern: String): String {
-        val formatter = SimpleDateFormat(pattern, Locale.getDefault())
+    fun formatDate(date: Long, pattern: String, timeZone: TimeZone? = null): String {
+        // formats according to current system locale
+        val formatter = SimpleDateFormat(pattern)
+        if (timeZone != null) {
+            formatter.timeZone = timeZone
+        }
         return formatter.format(Date(date * 1000))
+    }
+
+    fun parseDate(date: String, pattern: String, timeZone: TimeZone? = null): Long {
+        val formatter = SimpleDateFormat(pattern)
+        if (timeZone != null) {
+            formatter.timeZone = timeZone
+        }
+        return (formatter.parse(date)?.time?.div(1000)) ?: 0
     }
 
     fun compareDates(date1: String, date2: String): Int {
@@ -33,7 +61,7 @@ object Utils {
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
-    suspend fun getCurrentTime(): Long =
+    suspend fun getGmtTime(): Long =
         withContext(Dispatchers.IO) {
             TrueTime.build().withNtpHost("pool.ntp.org").initialize()
             Log.i("I SEE YOU", TrueTime.now().time.toString())

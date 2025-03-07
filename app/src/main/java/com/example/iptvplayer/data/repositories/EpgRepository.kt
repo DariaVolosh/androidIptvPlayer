@@ -1,16 +1,20 @@
 package com.example.iptvplayer.data.repositories
 
+import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
 import com.example.iptvplayer.data.Epg
+import com.example.iptvplayer.data.Utils
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.tasks.await
+import java.util.TimeZone
 import javax.inject.Inject
 
 class EpgRepository @Inject constructor(
     private val firestore: FirebaseFirestore
 ) {
-
     suspend fun getCountryCodeById(id: String): String {
         val code = CompletableDeferred<String>()
 
@@ -25,41 +29,73 @@ class EpgRepository @Inject constructor(
         return code.await()
     }
 
-    suspend fun getEpgById(id: String, countryCode: String): List<Epg> {
-        val monthsResult = firestore
-            .collection("epg_prod").document(countryCode)
-            .collection("channels_id").document(id)
-            .collection("years").document("2025")
-            .collection("months").get().await()
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun getEpgById(channelId: String, countryCode: String) = flow {
+        val datePattern = "yyyy d M HH:mm:ss"
 
-        val epgList = mutableListOf<Epg>()
+        val currentGmtTime = Utils.getGmtTime()
+        val currentGmtCalendar = Utils.getCalendar(currentGmtTime, TimeZone.getTimeZone("Z"))
+        val currentGmtDay = Utils.getCalendarDay(currentGmtCalendar)
+        val currentGmtMonth = Utils.getCalendarMonth(currentGmtCalendar) + 1
 
-        for (month in monthsResult.documents) {
-            val daysResult = month.reference.collection("days").get().await()
+        var previousGmtDay = currentGmtDay - 1
+        var nextGmtDay = currentGmtDay + 1
+        var isCurrentDayEpgFetched = false
+        var isPreviousDayEpgFetched = false
 
-            for (day in daysResult.documents) {
-                val epgResult = day.reference.collection("programmes_list").get().await()
-                val epgDocumentResult = epgResult.documents[0].reference.get().await()
+        var i = 0
+        while (i < 10) {
+            val epgList = mutableListOf<Epg>()
+            var localGmtDay: Int
 
-                epgDocumentResult.data?.let { epgData ->
-                    for (key in epgData.toSortedMap().keys) {
-                        try {
-                            val epgInfo = epgData[key] as Map<*,*>
-                            val epg = Epg(
-                                key.toLong(),
-                                epgInfo["stop_time"].toString().toLong(),
-                                epgInfo["stop_time"].toString().toLong() - key.toLong(),
-                                epgInfo["title"].toString()
-                            )
-                            epgList += epg
-                        } catch (e: Exception) {
-
-                        }
-                    }
+            if (!isCurrentDayEpgFetched) {
+                localGmtDay = currentGmtDay
+                isCurrentDayEpgFetched = true
+            } else {
+                if (!isPreviousDayEpgFetched) {
+                    localGmtDay = previousGmtDay
+                    previousGmtDay -= 1
+                } else {
+                    localGmtDay = nextGmtDay
+                    nextGmtDay += 1
                 }
-            }
-        }
 
-        return epgList
+                isPreviousDayEpgFetched = !isPreviousDayEpgFetched
+            }
+
+            Log.i("Thread", "Before Firestore: ${Thread.currentThread().name}")
+            val currentDayGmtProgrammesList = firestore
+                .collection("epg_prod").document(countryCode)
+                .collection("channels_id").document(channelId)
+                .collection("years").document("2025")
+                .collection("months").document("$currentGmtMonth")
+                .collection("days").document("$localGmtDay")
+                .collection("programmes_list").get().await()
+
+            for (epgDoc in currentDayGmtProgrammesList.documents) {
+                val startTime = epgDoc["start_time"].toString().toLong()
+                val stopTime = epgDoc["stop_time"].toString().toLong()
+                val duration = stopTime - startTime
+                val title = epgDoc["title"].toString()
+
+                val epg = Epg(startTime, stopTime, duration, title)
+                epgList += epg
+                Log.i("WHAT", "${epg.toString()} $localGmtDay")
+            }
+
+            Log.i("Thread", "after Firestore: ${Thread.currentThread().name}")
+            Log.i("WHAT", "executed")
+
+            val startTimeSortedEpg: MutableList<Epg> = epgList.sortedBy { epg -> epg.startTime }.toMutableList()
+            // dummy epg to indicate that all the epgs of the current day are fetched
+            startTimeSortedEpg.add(Epg(0,0,0,""))
+            Log.i("WHY", startTimeSortedEpg.toString())
+            Log.i("WHY", localGmtDay.toString())
+            startTimeSortedEpg.forEach {
+                epg -> emit(epg)
+                Log.i("EMITTED", "${epg} $localGmtDay")
+            }
+            i++
+        }
     }
 }

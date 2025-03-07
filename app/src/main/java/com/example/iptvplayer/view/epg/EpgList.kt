@@ -31,6 +31,7 @@ fun EpgList(
 
     LaunchedEffect(epg) {
         Log.i("EPGLIST", epg.toString() )
+        Log.i("EPGLIST", epg.size.toString())
     }
 
     LaunchedEffect(focusedEpg) {
@@ -64,6 +65,8 @@ fun EpgList(
             if (index == 0 || Utils.compareDates(currentDate, prevDate) > 0) {
                 EpgDate(currentDate)
             }
+
+            Log.i("EPGITEM", "${epgItem.startTime} ${epgItem.title}")
 
             EpgItem(
                 formatDate(epgItem.startTime, timePattern),

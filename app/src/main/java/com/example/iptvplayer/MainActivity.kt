@@ -72,22 +72,16 @@ fun MainScreen() {
 
     val channels by channelsViewModel.channels.observeAsState()
     val epg by epgViewModel.epgList.observeAsState()
+    val focusedProgramme by epgViewModel.currentProgramme.observeAsState()
 
     var isChannelClicked by remember { mutableStateOf(false) }
     var isChannelInfoShown by remember { mutableStateOf(false) }
     var isChannelsListFocused by remember { mutableStateOf(true) }
 
     var focusedChannel by remember { mutableIntStateOf(0) }
-    var focusedProgramme by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(Unit) {
         channelsViewModel.parsePlaylist()
-    }
-
-    LaunchedEffect(epg) {
-        if (epg?.size != 0) {
-            focusedProgramme = epgViewModel.currentProgramme
-        }
     }
 
     val handleChannelOnKeyEvent: (Key) -> Unit = { key ->
@@ -111,22 +105,28 @@ fun MainScreen() {
     val handleEpgOnKeyEvent: (Key) -> Unit =  { key ->
         when (key) {
             Key.DirectionDown -> {
-                epg?.size?.let { size ->
-                    if (focusedProgramme + 1 < size) focusedProgramme += 1
+                focusedProgramme?.let { focused ->
+                    epg?.size?.let { size ->
+                        if (focused + 1 < size) epgViewModel.updateCurrentProgramme(focused + 1)
+                    }
                 }
             }
             Key.DirectionUp -> {
-                if (focusedProgramme - 1 >= 0) focusedProgramme -= 1
+                focusedProgramme?.let { focused ->
+                    if (focused - 1 >= 0) epgViewModel.updateCurrentProgramme(focused - 1)
+                }
             }
             Key.DirectionLeft -> {
                 isChannelsListFocused = true
             }
             Key.DirectionCenter -> {
-                epg?.get(focusedProgramme)?.let { epg ->
-                    archiveViewModel.setCurrentTime(epg.startTime)
+                focusedProgramme?.let { focused ->
+                    epg?.get(focused)?.let { epg ->
+                        archiveViewModel.setCurrentTime(epg.startTime)
 
-                    channels?.get(focusedChannel)?.let { channel ->
-                        archiveViewModel.getArchiveUrl(channel.url)
+                        channels?.get(focusedChannel)?.let { channel ->
+                            archiveViewModel.getArchiveUrl(channel.url)
+                        }
                     }
                 }
                 isChannelInfoShown = true
@@ -199,29 +199,39 @@ fun MainScreen() {
                 }
 
                 epg?.let { currentChannelEpg ->
-                    EpgList(
-                        Modifier.fillMaxSize(),
-                        currentChannelEpg,
-                        if (!isChannelsListFocused) focusedProgramme else -1
-                    ) {
-                        key -> handleEpgOnKeyEvent(key)
+                    focusedProgramme?.let { focused ->
+                        EpgList(
+                            Modifier.fillMaxSize(),
+                            currentChannelEpg,
+                            if (!isChannelsListFocused) focused else -1
+                        ) {
+                            key -> handleEpgOnKeyEvent(key)
+                        }
                     }
                 }
             }
         } else {
             if (isChannelInfoShown) {
                 channels?.get(focusedChannel)?.let { channel ->
-                    epg?.get(focusedProgramme)?.let { e ->
-                        ChannelInfo(
-                            focusedChannel,
-                            channel,
-                            e,
-                            Modifier.align(Alignment.BottomCenter),
-                            { previous -> epg?.let { epg ->
-                                epg[if (previous) focusedProgramme - 1 else focusedProgramme + 1]
-                            } ?: e },
-                            { backward -> if (backward) focusedProgramme -= 1 else focusedProgramme += 1 }
-                        ) { show -> isChannelInfoShown = show }
+                    focusedProgramme?.let { focused ->
+                        epg?.get(focused)?.let { e ->
+                            ChannelInfo(
+                                focusedChannel,
+                                channel,
+                                e,
+                                Modifier.align(Alignment.BottomCenter),
+                                { previous -> epg?.let { epg ->
+                                    epg[if (previous) focused - 1 else focused + 1]
+                                } ?: e },
+                                { backward ->
+                                    if (backward) {
+                                        epgViewModel.updateCurrentProgramme(focused - 1)
+                                    } else {
+                                        epgViewModel.updateCurrentProgramme(focused + 1)
+                                    }
+                                }
+                            ) { show -> isChannelInfoShown = show }
+                        }
                     }
                 }
             }
