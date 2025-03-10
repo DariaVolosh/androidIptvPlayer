@@ -24,9 +24,37 @@ class ArchiveViewModel @Inject constructor(
     private val _currentTime: MutableLiveData<Long> = MutableLiveData()
     val currentTime: LiveData<Long> = _currentTime
 
+    private val _liveTime: MutableLiveData<Long> = MutableLiveData()
+    val liveTime: LiveData<Long> = _liveTime
+
+    fun setLiveTime(time: Long) {
+        _liveTime.value = time
+    }
+
     fun seekBack() {
         _seekSeconds.value?.let { seek ->
-            _seekSeconds.postValue(if (seek == 0) -1 else seek * 2)
+            _seekSeconds.postValue(
+                if (seek == 0) -1
+                else {
+                    // 256 is a rewind limit (~4 minutes) to prevent user from rewinding archive
+                    // exponentially. this way user will not rewind archive more then by 4 minutes
+                    // at once
+                    if (seek <= -256) seek - 256
+                    else seek * 2
+                }
+            )
+        }
+    }
+
+    fun seekForward() {
+        _seekSeconds.value?.let { seek ->
+            _seekSeconds.postValue(
+                if (seek == 0) 1
+                else {
+                    if (seek >= 256) seek + 256
+                    else seek * 2
+                }
+            )
         }
     }
 

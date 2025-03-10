@@ -1,7 +1,6 @@
 package com.example.iptvplayer.view.channels
 
 import android.util.Log
-import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -17,13 +16,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,6 +39,8 @@ fun Channel(
     index: Int,
     isFocused: Boolean,
     onKeyEvent: (Key) -> Unit,
+    onScrollRequest: () -> Unit,
+    onGloballyPositioned: (Int, Int) -> Unit,
     playMedia: () -> Unit
 ) {
     val focusRequester = remember { FocusRequester() }
@@ -53,8 +55,12 @@ fun Channel(
 
     Row(
         modifier = Modifier
-            .border(1.dp, if (isFocused) MaterialTheme.colorScheme.onPrimary else Color.Transparent)
             .padding(7.dp)
+            .onFocusEvent { state ->
+                if (state.isFocused) {
+                    onScrollRequest()
+                }
+            }
             .focusRequester(focusRequester)
             .focusable()
             .onKeyEvent { event ->
@@ -65,7 +71,13 @@ fun Channel(
 
                 true
             }
-            .fillMaxWidth(),
+            .fillMaxWidth()
+            .onGloballyPositioned { coordinates ->
+                val height = coordinates.size.height
+                // 14 is total vertical padding, 17 is vertical padding between column items
+                val heightWithoutPadding = height - 14 - 17
+                onGloballyPositioned(height, heightWithoutPadding)
+            },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(20.dp)
     ) {

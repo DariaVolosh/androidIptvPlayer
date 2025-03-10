@@ -34,6 +34,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.media3.common.util.UnstableApi
+import com.example.iptvplayer.data.Utils
 import com.example.iptvplayer.ui.theme.IptvPlayerTheme
 import com.example.iptvplayer.view.channelInfo.ChannelInfo
 import com.example.iptvplayer.view.channels.ArchiveViewModel
@@ -43,6 +44,7 @@ import com.example.iptvplayer.view.channels.MediaViewModel
 import com.example.iptvplayer.view.epg.EpgList
 import com.example.iptvplayer.view.epg.EpgViewModel
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.delay
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -72,7 +74,8 @@ fun MainScreen() {
 
     val channels by channelsViewModel.channels.observeAsState()
     val epg by epgViewModel.epgList.observeAsState()
-    val focusedProgramme by epgViewModel.currentProgramme.observeAsState()
+    val focusedProgramme by epgViewModel.focusedProgramme.observeAsState()
+    val liveProgramme by epgViewModel.liveProgramme.observeAsState()
 
     var isChannelClicked by remember { mutableStateOf(false) }
     var isChannelInfoShown by remember { mutableStateOf(false) }
@@ -107,13 +110,13 @@ fun MainScreen() {
             Key.DirectionDown -> {
                 focusedProgramme?.let { focused ->
                     epg?.size?.let { size ->
-                        if (focused + 1 < size) epgViewModel.updateCurrentProgramme(focused + 1)
+                        if (focused + 1 < size) epgViewModel.updateFocusedProgramme(focused + 1)
                     }
                 }
             }
             Key.DirectionUp -> {
                 focusedProgramme?.let { focused ->
-                    if (focused - 1 >= 0) epgViewModel.updateCurrentProgramme(focused - 1)
+                    if (focused - 1 >= 0) epgViewModel.updateFocusedProgramme(focused - 1)
                 }
             }
             Key.DirectionLeft -> {
@@ -138,6 +141,24 @@ fun MainScreen() {
     LaunchedEffect(focusedChannel) {
         channels?.let { channels ->
             epgViewModel.getEpgById(channels[focusedChannel].id)
+        }
+    }
+
+    LaunchedEffect(liveProgramme) {
+        // updating live programme index
+        epg?.let { e ->
+            liveProgramme?.let { l ->
+                while (true) {
+                    val liveProgrammeIndex = epgViewModel.liveProgramme
+                    Log.i("LIVE", "MAIN ACTIVITY $liveProgrammeIndex")
+                    if (l != -1 && e[l].stopTime < Utils.getGmtTime()) {
+                        epgViewModel.updateLiveProgramme(l+1)
+                    }
+
+                    // period 3 minutes
+                    delay(10800)
+                }
+            }
         }
     }
 
@@ -225,9 +246,9 @@ fun MainScreen() {
                                 } ?: e },
                                 { backward ->
                                     if (backward) {
-                                        epgViewModel.updateCurrentProgramme(focused - 1)
+                                        epgViewModel.updateFocusedProgramme(focused - 1)
                                     } else {
-                                        epgViewModel.updateCurrentProgramme(focused + 1)
+                                        epgViewModel.updateFocusedProgramme(focused + 1)
                                     }
                                 }
                             ) { show -> isChannelInfoShown = show }

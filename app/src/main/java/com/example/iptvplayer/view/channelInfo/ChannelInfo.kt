@@ -23,6 +23,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,11 +38,14 @@ import com.bumptech.glide.integration.compose.GlideImage
 import com.example.iptvplayer.R
 import com.example.iptvplayer.data.Epg
 import com.example.iptvplayer.data.PlaylistChannel
+import com.example.iptvplayer.data.Utils
 import com.example.iptvplayer.data.Utils.formatDate
 import com.example.iptvplayer.view.channels.ArchiveViewModel
 import com.example.iptvplayer.view.channels.MediaViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.util.Locale
+import kotlin.math.abs
 
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalGlideComposeApi::class)
@@ -57,6 +61,7 @@ fun ChannelInfo(
 ) {
     val archiveViewModel: ArchiveViewModel = hiltViewModel()
     val mediaViewModel: MediaViewModel = hiltViewModel()
+    val coroutineScope = rememberCoroutineScope()
 
     val timePattern = "HH:mm"
     val datePattern = "EEEE d MMMM HH:mm:ss"
@@ -70,9 +75,11 @@ fun ChannelInfo(
     var timeFetched by remember { mutableStateOf(false) }
     var seekingStarted by remember { mutableStateOf(false) }
     var secondsNotInteracted by remember { mutableIntStateOf(0) }
+    var isLiveProgramme by remember { mutableStateOf(false) }
 
     val seekSeconds by archiveViewModel.seekSeconds.observeAsState()
     val currentTime by archiveViewModel.currentTime.observeAsState()
+    val liveTime by archiveViewModel.liveTime.observeAsState()
 
     val isPaused by mediaViewModel.isPaused.observeAsState()
 
@@ -85,7 +92,13 @@ fun ChannelInfo(
         currentTime?.let { time ->
             seekSeconds?.let { seek ->
                 if (seekingStarted) {
-                    currentSeek = seek - seek / 2
+                    currentSeek = if (abs(seek) >= 256) {
+                        if (seek < 0) -256
+                        else 256
+                    } else {
+                        seek / 2
+                    }
+
                     archiveViewModel.setCurrentTime(time + currentSeek)
                 }
             }
@@ -96,19 +109,38 @@ fun ChannelInfo(
 
             val timeElapsedSinceProgrammeStart =
                 time - currentProgramme.startTime
+            Log.i("ELAPSED", timeElapsedSinceProgrammeStart.toString())
+            Log.i("ELAPSED", currentProgramme.toString())
+            Log.i("ELAPSED", time.toString())
+
             if (timeElapsedSinceProgrammeStart < 0) adjustCurrentProgramme(true)
+            else if (timeElapsedSinceProgrammeStart > currentProgramme.duration) adjustCurrentProgramme(false)
+            else currentProgrammeProgress = decimalFormat.format(timeElapsedSinceProgrammeStart.toFloat() * 100 / currentProgramme.duration).toFloat()
+
             Log.i("PROGRAMME", "${formatDate(time, datePattern)} $timeElapsedSinceProgrammeStart")
-            currentProgrammeProgress = decimalFormat.format(timeElapsedSinceProgrammeStart.toFloat() * 100 / currentProgramme.duration).toFloat()
             Log.i("PERCENT", currentProgrammeProgress.toString())
         }
     }
 
     LaunchedEffect(Unit) {
+        archiveViewModel.setLiveTime(Utils.getGmtTime())
         timeFetched = true
 
-        while (secondsNotInteracted < 4) {
-            secondsNotInteracted++
-            delay(1000)
+        launch {
+            while (secondsNotInteracted < 4) {
+                secondsNotInteracted++
+                delay(1000)
+            }
+        }
+
+        launch {
+            while (true) {
+                liveTime?.let { time ->
+                    archiveViewModel.setLiveTime(time + 1)
+                }
+
+                delay(1000)
+            }
         }
 
         //showChannelInfo(false)
@@ -135,6 +167,7 @@ fun ChannelInfo(
     LaunchedEffect(seekSeconds, currentProgramme) {
         seekSeconds?.let { seek ->
             if (seek != 0) {
+                isLiveProgramme = false
                 updateProgrammeProgress(currentProgramme)
                 currentFullDate = formatDate(currentTime ?: 0, datePattern)
             }
@@ -237,6 +270,7 @@ fun ChannelInfo(
                     { secondsNotInteracted = 0 },
                     { backward -> adjustCurrentProgramme(backward) },
                     { i -> getProgram(i)},
+                    {isLive -> isLiveProgramme = isLive},
                     channel
                 )
             }
@@ -255,7 +289,7 @@ fun ChannelInfo(
                 )
 
                 Text(
-                    text = "live",
+                    text = if (isLiveProgramme) "live" else "record",
                     color = Color.Red,
                     fontSize = 24.sp
                 )

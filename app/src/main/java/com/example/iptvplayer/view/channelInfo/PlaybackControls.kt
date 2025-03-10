@@ -12,6 +12,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -20,6 +21,8 @@ import com.example.iptvplayer.data.Epg
 import com.example.iptvplayer.data.PlaylistChannel
 import com.example.iptvplayer.view.channels.ArchiveViewModel
 import com.example.iptvplayer.view.channels.MediaViewModel
+import com.example.iptvplayer.view.epg.EpgViewModel
+import kotlinx.coroutines.launch
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -28,15 +31,22 @@ fun PlaybackControls(
     resetSecondsNotInteracted: () -> Unit,
     adjustCurrentProgram: (Boolean) -> Unit,
     getProgram: (Boolean) -> Epg,
+    setIsLiveProgramme: (Boolean) -> Unit,
     channel: PlaylistChannel
 ) {
     var focusedControl by remember { mutableIntStateOf(R.string.pause) }
+    val coroutineScope = rememberCoroutineScope()
 
     val archiveViewModel: ArchiveViewModel = hiltViewModel()
     val mediaViewModel: MediaViewModel = hiltViewModel()
+    val epgViewModel: EpgViewModel = hiltViewModel()
 
     val isPaused by mediaViewModel.isPaused.observeAsState()
     val archiveSegmentUrl by archiveViewModel.archiveSegmentUrl.observeAsState()
+
+    val handleOnControlFocusChanged: (Int) -> Unit = { control ->
+        focusedControl = control
+    }
 
     val handlePreviousProgramClick = {
         resetSecondsNotInteracted()
@@ -69,10 +79,6 @@ fun PlaybackControls(
         archiveViewModel.getArchiveUrl(channel.url)
     }
 
-     val handleOnControlFocusChanged: (Int) -> Unit = { control ->
-        focusedControl = control
-    }
-
     val handlePauseOnClick = {
         resetSecondsNotInteracted()
         mediaViewModel.pause()
@@ -81,6 +87,28 @@ fun PlaybackControls(
     val handlePlayOnClick = {
         resetSecondsNotInteracted()
         mediaViewModel.play()
+    }
+
+    val handleNextOnClick = {
+        resetSecondsNotInteracted()
+        onSeekingStarted(true)
+        archiveViewModel.seekForward()
+    }
+
+    val handleGoLiveOnClick: () -> Unit = {
+        resetSecondsNotInteracted()
+        onSeekingStarted(true)
+        coroutineScope.launch {
+            epgViewModel.liveProgramme.value?.let { l ->
+                epgViewModel.updateFocusedProgramme(l)
+            }
+            mediaViewModel.setMediaUrl(channel.url)
+            archiveViewModel.liveTime.value?.let { t ->
+                archiveViewModel.setCurrentTime(t)
+            }
+            setIsLiveProgramme(true)
+            onSeekingStarted(false)
+        }
     }
 
     val playbackControls = listOf(
@@ -125,7 +153,7 @@ fun PlaybackControls(
             R.drawable.forward, R.string.forward,
             focusedControl == R.string.forward,
             {control -> handleOnControlFocusChanged(control)},
-            {}, {}, {}
+            {}, handleNextOnClick, handleOnFingerLiftedUp
         ),
 
         PlaybackControl(
@@ -139,7 +167,7 @@ fun PlaybackControls(
             R.drawable.go_live, R.string.go_live,
             focusedControl == R.string.go_live,
             {control -> handleOnControlFocusChanged(control)},
-            {}, {}, {}
+            handleGoLiveOnClick, {}, {}
         )
     )
 
