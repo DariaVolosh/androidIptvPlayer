@@ -11,7 +11,7 @@ class GetEpgByIdUseCase @Inject constructor(
     private val epgRepository: EpgRepository
 ) {
     @RequiresApi(Build.VERSION_CODES.O)
-    suspend fun getEpgById(channelId: String): Flow<Epg> {
+    suspend fun getEpgById(channelId: String): Flow<List<Epg>> {
         val countryCode = epgRepository.getCountryCodeById(channelId)
         val epgFlow = epgRepository.getEpgById(channelId, countryCode)
         return epgFlow

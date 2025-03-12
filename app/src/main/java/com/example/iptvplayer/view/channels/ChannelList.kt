@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -24,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.example.iptvplayer.data.PlaylistChannel
 import kotlinx.coroutines.launch
@@ -41,9 +43,15 @@ fun ChannelList(
     val coroutineScope = rememberCoroutineScope()
 
     var itemHeight by remember { mutableIntStateOf(0) }
-    var itemHeightWithoutPadding by remember { mutableIntStateOf(0) }
 
+    var visibleItems by remember { mutableIntStateOf(0) }
     var borderYOffset by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(Unit) {
+        visibleItems = lazyColumnState.layoutInfo.visibleItemsInfo.size
+    }
+
+    val localDensity = LocalDensity.current.density
 
     Box(
         modifier = modifier
@@ -57,6 +65,9 @@ fun ChannelList(
                         MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f)
                     )
                 ))
+                .onGloballyPositioned { cords ->
+                    Log.i("LIST HEIGHT", (cords.size.height / localDensity).toString())
+                }
                 .padding(15.dp),
             verticalArrangement = Arrangement.spacedBy(17.dp),
             userScrollEnabled = false,
@@ -68,6 +79,7 @@ fun ChannelList(
                     channels[index].logo,
                     index,
                     index == focusedChannel,
+                    index >= visibleItems / 2,
                     {key -> channelOnKeyEvent(key)},
                     {
                         Log.i("FOCUSED", "CALLED $index")
@@ -76,28 +88,24 @@ fun ChannelList(
                             lazyColumnState.scrollToItem(index, -borderYOffset + 31)
                         }
                     },
-                    { height, heightWithoutPadding ->
-                        itemHeight = height
-                        itemHeightWithoutPadding = heightWithoutPadding
-                    }
+                    { height -> itemHeight = height }
                 ) {
                     playMedia(channels[index].url)
                 }
             }
         }
 
-        Box(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .fillMaxWidth()
-                .padding(7.dp)
-                .height(itemHeightWithoutPadding.dp)
-                .border(1.dp, Color.White)
-                .onGloballyPositioned { cords ->
-                    borderYOffset = cords.positionInParent().y.toInt()
-                }
-        ) {
-
+        if (focusedChannel >= visibleItems / 2) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .fillMaxWidth()
+                    .height(itemHeight.dp)
+                    .border(1.dp, Color.White)
+                    .onGloballyPositioned { cords ->
+                        borderYOffset = cords.positionInParent().y.toInt()
+                    }
+            )
         }
     }
 }

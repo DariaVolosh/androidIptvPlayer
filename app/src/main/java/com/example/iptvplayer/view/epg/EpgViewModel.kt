@@ -45,62 +45,61 @@ class EpgViewModel @Inject constructor(
         epgCollectionJob?.cancel()
         _liveProgramme.value = -1
         _focusedProgramme.value = -1
+        _epgList.value = listOf()
+
         epgCollectionJob = viewModelScope.launch {
             val epgFlow = getEpgByIdUseCase.getEpgById(channelId)
-            val epgList = mutableListOf<Epg>()
+            val allDaysEpgList = mutableListOf<Epg>()
 
             val currentTime = Utils.getGmtTime()
-            var currentProgrammeI = -1
 
-            var currentDayFetched = false
-            var previousDayFetched = false
+            epgFlow.collect { dayEpg ->
+                var isPreviousDay = false
+                var previousDayInsertionIndex = 0
 
-            var oneDayEpgFetched = 0
-            var previousDayInsertionIndex = 0
+                for (i in dayEpg.indices) {
+                    val epg = dayEpg[i]
+                    val startTime = epg.startTime
+                    val stopTime = epg.stopTime
+                    val title = epg.title
 
-            epgFlow.collect { epg ->
-                // last epg of the day was fetched
-                if (epg.startTime == 0L && epg.stopTime == 0L) {
-                    if (!currentDayFetched) {
-                        currentDayFetched = true
-                    } else {
-                        previousDayFetched = !previousDayFetched
-                        if (previousDayFetched) {
-                            previousDayInsertionIndex = 0
-                            _focusedProgramme.value?.let { focused ->
-                                Log.i("SHIT LMAO", (focused + oneDayEpgFetched).toString())
-                                _focusedProgramme.value = focused + oneDayEpgFetched
-                                _liveProgramme.value = focused + oneDayEpgFetched
-                                Log.i("LIVE", "VIEW MODEL $_liveProgramme")
-                            }
+                    Log.i("COLLECTED EPG", "$epg $i")
+                    Log.i("COLLECTED EPG", "START TIME: ${Utils.formatDate(startTime, "EEEE d MMMM HH:mm:ss", java.util.TimeZone.getTimeZone("Z"))}")
+
+                    if (i == 0) {
+                        if (startTime == -2L && stopTime == -2L && title == "") {
+                            isPreviousDay = true
                         }
-                    }
-
-                    oneDayEpgFetched = 0
-
-                    Log.i("VIEWMODEL", epgList.toString())
-                    _epgList.value = epgList.toList()
-                    Log.i("VIEWMODEL", epgList.size.toString())
-                } else {
-                    if (!currentDayFetched) {
-                        epgList += epg
                     } else {
-                        if (!previousDayFetched) {
-                            epgList.add(previousDayInsertionIndex++, epg)
+                        if (isPreviousDay) {
+                            allDaysEpgList.add(previousDayInsertionIndex++, epg)
                         } else {
-                            epgList.add(epg)
+                            allDaysEpgList.add(epg)
+                        }
+
+                        if (_focusedProgramme.value == -1 && startTime <= currentTime && stopTime >= currentTime) {
+                            Log.i("CURRENT EPG", "$epg $i ${i-1} ${dayEpg.size}")
+                            _focusedProgramme.value = i - 1
+                            _liveProgramme.value = i - 1
+                        }
+
+                        if (i == dayEpg.size - 1) {
+                            Log.i("FOCUSED PROGRAMME", _focusedProgramme.value.toString())
+                            Log.i("changed focused programme", "${dayEpg.size} ${allDaysEpgList.size}")
+                            if (isPreviousDay && _focusedProgramme.value != -1) {
+                                _focusedProgramme.value?.let { focused ->
+                                    Log.i("changed focused programme", "$focused ${dayEpg.size} ${allDaysEpgList.size}")
+                                    _focusedProgramme.value = focused + dayEpg.size - 1
+                                }
+
+                                _liveProgramme.value?.let { live ->
+                                    _liveProgramme.value = live + dayEpg.size - 1
+                                }
+                            }
+
+                            _epgList.value = allDaysEpgList
                         }
                     }
-
-                    Log.i("COMPARED", "${epg.startTime} $currentTime ${epg.stopTime} ${epg.title}")
-                    if (_focusedProgramme.value == null && epg.startTime <= currentTime && epg.stopTime >= currentTime) {
-                        Log.i("CAUGHT", "SS")
-                        _focusedProgramme.value = currentProgrammeI
-                        _liveProgramme.value = currentProgrammeI
-                    }
-
-                    if (_focusedProgramme.value == null) currentProgrammeI += 1
-                    oneDayEpgFetched++
                 }
             }
         }

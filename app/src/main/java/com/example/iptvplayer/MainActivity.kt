@@ -209,6 +209,7 @@ fun MainScreen() {
                 Modifier.fillMaxSize()
             ) {
                 channels?.let { channels ->
+                    Log.i("RECCCOMPOSED", "channels list recomposed")
                     ChannelList(
                         Modifier.fillMaxWidth(0.5f),
                         channels,
@@ -220,14 +221,14 @@ fun MainScreen() {
                 }
 
                 epg?.let { currentChannelEpg ->
-                    focusedProgramme?.let { focused ->
-                        EpgList(
-                            Modifier.fillMaxSize(),
-                            currentChannelEpg,
-                            if (!isChannelsListFocused) focused else -1
-                        ) {
-                            key -> handleEpgOnKeyEvent(key)
-                        }
+                    Log.i("RECCCOMPOSED", "epg list recomposed")
+                    EpgList(
+                        Modifier.fillMaxWidth(),
+                        currentChannelEpg,
+                        focusedProgramme ?: -1,
+                        !isChannelsListFocused,
+                    ) {
+                        key -> handleEpgOnKeyEvent(key)
                     }
                 }
             }
