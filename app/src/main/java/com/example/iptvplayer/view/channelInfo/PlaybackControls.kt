@@ -17,8 +17,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.R
-import com.example.iptvplayer.data.Epg
-import com.example.iptvplayer.data.PlaylistChannel
 import com.example.iptvplayer.view.channels.ArchiveViewModel
 import com.example.iptvplayer.view.channels.MediaViewModel
 import com.example.iptvplayer.view.epg.EpgViewModel
@@ -29,10 +27,8 @@ import kotlinx.coroutines.launch
 fun PlaybackControls(
     onSeekingStarted: (Boolean) -> Unit,
     resetSecondsNotInteracted: () -> Unit,
-    adjustCurrentProgram: (Boolean) -> Unit,
-    getProgram: (Boolean) -> Epg,
     setIsLiveProgramme: (Boolean) -> Unit,
-    channel: PlaylistChannel
+    channelUrl: String
 ) {
     var focusedControl by remember { mutableIntStateOf(R.string.pause) }
     val coroutineScope = rememberCoroutineScope()
@@ -41,30 +37,42 @@ fun PlaybackControls(
     val mediaViewModel: MediaViewModel = hiltViewModel()
     val epgViewModel: EpgViewModel = hiltViewModel()
 
+    val focusedEpgIndex by epgViewModel.focusedEpgIndex.observeAsState()
+
     val isPaused by mediaViewModel.isPaused.observeAsState()
 
     val handleOnControlFocusChanged: (Int) -> Unit = { control ->
         focusedControl = control
     }
 
-    val handlePreviousProgramClick = {
-        resetSecondsNotInteracted()
-        val prevProgram = getProgram(true)
-        archiveViewModel.setCurrentTime(prevProgram.startTime)
-        archiveViewModel.getArchiveUrl(channel.url)
-        onSeekingStarted(true)
-        adjustCurrentProgram(true)
-        onSeekingStarted(false)
+    val handlePreviousProgramClick: () -> Unit = {
+        focusedEpgIndex?.let { focusedEpgIndex ->
+            resetSecondsNotInteracted()
+            val prevProgram = epgViewModel.getEpgByIndex(focusedEpgIndex - 1)
+
+            if (prevProgram != null) {
+                archiveViewModel.setCurrentTime(prevProgram.startTime)
+                archiveViewModel.getArchiveUrl(channelUrl)
+                onSeekingStarted(true)
+                epgViewModel.updateFocusedEpgIndex(focusedEpgIndex - 1)
+                onSeekingStarted(false)
+            }
+        }
     }
 
-    val handleNextProgramClick = {
-        resetSecondsNotInteracted()
-        val nextProgram = getProgram(false)
-        archiveViewModel.setCurrentTime(nextProgram.startTime)
-        archiveViewModel.getArchiveUrl(channel.url)
-        onSeekingStarted(true)
-        adjustCurrentProgram(false)
-        onSeekingStarted(false)
+    val handleNextProgramClick: () -> Unit = {
+        focusedEpgIndex?.let { focusedEpgIndex ->
+            resetSecondsNotInteracted()
+            val nextProgram = epgViewModel.getEpgByIndex(focusedEpgIndex + 1)
+
+            if (nextProgram != null) {
+                archiveViewModel.setCurrentTime(nextProgram.startTime)
+                archiveViewModel.getArchiveUrl(channelUrl)
+                onSeekingStarted(true)
+                epgViewModel.updateFocusedEpgIndex(focusedEpgIndex + 1)
+                onSeekingStarted(false)
+            }
+        }
     }
 
     val handleBackOnClick = {
@@ -75,7 +83,7 @@ fun PlaybackControls(
 
     val handleOnFingerLiftedUp = {
         onSeekingStarted(false)
-        archiveViewModel.getArchiveUrl(channel.url)
+        archiveViewModel.getArchiveUrl(channelUrl)
     }
 
     val handlePauseOnClick = {
@@ -99,9 +107,9 @@ fun PlaybackControls(
         onSeekingStarted(true)
         coroutineScope.launch {
             epgViewModel.liveProgramme.value?.let { l ->
-                epgViewModel.updateFocusedProgramme(l)
+                epgViewModel.updateFocusedEpgIndex(l)
             }
-            mediaViewModel.setMediaUrl(channel.url)
+            mediaViewModel.setMediaUrl(channelUrl)
             archiveViewModel.liveTime.value?.let { t ->
                 archiveViewModel.setCurrentTime(t)
             }

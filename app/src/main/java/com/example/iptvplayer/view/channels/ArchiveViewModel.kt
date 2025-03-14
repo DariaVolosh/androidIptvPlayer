@@ -61,6 +61,7 @@ class ArchiveViewModel @Inject constructor(
     @RequiresApi(Build.VERSION_CODES.O)
     fun getArchiveUrl(url: String) {
         Log.i("GET ARCHIVE URL", "GET ARCHIVE URL ${currentTime.value}")
+        if (url == "") return
         viewModelScope.launch {
             seekSeconds.value?.let { seek ->
                 currentTime.value?.let { time ->
@@ -83,7 +84,9 @@ class ArchiveViewModel @Inject constructor(
     }
 
     fun setCurrentTime(time: Long) {
-        _currentTime.value = time
-        Log.i("TIME", _currentTime.value.toString())
+        if (time != 0L) {
+            _currentTime.value = time
+            Log.i("TIME", _currentTime.value.toString())
+        }
     }
 }

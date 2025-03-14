@@ -22,6 +22,29 @@ class ChannelsViewModel @Inject constructor(
     private val _channelNames: MutableLiveData<Set<String>> = MutableLiveData()
     val channelNames: LiveData<Set<String>> = _channelNames
 
+    private val _focusedChannelIndex: MutableLiveData<Int> = MutableLiveData()
+    val focusedChannelIndex: LiveData<Int> = _focusedChannelIndex
+
+    private val _focusedChannel: MutableLiveData<PlaylistChannel> = MutableLiveData()
+    val focusedChannel: LiveData<PlaylistChannel> = _focusedChannel
+
+    private fun updateFocusedChannel() {
+        _focusedChannel.value = channels.value?.getOrNull(focusedChannelIndex.value ?: 0)
+    }
+
+    fun updateFocusedChannel(focused: Int) {
+        _channels.value?.size?.let { channelsSize ->
+            if (focused < channelsSize || focused >= 0) {
+                _focusedChannelIndex.value = focused
+                updateFocusedChannel()
+            }
+        }
+    }
+
+    fun getChannelByIndex(index: Int): PlaylistChannel? {
+        return _channels.value?.getOrNull(index)
+    }
+
     fun parsePlaylist() {
         viewModelScope.launch {
             val playlistContent =
@@ -33,6 +56,7 @@ class ChannelsViewModel @Inject constructor(
             }?.toSet() ?: setOf()
 
             _channelNames.value = channelNames
+            _focusedChannelIndex.value = 0
         }
     }
 }

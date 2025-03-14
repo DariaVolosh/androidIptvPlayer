@@ -22,29 +22,46 @@ class EpgViewModel @Inject constructor(
     private val _epgList: MutableLiveData<List<Epg>> = MutableLiveData()
     val epgList: LiveData<List<Epg>> = _epgList
 
-    private val _focusedProgramme: MutableLiveData<Int> = MutableLiveData()
-    val focusedProgramme: LiveData<Int> = _focusedProgramme
+    private val _focusedEpgIndex: MutableLiveData<Int> = MutableLiveData()
+    val focusedEpgIndex: LiveData<Int> = _focusedEpgIndex
+
+    private val _focusedEpg: MutableLiveData<Epg> = MutableLiveData()
+    val focusedEpg: LiveData<Epg> = _focusedEpg
 
     // defining live programme as a live data because in main composable inside launched effect
     // the new value will not be captured if it is not specified as a key in launched effect
     private var _liveProgramme: MutableLiveData<Int> = MutableLiveData()
     val liveProgramme: LiveData<Int> = _liveProgramme
 
-    fun updateFocusedProgramme(index: Int) {
-        _focusedProgramme.value = index
+    private fun updateFocusedEpg() {
+        _focusedEpg.value = epgList.value?.getOrNull(focusedEpgIndex.value ?: 0)
+    }
+
+    fun updateFocusedEpgIndex(focused: Int) {
+        epgList.value?.size?.let { epgSize ->
+            if (focused < epgSize && focused >= 0) {
+                _focusedEpgIndex.value = focused
+                updateFocusedEpg()
+            }
+        }
     }
 
     fun updateLiveProgramme(index: Int) {
         _liveProgramme.value = index
     }
 
+    fun getEpgByIndex(index: Int): Epg? {
+        return epgList.value?.getOrNull(index)
+    }
+
     private var epgCollectionJob: Job? = null
 
     @RequiresApi(Build.VERSION_CODES.O)
     fun getEpgById(channelId: String) {
+        if (channelId == "-1") return
         epgCollectionJob?.cancel()
         _liveProgramme.value = -1
-        _focusedProgramme.value = -1
+        _focusedEpgIndex.value = -1
         _epgList.value = listOf()
 
         epgCollectionJob = viewModelScope.launch {
@@ -77,19 +94,19 @@ class EpgViewModel @Inject constructor(
                             allDaysEpgList.add(epg)
                         }
 
-                        if (_focusedProgramme.value == -1 && startTime <= currentTime && stopTime >= currentTime) {
+                        if (_focusedEpgIndex.value == -1 && startTime <= currentTime && stopTime >= currentTime) {
                             Log.i("CURRENT EPG", "$epg $i ${i-1} ${dayEpg.size}")
-                            _focusedProgramme.value = i - 1
+                            _focusedEpgIndex.value = i - 1
                             _liveProgramme.value = i - 1
                         }
 
                         if (i == dayEpg.size - 1) {
-                            Log.i("FOCUSED PROGRAMME", _focusedProgramme.value.toString())
+                            Log.i("FOCUSED PROGRAMME", _focusedEpgIndex.value.toString())
                             Log.i("changed focused programme", "${dayEpg.size} ${allDaysEpgList.size}")
-                            if (isPreviousDay && _focusedProgramme.value != -1) {
-                                _focusedProgramme.value?.let { focused ->
+                            if (isPreviousDay && _focusedEpgIndex.value != -1) {
+                                _focusedEpgIndex.value?.let { focused ->
                                     Log.i("changed focused programme", "$focused ${dayEpg.size} ${allDaysEpgList.size}")
-                                    _focusedProgramme.value = focused + dayEpg.size - 1
+                                    _focusedEpgIndex.value = focused + dayEpg.size - 1
                                 }
 
                                 _liveProgramme.value?.let { live ->

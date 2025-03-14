@@ -35,12 +35,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.example.iptvplayer.R
-import com.example.iptvplayer.data.Epg
-import com.example.iptvplayer.data.PlaylistChannel
 import com.example.iptvplayer.data.Utils
 import com.example.iptvplayer.data.Utils.formatDate
 import com.example.iptvplayer.view.channels.ArchiveViewModel
+import com.example.iptvplayer.view.channels.ChannelsViewModel
 import com.example.iptvplayer.view.channels.MediaViewModel
+import com.example.iptvplayer.view.epg.EpgViewModel
 import kotlinx.coroutines.delay
 import java.util.Locale
 import kotlin.math.abs
@@ -49,17 +49,21 @@ import kotlin.math.abs
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 fun ChannelInfo(
-    focusedChannel: Int,
-    channel: PlaylistChannel,
-    currentProgramme: Epg,
+    //focusedChannel: Int, // CHANNELS VIEW MODEL
+    //channel: PlaylistChannel, // CHANNELS VIEW MODEL
+    //currentProgramme: Epg, // EPG VIEW MODEL
     modifier: Modifier,
+    showProgrammeDatePicker: (Boolean) -> Unit,
     isChannelInfoShown: Boolean,
-    getProgram: (Boolean) -> Epg,
-    adjustCurrentProgramme: (Boolean) -> Unit,
     showChannelInfo: (Boolean) -> Unit
+    //getProgram: (Boolean) -> Epg, // EPG VIEW MODEL
+    //adjustCurrentProgramme: (Boolean) -> Unit, // EPG VIEW MODEL
 ) {
     val archiveViewModel: ArchiveViewModel = hiltViewModel()
     val mediaViewModel: MediaViewModel = hiltViewModel()
+    // injecting epgViewModel and channelsViewModel because i need to use 2 methods from them
+    val epgViewModel: EpgViewModel = hiltViewModel()
+    val channelsViewModel: ChannelsViewModel = hiltViewModel()
 
     val timePattern = "HH:mm"
     val datePattern = "EEEE d MMMM HH:mm:ss"
@@ -79,12 +83,18 @@ fun ChannelInfo(
     val currentTime by archiveViewModel.currentTime.observeAsState()
     val liveTime by archiveViewModel.liveTime.observeAsState()
 
+    val focusedEpg by epgViewModel.focusedEpg.observeAsState()
+    val focusedEpgIndex by epgViewModel.focusedEpgIndex.observeAsState()
+
+    val focusedChannel by channelsViewModel.focusedChannel.observeAsState()
+    val focusedChannelIndex by channelsViewModel.focusedChannelIndex.observeAsState()
+
     val isPaused by mediaViewModel.isPaused.observeAsState()
 
-    Log.i("REALLY", "${currentProgramme} CHANNEL INFO")
+    Log.i("REALLY", "${focusedEpg} CHANNEL INFO")
 
     // epg closure from outside scope, that is why passed as parameter
-    val updateProgrammeProgress: (Epg) -> Unit = { currentProgramme ->
+    val updateProgrammeProgress = {
         var currentSeek = 0
 
         currentTime?.let { time ->
@@ -103,20 +113,32 @@ fun ChannelInfo(
 
             Log.i("seek channel info", currentSeek.toString())
             Log.i("seek channel info", formatDate(time, datePattern))
-            Log.i("REALLY", "UPDATE PROGRAM PROCESS ${currentProgramme.toString()}")
+            Log.i("REALLY", "UPDATE PROGRAM PROCESS ${focusedEpg.toString()}")
 
-            val timeElapsedSinceProgrammeStart =
-                time - currentProgramme.startTime
-            Log.i("ELAPSED", timeElapsedSinceProgrammeStart.toString())
-            Log.i("ELAPSED", currentProgramme.toString())
-            Log.i("ELAPSED", time.toString())
+            val localFocusedEpg = focusedEpg
+            val localFocusedEpgIndex = focusedEpgIndex
 
-            if (timeElapsedSinceProgrammeStart < 0) adjustCurrentProgramme(true)
-            else if (timeElapsedSinceProgrammeStart > currentProgramme.duration) adjustCurrentProgramme(false)
-            else currentProgrammeProgress = decimalFormat.format(timeElapsedSinceProgrammeStart.toFloat() * 100 / currentProgramme.duration).toFloat()
+            if (localFocusedEpg != null && localFocusedEpgIndex != null) {
+                val timeElapsedSinceProgrammeStart = time - localFocusedEpg.startTime
+                Log.i("ELAPSED", timeElapsedSinceProgrammeStart.toString())
+                Log.i("ELAPSED", focusedEpg.toString())
+                Log.i("ELAPSED", time.toString())
 
-            Log.i("PROGRAMME", "${formatDate(time, datePattern)} $timeElapsedSinceProgrammeStart")
-            Log.i("PERCENT", currentProgrammeProgress.toString())
+                if (time < localFocusedEpg.startTime) {
+                    epgViewModel.updateFocusedEpgIndex(localFocusedEpgIndex - 1)
+                } else if (time > localFocusedEpg.stopTime) {
+                    epgViewModel.updateFocusedEpgIndex(localFocusedEpgIndex + 1)
+                } else {
+                    currentProgrammeProgress =
+                        decimalFormat.format(
+                            timeElapsedSinceProgrammeStart.toFloat() * 100 / localFocusedEpg.duration
+                        ).toFloat()
+
+                }
+
+                Log.i("PROGRAMME", "${formatDate(time, datePattern)} $timeElapsedSinceProgrammeStart")
+                Log.i("PERCENT", currentProgrammeProgress.toString())
+            }
         }
     }
 
@@ -147,12 +169,12 @@ fun ChannelInfo(
         }
     }
 
-    LaunchedEffect(seekingStarted, timeFetched, isPaused, currentProgramme) {
+    LaunchedEffect(seekingStarted, timeFetched, isPaused, focusedEpg) {
         val progressUpdatePeriod = 10 // in seconds
         var secondsPassed = 0
 
         while (!seekingStarted && timeFetched && isPaused == false) {
-            if (secondsPassed == 0) updateProgrammeProgress(currentProgramme)
+            if (secondsPassed == 0) updateProgrammeProgress()
             delay(1000)
 
             // converting milliseconds to seconds
@@ -165,11 +187,11 @@ fun ChannelInfo(
         }
     }
 
-    LaunchedEffect(seekSeconds, currentProgramme) {
+    LaunchedEffect(seekSeconds, focusedEpg) {
         seekSeconds?.let { seek ->
             if (seek != 0) {
                 isLiveProgramme = false
-                updateProgrammeProgress(currentProgramme)
+                updateProgrammeProgress()
                 currentFullDate = formatDate(currentTime ?: 0, datePattern)
             }
         }
@@ -190,7 +212,7 @@ fun ChannelInfo(
             ) {
                 Text(
                     modifier = Modifier.padding(end = 15.dp),
-                    text = formatDate(currentProgramme.startTime, timePattern),
+                    text = formatDate(focusedEpg?.startTime ?: 0, timePattern),
                     fontSize = 22.sp,
                     color = MaterialTheme.colorScheme.onSecondary
                 )
@@ -199,7 +221,7 @@ fun ChannelInfo(
 
                 Text(
                     modifier = Modifier.padding(start = 15.dp),
-                    text = formatDate(currentProgramme.stopTime, timePattern),
+                    text = formatDate(focusedEpg?.stopTime ?: 0, timePattern),
                     fontSize = 22.sp,
                     color = MaterialTheme.colorScheme.onSecondary
                 )
@@ -220,20 +242,20 @@ fun ChannelInfo(
                     ) {
                         Text(
                             modifier = Modifier.padding(end = 7.dp),
-                            text = "${focusedChannel + 1}.",
+                            text = "${focusedChannelIndex?.plus(1) ?: 1}.",
                             fontSize = 24.sp,
                             color = MaterialTheme.colorScheme.onSecondary
                         )
 
                         Text(
-                            text = channel.name,
+                            text = focusedChannel?.name ?: "",
                             fontSize = 24.sp,
                             color = MaterialTheme.colorScheme.onSecondary
                         )
                     }
 
                     GlideImage(
-                        model = channel.logo,
+                        model = focusedChannel?.logo ?: "",
                         modifier = Modifier
                             .padding(top = 10.dp)
                             .size(50.dp),
@@ -260,21 +282,21 @@ fun ChannelInfo(
 
                         Text(
                             fontSize = 22.sp,
-                            text = currentProgramme.title,
+                            text = focusedEpg?.title ?: "",
                             color = MaterialTheme.colorScheme.onSecondary
                         )
                     }
 
                     Log.i("SHIT4", "RECOMPOSED")
 
-                    PlaybackControls(
-                        { started -> seekingStarted = started },
-                        { secondsNotInteracted = 0 },
-                        { backward -> adjustCurrentProgramme(backward) },
-                        { i -> getProgram(i)},
-                        {isLive -> isLiveProgramme = isLive},
-                        channel
-                    )
+                    focusedChannel?.let { focused ->
+                        PlaybackControls(
+                            { started -> seekingStarted = started },
+                            { secondsNotInteracted = 0 },
+                            {isLive -> isLiveProgramme = isLive},
+                            focused.url
+                        )
+                    }
                 }
 
                 Row(
