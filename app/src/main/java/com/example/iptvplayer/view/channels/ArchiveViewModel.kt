@@ -60,7 +60,7 @@ class ArchiveViewModel @Inject constructor(
 
     @RequiresApi(Build.VERSION_CODES.O)
     fun getArchiveUrl(url: String) {
-        Log.i("TIME", "GET ARCHIVE URL ${currentTime.value}")
+        Log.i("GET ARCHIVE URL", "GET ARCHIVE URL ${currentTime.value}")
         viewModelScope.launch {
             seekSeconds.value?.let { seek ->
                 currentTime.value?.let { time ->

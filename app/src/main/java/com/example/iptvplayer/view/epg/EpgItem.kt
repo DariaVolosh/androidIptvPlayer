@@ -1,7 +1,6 @@
 package com.example.iptvplayer.view.epg
 
 import android.util.Log
-import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,7 +14,6 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -54,7 +52,6 @@ fun EpgItem(
 
     Row(
         modifier = Modifier
-            .border(1.dp, Color.Red)
             .onGloballyPositioned { cords ->
                 if (isFocused) {
                     Log.i("LAUNCHED COROUTINE", title)

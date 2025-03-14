@@ -117,7 +117,7 @@ fun PlaybackControl(
                 true
 
             }.size(40.dp)
-            .alpha(if (playbackControlInfo.isFocused) 1f else 0.6f),
+            .alpha(if (playbackControlInfo.isFocused) 1f else 0.3f),
         painter = painterResource(playbackControlInfo.image),
         contentDescription = stringResource(playbackControlInfo.contentDescription)
     )

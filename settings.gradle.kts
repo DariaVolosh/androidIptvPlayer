@@ -22,15 +22,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "IptvPlayer"
 include(":app")
-include(":decoder_ffmpeg")
-include(":lib-decoder")
-include(":lib-exoplayer")
-include(":test-utils")
-include(":ijkplayer-x86_64")
 include(":ijkplayer-java")
-include(":ijkplayer-example")
-include(":ijkplayer-x86")
-include(":ijkplayer-armv5")
-include(":ijkplayer-arm64")
-include(":ijkplayer-exo")
-include(":ijkplayer-armv7a")

@@ -77,6 +77,7 @@ class MediaViewModel @Inject constructor(
     }
 
     fun setMediaUrl(url: String) {
+        Log.i("VIEW MODEL SET MEDIA URL", url)
         if (ijkPlayer != null) {
             ijkPlayer?.reset()
             isPlayerReset = true

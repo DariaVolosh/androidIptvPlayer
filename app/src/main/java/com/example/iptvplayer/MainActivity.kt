@@ -76,6 +76,7 @@ fun MainScreen() {
     val epg by epgViewModel.epgList.observeAsState()
     val focusedProgramme by epgViewModel.focusedProgramme.observeAsState()
     val liveProgramme by epgViewModel.liveProgramme.observeAsState()
+    val archiveSegmentUrl by archiveViewModel.archiveSegmentUrl.observeAsState()
 
     var isChannelClicked by remember { mutableStateOf(false) }
     var isChannelInfoShown by remember { mutableStateOf(false) }
@@ -162,6 +163,21 @@ fun MainScreen() {
         }
     }
 
+    LaunchedEffect(archiveSegmentUrl) {
+        archiveSegmentUrl?.let { url ->
+            Log.i("ARCHIVE SEGMENT CHANGED", "ARCHIVE $url")
+            mediaViewModel.setMediaUrl(url)
+        }
+    }
+
+    LaunchedEffect(isChannelClicked) {
+        if (!isChannelClicked) {
+            channels?.let { channels ->
+                mediaViewModel.setMediaUrl(channels[focusedChannel].url)
+            }
+        }
+    }
+
     Log.i("SHIT2", "$focusedProgramme")
 
     Box(
@@ -177,6 +193,8 @@ fun MainScreen() {
                         if (event.type == KeyEventType.KeyDown) {
                             if (event.key == Key.DirectionCenter) {
                                 isChannelClicked = false
+                            } else if (event.key == Key.DirectionDown) {
+                                isChannelInfoShown = true
                             }
                         }
 
@@ -216,6 +234,7 @@ fun MainScreen() {
                         if (isChannelsListFocused) focusedChannel else -1,
                         {key -> handleChannelOnKeyEvent(key)},
                     ) { url ->
+                        Log.i("LAMBDA CALLED?", "CALLED")
                         mediaViewModel.setMediaUrl(url)
                     }
                 }
@@ -233,27 +252,26 @@ fun MainScreen() {
                 }
             }
         } else {
-            if (isChannelInfoShown) {
-                channels?.get(focusedChannel)?.let { channel ->
-                    focusedProgramme?.let { focused ->
-                        epg?.get(focused)?.let { e ->
-                            ChannelInfo(
-                                focusedChannel,
-                                channel,
-                                e,
-                                Modifier.align(Alignment.BottomCenter),
-                                { previous -> epg?.let { epg ->
-                                    epg[if (previous) focused - 1 else focused + 1]
-                                } ?: e },
-                                { backward ->
-                                    if (backward) {
-                                        epgViewModel.updateFocusedProgramme(focused - 1)
-                                    } else {
-                                        epgViewModel.updateFocusedProgramme(focused + 1)
-                                    }
+            channels?.get(focusedChannel)?.let { channel ->
+                focusedProgramme?.let { focused ->
+                    epg?.get(focused)?.let { e ->
+                        ChannelInfo(
+                            focusedChannel,
+                            channel,
+                            e,
+                            Modifier.align(Alignment.BottomCenter),
+                            isChannelInfoShown,
+                            { previous -> epg?.let { epg ->
+                                epg[if (previous) focused - 1 else focused + 1]
+                            } ?: e },
+                            { backward ->
+                                if (backward) {
+                                    epgViewModel.updateFocusedProgramme(focused - 1)
+                                } else {
+                                    epgViewModel.updateFocusedProgramme(focused + 1)
                                 }
-                            ) { show -> isChannelInfoShown = show }
-                        }
+                            }
+                        ) { show -> isChannelInfoShown = show }
                     }
                 }
             }

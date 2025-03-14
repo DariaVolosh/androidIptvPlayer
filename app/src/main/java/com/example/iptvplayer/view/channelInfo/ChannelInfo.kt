@@ -23,7 +23,6 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,7 +42,6 @@ import com.example.iptvplayer.data.Utils.formatDate
 import com.example.iptvplayer.view.channels.ArchiveViewModel
 import com.example.iptvplayer.view.channels.MediaViewModel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.util.Locale
 import kotlin.math.abs
 
@@ -55,13 +53,13 @@ fun ChannelInfo(
     channel: PlaylistChannel,
     currentProgramme: Epg,
     modifier: Modifier,
+    isChannelInfoShown: Boolean,
     getProgram: (Boolean) -> Epg,
     adjustCurrentProgramme: (Boolean) -> Unit,
     showChannelInfo: (Boolean) -> Unit
 ) {
     val archiveViewModel: ArchiveViewModel = hiltViewModel()
     val mediaViewModel: MediaViewModel = hiltViewModel()
-    val coroutineScope = rememberCoroutineScope()
 
     val timePattern = "HH:mm"
     val datePattern = "EEEE d MMMM HH:mm:ss"
@@ -126,24 +124,27 @@ fun ChannelInfo(
         archiveViewModel.setLiveTime(Utils.getGmtTime())
         timeFetched = true
 
-        launch {
+        while (true) {
+            liveTime?.let { time ->
+                archiveViewModel.setLiveTime(time + 1)
+            }
+
+            delay(1000)
+        }
+    }
+
+    LaunchedEffect(isChannelInfoShown) {
+        Log.i("IS CHANNEL INFO SHOWN", isChannelInfoShown.toString())
+        if (isChannelInfoShown) {
+            secondsNotInteracted = 0
+
             while (secondsNotInteracted < 4) {
                 secondsNotInteracted++
                 delay(1000)
             }
+
+            showChannelInfo(false)
         }
-
-        launch {
-            while (true) {
-                liveTime?.let { time ->
-                    archiveViewModel.setLiveTime(time + 1)
-                }
-
-                delay(1000)
-            }
-        }
-
-        //showChannelInfo(false)
     }
 
     LaunchedEffect(seekingStarted, timeFetched, isPaused, currentProgramme) {
@@ -174,125 +175,127 @@ fun ChannelInfo(
         }
     }
 
-    Column (
-        modifier = modifier
-            .background(MaterialTheme.colorScheme.secondary.copy(0.8f))
-            .padding(bottom = 20.dp, top = 10.dp)
-            .padding(horizontal = 10.dp)
-            .fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                modifier = Modifier.padding(end = 15.dp),
-                text = formatDate(currentProgramme.startTime, timePattern),
-                fontSize = 22.sp,
-                color = MaterialTheme.colorScheme.onSecondary
-            )
-
-            LinearProgressWithDot(Modifier.weight(1f), currentProgrammeProgress)
-
-            Text(
-                modifier = Modifier.padding(start = 15.dp),
-                text = formatDate(currentProgramme.stopTime, timePattern),
-                fontSize = 22.sp,
-                color = MaterialTheme.colorScheme.onSecondary
-            )
-        }
-
-        Box(
-            modifier = Modifier
+    if (isChannelInfoShown) {
+        Column (
+            modifier = modifier
+                .background(MaterialTheme.colorScheme.secondary.copy(0.8f))
+                .padding(bottom = 20.dp, top = 10.dp)
+                .padding(horizontal = 10.dp)
                 .fillMaxWidth()
         ) {
-
-            Column(
-                 modifier = Modifier
-                     .padding(top = 17.dp)
-                     .align(Alignment.TopStart)
-            ) {
-                Row(
-
-                ) {
-                    Text(
-                        modifier = Modifier.padding(end = 7.dp),
-                        text = "${focusedChannel + 1}.",
-                        fontSize = 24.sp,
-                        color = MaterialTheme.colorScheme.onSecondary
-                    )
-
-                    Text(
-                        text = channel.name,
-                        fontSize = 24.sp,
-                        color = MaterialTheme.colorScheme.onSecondary
-                    )
-                }
-
-                GlideImage(
-                    model = channel.logo,
-                    modifier = Modifier
-                        .padding(top = 10.dp)
-                        .size(50.dp),
-                    contentScale = ContentScale.Fit,
-                    contentDescription = stringResource(R.string.channel_logo)
-                )
-            }
-
-            Column(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .fillMaxWidth(0.6f),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Row(
-                    modifier = Modifier.padding(vertical = 25.dp)
-                ) {
-                    Text(
-                        modifier = Modifier.padding(end = 15.dp),
-                        fontSize = 22.sp,
-                        text = currentFullDate,
-                        color = MaterialTheme.colorScheme.onSecondary
-                    )
-
-                    Text(
-                        fontSize = 22.sp,
-                        text = currentProgramme.title,
-                        color = MaterialTheme.colorScheme.onSecondary
-                    )
-                }
-
-                Log.i("SHIT4", "RECOMPOSED")
-
-                PlaybackControls(
-                    { started -> seekingStarted = started },
-                    { secondsNotInteracted = 0 },
-                    { backward -> adjustCurrentProgramme(backward) },
-                    { i -> getProgram(i)},
-                    {isLive -> isLiveProgramme = isLive},
-                    channel
-                )
-            }
-
             Row(
                 modifier = Modifier
-                    .padding(top = 17.dp)
-                    .align(Alignment.TopEnd),
+                    .fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .padding(end = 7.dp)
-                        .size(12.dp)
-                        .background(Color.Red, shape = CircleShape)
+                Text(
+                    modifier = Modifier.padding(end = 15.dp),
+                    text = formatDate(currentProgramme.startTime, timePattern),
+                    fontSize = 22.sp,
+                    color = MaterialTheme.colorScheme.onSecondary
                 )
 
+                LinearProgressWithDot(Modifier.weight(1f), currentProgrammeProgress)
+
                 Text(
-                    text = if (isLiveProgramme) "live" else "record",
-                    color = Color.Red,
-                    fontSize = 24.sp
+                    modifier = Modifier.padding(start = 15.dp),
+                    text = formatDate(currentProgramme.stopTime, timePattern),
+                    fontSize = 22.sp,
+                    color = MaterialTheme.colorScheme.onSecondary
                 )
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+            ) {
+
+                Column(
+                    modifier = Modifier
+                        .padding(top = 17.dp)
+                        .align(Alignment.TopStart)
+                ) {
+                    Row(
+
+                    ) {
+                        Text(
+                            modifier = Modifier.padding(end = 7.dp),
+                            text = "${focusedChannel + 1}.",
+                            fontSize = 24.sp,
+                            color = MaterialTheme.colorScheme.onSecondary
+                        )
+
+                        Text(
+                            text = channel.name,
+                            fontSize = 24.sp,
+                            color = MaterialTheme.colorScheme.onSecondary
+                        )
+                    }
+
+                    GlideImage(
+                        model = channel.logo,
+                        modifier = Modifier
+                            .padding(top = 10.dp)
+                            .size(50.dp),
+                        contentScale = ContentScale.Fit,
+                        contentDescription = stringResource(R.string.channel_logo)
+                    )
+                }
+
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .fillMaxWidth(0.6f),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(
+                        modifier = Modifier.padding(vertical = 25.dp)
+                    ) {
+                        Text(
+                            modifier = Modifier.padding(end = 15.dp),
+                            fontSize = 22.sp,
+                            text = currentFullDate,
+                            color = MaterialTheme.colorScheme.onSecondary
+                        )
+
+                        Text(
+                            fontSize = 22.sp,
+                            text = currentProgramme.title,
+                            color = MaterialTheme.colorScheme.onSecondary
+                        )
+                    }
+
+                    Log.i("SHIT4", "RECOMPOSED")
+
+                    PlaybackControls(
+                        { started -> seekingStarted = started },
+                        { secondsNotInteracted = 0 },
+                        { backward -> adjustCurrentProgramme(backward) },
+                        { i -> getProgram(i)},
+                        {isLive -> isLiveProgramme = isLive},
+                        channel
+                    )
+                }
+
+                Row(
+                    modifier = Modifier
+                        .padding(top = 17.dp)
+                        .align(Alignment.TopEnd),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .padding(end = 7.dp)
+                            .size(12.dp)
+                            .background(Color.Red, shape = CircleShape)
+                    )
+
+                    Text(
+                        text = if (isLiveProgramme) "live" else "record",
+                        color = Color.Red,
+                        fontSize = 24.sp
+                    )
+                }
             }
         }
     }

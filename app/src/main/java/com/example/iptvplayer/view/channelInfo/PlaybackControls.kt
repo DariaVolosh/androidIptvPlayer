@@ -42,7 +42,6 @@ fun PlaybackControls(
     val epgViewModel: EpgViewModel = hiltViewModel()
 
     val isPaused by mediaViewModel.isPaused.observeAsState()
-    val archiveSegmentUrl by archiveViewModel.archiveSegmentUrl.observeAsState()
 
     val handleOnControlFocusChanged: (Int) -> Unit = { control ->
         focusedControl = control
@@ -173,13 +172,6 @@ fun PlaybackControls(
 
     LaunchedEffect(focusedControl) {
         resetSecondsNotInteracted()
-    }
-
-    LaunchedEffect(archiveSegmentUrl) {
-        archiveSegmentUrl?.let { url ->
-            Log.i("REALLY", "ARCHIVE $url")
-            mediaViewModel.setMediaUrl(url)
-        }
     }
 
     Log.i("SHIT3", "COMPOSED")
