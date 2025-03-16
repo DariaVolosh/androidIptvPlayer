@@ -25,10 +25,11 @@ import kotlinx.coroutines.launch
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun PlaybackControls(
+    channelUrl: String,
     onSeekingStarted: (Boolean) -> Unit,
     resetSecondsNotInteracted: () -> Unit,
     setIsLiveProgramme: (Boolean) -> Unit,
-    channelUrl: String
+    showProgrammeDatePicker: (Boolean) -> Unit
 ) {
     var focusedControl by remember { mutableIntStateOf(R.string.pause) }
     val coroutineScope = rememberCoroutineScope()
@@ -43,6 +44,10 @@ fun PlaybackControls(
 
     val handleOnControlFocusChanged: (Int) -> Unit = { control ->
         focusedControl = control
+    }
+
+    val handleCalendarOnClick = {
+        showProgrammeDatePicker(true)
     }
 
     val handlePreviousProgramClick: () -> Unit = {
@@ -123,7 +128,7 @@ fun PlaybackControls(
             R.drawable.calendar, R.string.calendar,
             focusedControl == R.string.calendar,
             {control -> handleOnControlFocusChanged(control)},
-            {}, {}, {}
+            handleCalendarOnClick, {}, {}
         ),
 
         PlaybackControl(

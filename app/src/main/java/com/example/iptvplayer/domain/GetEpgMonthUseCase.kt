@@ -2,15 +2,13 @@ package com.example.iptvplayer.domain
 
 import android.os.Build
 import androidx.annotation.RequiresApi
-import com.example.iptvplayer.data.Epg
 import com.example.iptvplayer.data.repositories.EpgRepository
-import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
-class GetEpgByIdUseCase @Inject constructor(
+class GetEpgMonthUseCase @Inject constructor(
     private val epgRepository: EpgRepository
 ) {
     @RequiresApi(Build.VERSION_CODES.O)
-    fun getEpgById(channelId: String, countryCode: String): Flow<List<Epg>> =
-        epgRepository.getEpgById(countryCode, channelId)
+    suspend fun getEpgMonth(countryCode: String, channelId: String) =
+        epgRepository.getEpgMonth(countryCode, channelId)
 }

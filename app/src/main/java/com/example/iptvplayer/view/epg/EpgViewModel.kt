@@ -9,7 +9,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.iptvplayer.data.Epg
 import com.example.iptvplayer.data.Utils
+import com.example.iptvplayer.domain.GetCountryCodeByIdUseCase
 import com.example.iptvplayer.domain.GetEpgByIdUseCase
+import com.example.iptvplayer.domain.GetEpgMonthUseCase
+import com.example.iptvplayer.domain.GetFirstAndLastEpgTimestampsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -17,7 +20,10 @@ import javax.inject.Inject
 
 @HiltViewModel
 class EpgViewModel @Inject constructor(
-    private val getEpgByIdUseCase: GetEpgByIdUseCase
+    private val getEpgByIdUseCase: GetEpgByIdUseCase,
+    private val getEpgMonthUseCase: GetEpgMonthUseCase,
+    private val getFirstAndLastEpgTimestampsUseCase: GetFirstAndLastEpgTimestampsUseCase,
+    private val getCountryCodeByIdUseCase: GetCountryCodeByIdUseCase
 ): ViewModel() {
     private val _epgList: MutableLiveData<List<Epg>> = MutableLiveData()
     val epgList: LiveData<List<Epg>> = _epgList
@@ -33,7 +39,14 @@ class EpgViewModel @Inject constructor(
     private var _liveProgramme: MutableLiveData<Int> = MutableLiveData()
     val liveProgramme: LiveData<Int> = _liveProgramme
 
-    private fun updateFocusedEpg() {
+    private val _firstAndLastEpgDay: MutableLiveData<Pair<Int,Int>> = MutableLiveData()
+    val firstAndLastEpgDay: LiveData<Pair<Int, Int>> = _firstAndLastEpgDay
+
+    private val _epgMonth: MutableLiveData<Int> = MutableLiveData()
+    val epgMonth: LiveData<Int> = _epgMonth
+
+
+    fun updateFocusedEpg() {
         _focusedEpg.value = epgList.value?.getOrNull(focusedEpgIndex.value ?: 0)
     }
 
@@ -54,6 +67,30 @@ class EpgViewModel @Inject constructor(
         return epgList.value?.getOrNull(index)
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
+    suspend fun getFirstAndLastEpgDays(countryCode: String, channelId: String, epgMonth: String) {
+        val firstAndLastEpgTimestamps = getFirstAndLastEpgTimestampsUseCase.getFirstAndLastEpgTimestamps(
+            countryCode,
+            channelId,
+            epgMonth
+        )
+
+        Log.i("FIRST AND LAST EPG TIMESTAMPS", firstAndLastEpgTimestamps.toString())
+
+        if (firstAndLastEpgTimestamps.first == -1L) return
+
+        val firstEpgCalendar = Utils.getCalendar(firstAndLastEpgTimestamps.first)
+        val lastEpgCalendar = Utils.getCalendar(firstAndLastEpgTimestamps.second)
+
+        val firstEpgDay = Utils.getCalendarDay(firstEpgCalendar)
+        val lastEpgDay = Utils.getCalendarDay(lastEpgCalendar)
+
+        Log.i("FIRST DAY", firstEpgDay.toString())
+        Log.i("LAST DAY", lastEpgDay.toString())
+
+        _firstAndLastEpgDay.value = Pair(firstEpgDay, lastEpgDay)
+    }
+
     private var epgCollectionJob: Job? = null
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -65,14 +102,25 @@ class EpgViewModel @Inject constructor(
         _epgList.value = listOf()
 
         epgCollectionJob = viewModelScope.launch {
-            val epgFlow = getEpgByIdUseCase.getEpgById(channelId)
-            val allDaysEpgList = mutableListOf<Epg>()
+            val countryCode = getCountryCodeByIdUseCase.getCountryCodeById(channelId)
+            val epgMonth = getEpgMonthUseCase.getEpgMonth(countryCode, channelId)
+            if (epgMonth == -1) return@launch
+            _epgMonth.value = epgMonth
 
+            getFirstAndLastEpgDays(countryCode, channelId, epgMonth.toString())
+
+            val epgFlow = getEpgByIdUseCase.getEpgById(channelId, countryCode)
+            val allDaysEpgList = mutableListOf<Epg>()
             val currentTime = Utils.getGmtTime()
 
             epgFlow.collect { dayEpg ->
                 var isPreviousDay = false
                 var previousDayInsertionIndex = 0
+
+                val calendar = Utils.getCalendar(dayEpg[1].startTime)
+
+                val currentDay = Utils.getCalendarDay(calendar)
+                Log.i("current fetched epg day", currentDay.toString())
 
                 for (i in dayEpg.indices) {
                     val epg = dayEpg[i]
@@ -96,7 +144,7 @@ class EpgViewModel @Inject constructor(
 
                         if (_focusedEpgIndex.value == -1 && startTime <= currentTime && stopTime >= currentTime) {
                             Log.i("CURRENT EPG", "$epg $i ${i-1} ${dayEpg.size}")
-                            _focusedEpgIndex.value = i - 1
+                            _focusedEpgIndex.value = i -1
                             _liveProgramme.value = i - 1
                         }
 

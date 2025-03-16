@@ -7,6 +7,11 @@ import com.instacart.library.truetime.TrueTime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.Month
+import java.time.YearMonth
+import java.time.format.TextStyle
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
@@ -58,6 +63,33 @@ object Utils {
         val dateObj1 = formatter.parse(date1)
         val dateObj2 = formatter.parse(date2)
         return dateObj1.compareTo(dateObj2)
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun getFullMonthName(monthNumber: Int): String {
+        return Month.of(monthNumber).getDisplayName(TextStyle.FULL, Locale.getDefault())
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun getAllWeekdays(): List<String> {
+        return DayOfWeek.entries.map { dayOfWeek ->
+            dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault())
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    // return the amount of days in a given month
+    fun getDaysOfMonth(month: Int): Int {
+        val yearMonth = YearMonth.of(2025, month)
+        val daysInMonth = yearMonth.lengthOfMonth()
+        return daysInMonth
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun getDayOfWeek(month: Int, day: Int): String {
+        val date = LocalDate.of(2025, month, day)
+        val dateOfWeek = date.dayOfWeek
+        return dateOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault())
     }
 
     @RequiresApi(Build.VERSION_CODES.O)

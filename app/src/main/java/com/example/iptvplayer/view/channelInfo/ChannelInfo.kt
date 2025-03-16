@@ -49,15 +49,10 @@ import kotlin.math.abs
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 fun ChannelInfo(
-    //focusedChannel: Int, // CHANNELS VIEW MODEL
-    //channel: PlaylistChannel, // CHANNELS VIEW MODEL
-    //currentProgramme: Epg, // EPG VIEW MODEL
     modifier: Modifier,
-    showProgrammeDatePicker: (Boolean) -> Unit,
     isChannelInfoShown: Boolean,
+    showProgrammeDatePicker: (Boolean) -> Unit,
     showChannelInfo: (Boolean) -> Unit
-    //getProgram: (Boolean) -> Epg, // EPG VIEW MODEL
-    //adjustCurrentProgramme: (Boolean) -> Unit, // EPG VIEW MODEL
 ) {
     val archiveViewModel: ArchiveViewModel = hiltViewModel()
     val mediaViewModel: MediaViewModel = hiltViewModel()
@@ -156,6 +151,7 @@ fun ChannelInfo(
     }
 
     LaunchedEffect(isChannelInfoShown) {
+        Log.i("IS CHANNEL INFO SHOWN", focusedEpg.toString())
         Log.i("IS CHANNEL INFO SHOWN", isChannelInfoShown.toString())
         if (isChannelInfoShown) {
             secondsNotInteracted = 0
@@ -291,11 +287,11 @@ fun ChannelInfo(
 
                     focusedChannel?.let { focused ->
                         PlaybackControls(
+                            focusedChannel?.url ?: "",
                             { started -> seekingStarted = started },
                             { secondsNotInteracted = 0 },
-                            {isLive -> isLiveProgramme = isLive},
-                            focused.url
-                        )
+                            {isLive -> isLiveProgramme = isLive}
+                        ) { showDatePicker -> showProgrammeDatePicker(showDatePicker) }
                     }
                 }
 
