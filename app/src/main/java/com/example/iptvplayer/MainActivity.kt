@@ -151,6 +151,7 @@ fun MainScreen() {
         focusedChannelIndex?.let { focused ->
             val currentChannel = channelsViewModel.getChannelByIndex(focused)
             epgViewModel.getEpgById(currentChannel?.id ?: "-1")
+            archiveViewModel.getDvrRange(currentChannel?.id ?: "-1")
         }
     }
 
@@ -239,11 +240,21 @@ fun MainScreen() {
         }
 
         if (isProgramDatePickerShown) {
-            ProgramDatePickerModal(
-                modifier = Modifier
-                    .fillMaxWidth(0.6f)
-                    .align(Alignment.Center)
-            )
+            archiveViewModel.currentTime.value?.let { currentTime ->
+                ProgramDatePickerModal(
+                    modifier = Modifier
+                        .fillMaxWidth(0.7f)
+                        .align(Alignment.Center),
+                    currentTime
+                ) { secondsSinceEpoch ->
+                    archiveViewModel.setCurrentTime(secondsSinceEpoch)
+                    focusedChannelIndex?.let { focused ->
+                        archiveViewModel.getArchiveUrl(channelsViewModel.getChannelByIndex(focused)?.url ?: "")
+                    }
+                    isProgramDatePickerShown = false
+                    isChannelInfoShown = true
+                }
+            }
         }
 
         if (!isChannelClicked) {

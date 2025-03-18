@@ -7,13 +7,16 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.iptvplayer.data.Utils
+import com.example.iptvplayer.domain.GetDvrRangeUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
+import java.util.Calendar
 import javax.inject.Inject
 
 @HiltViewModel
 class ArchiveViewModel @Inject constructor(
-
+    private val getDvrRangeUseCase: GetDvrRangeUseCase
 ): ViewModel() {
     private val _archiveSegmentUrl: MutableLiveData<String> = MutableLiveData()
     val archiveSegmentUrl: LiveData<String> = _archiveSegmentUrl
@@ -26,6 +29,17 @@ class ArchiveViewModel @Inject constructor(
 
     private val _liveTime: MutableLiveData<Long> = MutableLiveData()
     val liveTime: LiveData<Long> = _liveTime
+
+    private val _dvrRange: MutableLiveData<Pair<Long, Long>> = MutableLiveData()
+    val dvrRange: LiveData<Pair<Long, Long>> = _dvrRange
+
+    // for example march -> 3
+    private val _dvrMonth: MutableLiveData<Int> = MutableLiveData()
+    val dvrMonth: LiveData<Int> = _dvrMonth
+
+    // for example 3 march -> 3
+    private val _dvrFirstAndLastDay: MutableLiveData<Pair<Int, Int>> = MutableLiveData()
+    val dvrFirstAndLastDay: LiveData<Pair<Int, Int>> = _dvrFirstAndLastDay
 
     fun setLiveTime(time: Long) {
         _liveTime.value = time
@@ -55,6 +69,34 @@ class ArchiveViewModel @Inject constructor(
                     else seek * 2
                 }
             )
+        }
+    }
+
+    private fun getDvrFirstAndLastDays(
+        firstDayCalendar: Calendar,
+        lastDayCalendar: Calendar
+    ) {
+        val dvrFirstDay = Utils.getCalendarDay(firstDayCalendar)
+        val dvrLastDay = Utils.getCalendarDay(lastDayCalendar)
+
+        _dvrFirstAndLastDay.value = Pair(dvrFirstDay, dvrLastDay)
+    }
+
+    private fun getDvrMonth(firstDayCalendar: Calendar) {
+        _dvrMonth.value = Utils.getCalendarMonth(firstDayCalendar) + 1
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun getDvrRange(streamName: String) {
+        viewModelScope.launch {
+            val dvrRange = getDvrRangeUseCase.getDvrRange(streamName)
+            _dvrRange.value = dvrRange
+
+            val dvrRangeStartCalendar = Utils.getCalendar(dvrRange.first)
+            val dvrRangeEndCalendar = Utils.getCalendar(dvrRange.second)
+
+            getDvrMonth(dvrRangeStartCalendar)
+            getDvrFirstAndLastDays(dvrRangeStartCalendar, dvrRangeEndCalendar)
         }
     }
 

@@ -9,8 +9,11 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.Month
+import java.time.OffsetDateTime
 import java.time.YearMonth
+import java.time.ZonedDateTime
 import java.time.format.TextStyle
 import java.util.Calendar
 import java.util.Date
@@ -83,6 +86,12 @@ object Utils {
         val yearMonth = YearMonth.of(2025, month)
         val daysInMonth = yearMonth.lengthOfMonth()
         return daysInMonth
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun dateToEpochSeconds(day: Int, month: Int, year: Int, hour: Int, minute: Int): Long {
+        val localDateTime = LocalDateTime.of(year, month, day, hour, minute)
+        return ZonedDateTime.of(localDateTime, OffsetDateTime.now().offset).toEpochSecond()
     }
 
     @RequiresApi(Build.VERSION_CODES.O)

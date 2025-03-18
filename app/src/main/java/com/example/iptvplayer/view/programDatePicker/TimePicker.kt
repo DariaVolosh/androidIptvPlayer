@@ -1,8 +1,191 @@
 package com.example.iptvplayer.view.programDatePicker
 
+import android.os.Build
+import android.util.Log
+import androidx.annotation.RequiresApi
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.iptvplayer.data.Utils
+import java.util.Calendar
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun TimePicker() {
+fun TimePicker(
+    modifier: Modifier,
+    currentTime: Long,
+    isFocused: Boolean,
+    dvrRange: Pair<Long, Long>,
+    chosenDateSinceEpoch: Long,
+    onTimeChanged: (Long) -> Unit,
+    onDatePickerFocus: () -> Unit
+) {
+    var hours by remember {
+        mutableIntStateOf(
+            Utils.getCalendar(currentTime).get(Calendar.HOUR_OF_DAY)
+        )
+    }
 
+    var minutes by remember {
+        mutableIntStateOf(
+            Utils.getCalendar(currentTime).get(Calendar.MINUTE)
+        )
+    }
+
+    val hoursFocusRequester = remember { FocusRequester() }
+    val minutesFocusRequester = remember { FocusRequester() }
+
+    val getHoursInSeconds: (Int) -> Int = { hours ->
+        val res = hours * 3600
+        Log.i("get hours in seconds fun", "$res $hours")
+        res
+    }
+
+    val getMinutesInSeconds: (Int) -> Int = { minutes ->
+        val res = minutes * 60
+        Log.i("get minutes in seconds fun", "$res $minutes")
+        res
+    }
+
+    val getTotalTime: (Int, Int) -> Int = { hours, minutes ->
+        Log.i("get total date since epoch fun", "hours: $hours minutes: $minutes")
+        val res = getHoursInSeconds(hours) + getMinutesInSeconds(minutes)
+        Log.i("get total date since epoch fun", res.toString())
+        res
+    }
+
+    val isNewTimeWithinDvrRange: (Long) -> Boolean =  { newTotalDate ->
+        Log.i("is new time within dvr range", newTotalDate.toString())
+        Log.i("dvr range", dvrRange.toString())
+        Log.i("dvr range start", Utils.formatDate(dvrRange.first ?: 0, "EEEE d MMMM HH:mm:ss"))
+        Log.i("dvr range stop", Utils.formatDate(dvrRange.second ?: 0, "EEEE d MMMM HH:mm:ss"))
+        newTotalDate >= dvrRange.first && newTotalDate <= dvrRange.second
+    }
+
+
+    LaunchedEffect(isFocused) {
+        if (isFocused) {
+            // if after changing focused day the time is not within dvr range
+            // we have to reset the time to the lowest dvr range bound
+            // (if the focused day is dvr first day)
+            // and reset the time to the up dvr range bound
+            // (if the focused day is dvr last day)
+            val newTotalTime = getTotalTime(hours, minutes)
+            val totalDate = newTotalTime + chosenDateSinceEpoch
+
+            if (!isNewTimeWithinDvrRange(totalDate)) {
+                val focusedDay = Utils.getCalendarDay(Utils.getCalendar(totalDate))
+
+                val dvrFirstDayCalendar = Utils.getCalendar(dvrRange.first)
+                val dvrLastDayCalendar = Utils.getCalendar(dvrRange.second)
+
+                val dvrFirstDay = Utils.getCalendarDay(dvrFirstDayCalendar)
+
+                if (focusedDay == dvrFirstDay) {
+                    val dvrFirstMinute = dvrFirstDayCalendar.get(Calendar.MINUTE)
+                    val dvrFirstHour = dvrFirstDayCalendar.get(Calendar.HOUR_OF_DAY)
+
+                    hours = dvrFirstHour
+                    minutes = dvrFirstMinute
+                } else {
+                    val dvrLastMinute = dvrLastDayCalendar.get(Calendar.MINUTE)
+                    val dvrLastHour = dvrLastDayCalendar.get(Calendar.HOUR_OF_DAY)
+
+                    hours = dvrLastHour
+                    minutes = dvrLastMinute
+                }
+            }
+
+            hoursFocusRequester.requestFocus()
+        }
+    }
+
+    LaunchedEffect(hours, minutes) {
+        Log.i("MINUTES", "minutes $minutes")
+        Log.i("current time launched effect", Utils.formatDate(currentTime, "EEEE d MMMM HH:mm:ss"))
+        val totalTimeSinceEpoch = getTotalTime(hours, minutes)
+        onTimeChanged(totalTimeSinceEpoch.toLong())
+    }
+
+
+    val hoursControlKeyEventHandler: (Key) -> Unit = { key ->
+        when (key) {
+            Key.DirectionLeft -> onDatePickerFocus()
+            Key.DirectionRight -> minutesFocusRequester.requestFocus()
+            Key.DirectionUp -> {
+                Log.i("direction up", "fired")
+
+                Log.i("hours", hours.toString())
+                val newHour = if (hours < 23) hours + 1 else 0
+
+                Log.i("new hour and minutes", "$newHour $hours $minutes")
+                Log.i("total date", chosenDateSinceEpoch.toString())
+                val newTotalTime = getTotalTime(newHour, minutes)
+                Log.i("total time", newTotalTime.toString())
+                if (isNewTimeWithinDvrRange(newTotalTime + chosenDateSinceEpoch)) hours = newHour
+            }
+            Key.DirectionDown -> {
+                val newHour = if (hours > 0) hours - 1 else 23
+                val newTotalTime = getTotalTime(newHour, minutes)
+                if (isNewTimeWithinDvrRange(newTotalTime + chosenDateSinceEpoch)) hours = newHour
+            }
+        }
+    }
+
+    val minutesControlKeyEventHandler: (Key) -> Unit = { key ->
+        when (key) {
+            Key.DirectionLeft -> hoursFocusRequester.requestFocus()
+            Key.DirectionUp -> {
+                val newMinutes = if (minutes < 59) minutes + 1 else 0
+                val newTotalTime = getTotalTime(hours, newMinutes)
+                if (isNewTimeWithinDvrRange(newTotalTime + chosenDateSinceEpoch)) minutes = newMinutes
+            }
+            Key.DirectionDown -> {
+                val newMinutes = if (minutes > 0) minutes - 1 else 59
+                val newTotalTime = getTotalTime(hours, newMinutes)
+                if (isNewTimeWithinDvrRange(newTotalTime + chosenDateSinceEpoch)) minutes = newMinutes
+            }
+        }
+    }
+
+    Row(
+        modifier = modifier,
+            //.border(1.dp, Color.Red),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+
+        TimeControl(
+            Modifier.weight(1f),
+            if (hours < 10) "0$hours" else "$hours",
+            hoursFocusRequester,
+            hoursControlKeyEventHandler
+        )
+
+        Text(
+            text = ":",
+            fontSize = 30.sp,
+            color = MaterialTheme.colorScheme.onSecondary
+        )
+
+        TimeControl(
+            Modifier.weight(1f),
+            if (minutes < 10) "0$minutes" else "$minutes",
+            minutesFocusRequester,
+            minutesControlKeyEventHandler
+        )
+    }
 }
