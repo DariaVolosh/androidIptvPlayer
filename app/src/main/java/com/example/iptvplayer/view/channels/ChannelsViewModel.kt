@@ -47,8 +47,10 @@ class ChannelsViewModel @Inject constructor(
 
     fun parsePlaylist() {
         viewModelScope.launch {
+            // "http://91.222.154.251/tv/playlists/Lait?token=Lait" - ukrainian flussonic
+            // "http://193.176.212.58:8080/tv/playlists/oktv?token=oktv" - georgian flussonic
             val playlistContent =
-                readFileUseCase.readFile("http://193.176.212.58:8080/tv/playlists/oktv2?token=oktv2")
+                readFileUseCase.readFile("http://193.176.212.58:8080/tv/playlists/oktv?token=oktv")
             _channels.value = getChannelsDataUseCase.getChannelsData(playlistContent)
 
             val channelNames = _channels.value?.map { ch ->

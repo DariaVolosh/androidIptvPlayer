@@ -42,6 +42,7 @@ class ArchiveViewModel @Inject constructor(
     val dvrFirstAndLastDay: LiveData<Pair<Int, Int>> = _dvrFirstAndLastDay
 
     fun setLiveTime(time: Long) {
+        Log.i("LIVE TIME", time.toString())
         _liveTime.value = time
     }
 
@@ -53,7 +54,7 @@ class ArchiveViewModel @Inject constructor(
                     // 256 is a rewind limit (~4 minutes) to prevent user from rewinding archive
                     // exponentially. this way user will not rewind archive more then by 4 minutes
                     // at once
-                    if (seek <= -256) seek - 256
+                    if (seek <= -64) seek - 64
                     else seek * 2
                 }
             )
@@ -65,7 +66,7 @@ class ArchiveViewModel @Inject constructor(
             _seekSeconds.postValue(
                 if (seek == 0) 1
                 else {
-                    if (seek >= 256) seek + 256
+                    if (seek >= 64) seek + 64
                     else seek * 2
                 }
             )

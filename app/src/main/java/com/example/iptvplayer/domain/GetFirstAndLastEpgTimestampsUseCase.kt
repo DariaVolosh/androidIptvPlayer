@@ -10,10 +10,9 @@ class GetFirstAndLastEpgTimestampsUseCase @Inject constructor(
 ){
     @RequiresApi(Build.VERSION_CODES.O)
     suspend fun getFirstAndLastEpgTimestamps(
-        countryCode: String,
         channelId: String,
         month: String
     ): Pair<Long, Long> {
-        return epgRepository.getFirstAndLastEpgTimestamps(countryCode, channelId, month)
+        return epgRepository.getFirstAndLastEpgTimestamps(channelId, month)
     }
 }

@@ -15,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -27,9 +28,11 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.data.Epg
 import com.example.iptvplayer.data.Utils
 import com.example.iptvplayer.data.Utils.formatDate
+import com.example.iptvplayer.view.channels.ArchiveViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -43,6 +46,9 @@ fun EpgList(
     isListFocused: Boolean,
     epgOnKeyEvent: (Key) -> Unit
 ) {
+    val archiveViewModel: ArchiveViewModel = hiltViewModel()
+
+    val liveTime by archiveViewModel.liveTime.observeAsState()
 
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -114,17 +120,17 @@ fun EpgList(
                     formatDate(epgItem.stopTime, timePattern),
                     epgItem.title,
                     index == focusedEpg && isListFocused,
-                    index >= visibleItems / 2,
+                    epgItem.isDvrAvailable,
                     { height -> itemHeight = height },
                     {
-                       coroutineScope.launch {
-                           // providing delay to make layout before scrolling stable (debounce focus request)
-                           // i do not know why it works without delay for channelsList but i am tired of
-                           // debugging and that is why i leave delay here (i am sorry)
-                           delay(30)
+                        coroutineScope.launch {
+                            // providing delay to make layout before scrolling stable (debounce focus request)
+                            // i do not know why it works without delay for channelsList but i am tired of
+                            // debugging and that is why i leave delay here (i am sorry)
+                            delay(30)
 
-                           listState.scrollToItem(focusedEpg, -borderYOffset + 31)
-                       }
+                            listState.scrollToItem(focusedEpg, -borderYOffset + 31)
+                        }
                     }
                 ) {key -> epgOnKeyEvent(key)}
             }

@@ -11,4 +11,6 @@
     <string name="forward">Forward</string>
     <string name="next_program">Next program</string>
     <string name="go_live">Go live</string>
+    <string name="stream_thumbnail">Stream thumbnail</string>
+    <string name="preview_window_pointer">Preview window pointer</string>
 </resources>

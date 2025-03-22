@@ -14,7 +14,10 @@ class RetrofitModule {
     @Provides
     fun provideRetrofit() =
         Retrofit.Builder()
-            .baseUrl("http://193.176.212.58:8080/streamer/api/v3/")
+            ***REMOVED***
+            .baseUrl("http://193.176.212.58:8080/")
+            ***REMOVED***
+            ***REMOVED***
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 

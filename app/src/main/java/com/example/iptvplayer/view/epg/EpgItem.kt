@@ -12,6 +12,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
@@ -32,7 +33,7 @@ fun EpgItem(
     stopTime: String,
     title: String,
     isFocused: Boolean,
-    isMiddleItem: Boolean,
+    isDvrAvailable: Boolean,
     onGloballyPositioned: (Int) -> Unit,
     onScrollRequest: () -> Unit,
     onKeyEvent: (Key) -> Unit
@@ -73,6 +74,7 @@ fun EpgItem(
             .fillMaxWidth()
     ) {
         Text(
+            modifier = Modifier.alpha(if (isDvrAvailable) 1f else 0.3f),
             text = "$startTime-$stopTime $title",
             fontSize = 20.sp,
             color = MaterialTheme.colorScheme.onSecondary

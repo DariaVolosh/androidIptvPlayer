@@ -9,7 +9,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.iptvplayer.data.Epg
 import com.example.iptvplayer.data.Utils
-import com.example.iptvplayer.domain.GetCountryCodeByIdUseCase
 import com.example.iptvplayer.domain.GetEpgByIdUseCase
 import com.example.iptvplayer.domain.GetEpgMonthUseCase
 import com.example.iptvplayer.domain.GetFirstAndLastEpgTimestampsUseCase
@@ -23,7 +22,7 @@ class EpgViewModel @Inject constructor(
     private val getEpgByIdUseCase: GetEpgByIdUseCase,
     private val getEpgMonthUseCase: GetEpgMonthUseCase,
     private val getFirstAndLastEpgTimestampsUseCase: GetFirstAndLastEpgTimestampsUseCase,
-    private val getCountryCodeByIdUseCase: GetCountryCodeByIdUseCase
+    //private val getCountryCodeByIdUseCase: GetCountryCodeByIdUseCase
 ): ViewModel() {
     private val _epgList: MutableLiveData<List<Epg>> = MutableLiveData()
     val epgList: LiveData<List<Epg>> = _epgList
@@ -44,6 +43,63 @@ class EpgViewModel @Inject constructor(
 
     private val _epgMonth: MutableLiveData<Int> = MutableLiveData()
     val epgMonth: LiveData<Int> = _epgMonth
+
+    val channelsIdToEpgIdMapper = mapOf(
+        "X2plus2" to "ch001",
+        "Xm1-ua" to "ch002",
+        "ch003" to "ch003",
+        "Xtet-ua" to "ch004",
+        "Xnovy-kanal-ua" to "ch005",
+        "Xntn-ua" to "ch006",
+        "Xsetanta-plus-ua" to "ch007",
+        "Xsetanta-ua" to "ch008",
+        "Xviasat-nature" to "ch009",
+        "Xtlc" to "ch010",
+        "Xfilmbox-ru" to "ch011",
+        "Xfilmbox-arthouse" to "ch012",
+        "id-xtra" to "ch013",
+        "ROZPAKUY" to "ch014",
+        "Super" to "ch015",
+        "Xdiscovery-channel" to "ch016",
+        "Xstar-family-ua " to "ch017",
+        "Xstar-cinema-ua" to "ch018",
+        "Xviasat-explore" to "ch019",
+        "Xanimal-planet-eu" to "ch020",
+        "Xsonce-ua" to "ch021",
+        "Xpixel" to "ch022",
+        "Xenter-film" to "ch023",
+        "Xxsport-ua" to "ch024",
+        "Xespreso-tv" to "ch025",
+        "Xpriamyj" to "ch026",
+        "Xk2-ua" to "ch027",
+        "Xk1-ua" to "ch028",
+        "Xsuspilne-sport-ua" to "ch029",
+        "Xua-tv" to "ch030",
+        "Xarmia-tv-ua" to "ch031",
+        "Xbigudi" to "ch032",
+        "Xunian-tv" to "ch033",
+        "Xinter-ua" to "ch034",
+        "Xstb-ua" to "ch035",
+        "Xictv-ukraine" to "ch036",
+        "Xkultura-ua" to "ch037",
+        "X1plus1-ukraina" to "ch038",
+        "Xua-pershy" to "ch039",
+        "Xmy-ukraina-plus" to "ch040",
+        "Xplusplus" to "ch041",
+        "Xmega-ua" to "ch042",
+        // OCE! (ua channel)
+        "ch36" to "ch043",
+        // TRK
+        "ch25" to "ch044",
+        // VITA TV
+        "ch24" to "ch045",
+        // TUSO
+        "ch23" to "ch046",
+        // TAK TV
+        "ch19" to "ch047",
+        // 1+1 marafon
+        "ch11" to "ch048"
+    )
 
 
     fun updateFocusedEpg() {
@@ -68,9 +124,8 @@ class EpgViewModel @Inject constructor(
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
-    suspend fun getFirstAndLastEpgDays(countryCode: String, channelId: String, epgMonth: String) {
+    suspend fun getFirstAndLastEpgDays(channelId: String, epgMonth: String) {
         val firstAndLastEpgTimestamps = getFirstAndLastEpgTimestampsUseCase.getFirstAndLastEpgTimestamps(
-            countryCode,
             channelId,
             epgMonth
         )
@@ -94,22 +149,28 @@ class EpgViewModel @Inject constructor(
     private var epgCollectionJob: Job? = null
 
     @RequiresApi(Build.VERSION_CODES.O)
-    fun getEpgById(channelId: String) {
-        if (channelId == "-1") return
+    fun getEpgById(channelId: String, dvrRange: Pair<Long,Long>) {
+        Log.i("epg month channel id", "called")
+        val mappedEpgId = channelsIdToEpgIdMapper[channelId] ?: ""
+        Log.i("epg month channel id", "playlist $channelId")
+
+        if (mappedEpgId == "") return
         epgCollectionJob?.cancel()
         _liveProgramme.value = -1
         _focusedEpgIndex.value = -1
         _epgList.value = listOf()
 
         epgCollectionJob = viewModelScope.launch {
-            val countryCode = getCountryCodeByIdUseCase.getCountryCodeById(channelId)
-            val epgMonth = getEpgMonthUseCase.getEpgMonth(countryCode, channelId)
+            //val countryCode = getCountryCodeByIdUseCase.getCountryCodeById(mappedEpgId)
+            Log.i("epg month channel id", "playlist $mappedEpgId")
+            val epgMonth = getEpgMonthUseCase.getEpgMonth(mappedEpgId)
+            Log.i("epg month", epgMonth.toString())
             if (epgMonth == -1) return@launch
             _epgMonth.value = epgMonth
 
-            getFirstAndLastEpgDays(countryCode, channelId, epgMonth.toString())
+            getFirstAndLastEpgDays(mappedEpgId, epgMonth.toString())
 
-            val epgFlow = getEpgByIdUseCase.getEpgById(channelId, countryCode)
+            val epgFlow = getEpgByIdUseCase.getEpgById(mappedEpgId, dvrRange)
             val allDaysEpgList = mutableListOf<Epg>()
             val currentTime = Utils.getGmtTime()
 

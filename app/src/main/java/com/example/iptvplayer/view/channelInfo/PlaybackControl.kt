@@ -61,7 +61,7 @@ fun PlaybackControl(
         Log.i("SHIT1", "$isLongPressed $name")
         while (isLongPressed) {
             playbackControlInfo.onLongPressed()
-            delay(1000)
+            delay(400)
         }
     }
 

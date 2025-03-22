@@ -55,7 +55,7 @@ fun PlaybackControls(
             resetSecondsNotInteracted()
             val prevProgram = epgViewModel.getEpgByIndex(focusedEpgIndex - 1)
 
-            if (prevProgram != null) {
+            if (prevProgram != null && channelUrl.isNotEmpty()) {
                 archiveViewModel.setCurrentTime(prevProgram.startTime)
                 archiveViewModel.getArchiveUrl(channelUrl)
                 onSeekingStarted(true)
@@ -70,7 +70,7 @@ fun PlaybackControls(
             resetSecondsNotInteracted()
             val nextProgram = epgViewModel.getEpgByIndex(focusedEpgIndex + 1)
 
-            if (nextProgram != null) {
+            if (nextProgram != null && channelUrl.isNotEmpty()) {
                 archiveViewModel.setCurrentTime(nextProgram.startTime)
                 archiveViewModel.getArchiveUrl(channelUrl)
                 onSeekingStarted(true)
@@ -87,8 +87,10 @@ fun PlaybackControls(
     }
 
     val handleOnFingerLiftedUp = {
-        onSeekingStarted(false)
-        archiveViewModel.getArchiveUrl(channelUrl)
+        if (channelUrl.isNotEmpty()) {
+            onSeekingStarted(false)
+            archiveViewModel.getArchiveUrl(channelUrl)
+        }
     }
 
     val handlePauseOnClick = {
@@ -108,18 +110,20 @@ fun PlaybackControls(
     }
 
     val handleGoLiveOnClick: () -> Unit = {
-        resetSecondsNotInteracted()
-        onSeekingStarted(true)
-        coroutineScope.launch {
-            epgViewModel.liveProgramme.value?.let { l ->
-                epgViewModel.updateFocusedEpgIndex(l)
+        if (channelUrl.isNotEmpty()) {
+            resetSecondsNotInteracted()
+            onSeekingStarted(true)
+            coroutineScope.launch {
+                epgViewModel.liveProgramme.value?.let { l ->
+                    epgViewModel.updateFocusedEpgIndex(l)
+                }
+                mediaViewModel.setMediaUrl(channelUrl)
+                archiveViewModel.liveTime.value?.let { t ->
+                    archiveViewModel.setCurrentTime(t)
+                }
+                setIsLiveProgramme(true)
+                onSeekingStarted(false)
             }
-            mediaViewModel.setMediaUrl(channelUrl)
-            archiveViewModel.liveTime.value?.let { t ->
-                archiveViewModel.setCurrentTime(t)
-            }
-            setIsLiveProgramme(true)
-            onSeekingStarted(false)
         }
     }
 

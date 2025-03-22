@@ -9,6 +9,6 @@ class GetEpgMonthUseCase @Inject constructor(
     private val epgRepository: EpgRepository
 ) {
     @RequiresApi(Build.VERSION_CODES.O)
-    suspend fun getEpgMonth(countryCode: String, channelId: String) =
-        epgRepository.getEpgMonth(countryCode, channelId)
+    suspend fun getEpgMonth(channelId: String) =
+        epgRepository.getEpgMonth(channelId)
 }

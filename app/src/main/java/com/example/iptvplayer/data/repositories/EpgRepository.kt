@@ -8,7 +8,6 @@ import com.example.iptvplayer.data.Utils
 import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.tasks.await
 import java.util.TimeZone
@@ -17,62 +16,64 @@ import javax.inject.Inject
 class EpgRepository @Inject constructor(
     private val firestore: FirebaseFirestore
 ) {
-    suspend fun getCountryCodeById(id: String): String {
+    /*suspend fun getCountryCodeById(id: String): String {
         val code = CompletableDeferred<String>()
+        Log.i("get country code by id", id)
+        Log.i("get country code by id", channelsIdToEpgIdMapper[id].toString())
 
         firestore
             .collection("channel_id_to_country_mapping_prod").document("mapping")
             .get()
             .addOnSuccessListener { result ->
-                Log.i("onSuccessLmao", result[id].toString())
-                code.complete(result[id].toString())
+                Log.i("onSuccessLmao", channelsIdToEpgIdMapper[id].toString())
+                Log.i("onSuccessLmao", result.data.toString())
+                result.data?.let { data ->
+                    code.complete(data[id].toString())
+                }
             }
 
         return code.await()
-    }
+    } */
 
     @RequiresApi(Build.VERSION_CODES.O)
     fun getEpgYearRef(
-        countryCode: String,
         channelId: String
     ): DocumentReference {
-        Log.i("epg country code", countryCode)
         Log.i("epg channel id", channelId)
 
         return firestore
-            .collection("epg_prod").document("GE")
-            .collection("channels_id").document(channelId)
+            //.collection("epg_prod").document(countryCode)
+            .collection("epg_prod").document(channelId)
             .collection("years").document("2025")
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
-    fun getEpgMonthsRef(countryCode: String, channelId: String): CollectionReference {
-        return getEpgYearRef(countryCode, channelId).collection("months")
+    fun getEpgMonthsRef(channelId: String): CollectionReference {
+        return getEpgYearRef(channelId).collection("months")
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
-    fun getEpgDaysRef(countryCode: String, channelId: String, month: String): CollectionReference {
-        return getEpgMonthsRef(countryCode, channelId)
+    fun getEpgDaysRef(channelId: String, month: String): CollectionReference {
+        return getEpgMonthsRef(channelId)
             .document(month).collection("days")
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
     suspend fun getEpgMonth(
-        countryCode: String,
         channelId: String
     ): Int {
-        val epgMonth = getEpgMonthsRef(countryCode, channelId).get().await()
+        Log.i("get epg month", channelId)
+        val epgMonth = getEpgMonthsRef(channelId).get().await()
         return if (epgMonth.documents.size == 0) -1 else epgMonth.documents[0].id.toInt()
     }
 
 
     @RequiresApi(Build.VERSION_CODES.O)
     suspend fun getEpgFirstAndLastDays(
-        countryCode: String,
         channelId: String,
         month: String
     ): Pair<Int,Int> {
-        val daysRef = getEpgDaysRef(countryCode, channelId, month).get().await()
+        val daysRef = getEpgDaysRef(channelId, month).get().await()
         Log.i("epg ref exists", daysRef.documents.size.toString())
 
         val sortedEpgDays = daysRef.documents.sortedBy { doc -> doc.id.toInt() }
@@ -87,19 +88,18 @@ class EpgRepository @Inject constructor(
 
     @RequiresApi(Build.VERSION_CODES.O)
     suspend fun getFirstAndLastEpgTimestamps(
-        countryCode: String,
         channelId: String,
         month: String
     ): Pair<Long, Long> {
-        val epgFirstAndLastDays = getEpgFirstAndLastDays(countryCode, channelId, month)
+        val epgFirstAndLastDays = getEpgFirstAndLastDays(channelId, month)
         if (epgFirstAndLastDays.first == -1) return Pair(-1,-1)
 
 
-        val firstDayEpgRef = getEpgDaysRef(countryCode, channelId, month)
+        val firstDayEpgRef = getEpgDaysRef(channelId, month)
             .document(epgFirstAndLastDays.first.toString())
             .collection("programmes_list")
 
-        val lastDayEpgRef = getEpgDaysRef(countryCode, channelId, month)
+        val lastDayEpgRef = getEpgDaysRef(channelId, month)
             .document(epgFirstAndLastDays.second.toString())
             .collection("programmes_list")
 
@@ -122,27 +122,42 @@ class EpgRepository @Inject constructor(
 
     @RequiresApi(Build.VERSION_CODES.O)
     suspend fun getDayEpg(
-        countryCode: String,
         channelId: String,
         month: String,
-        day: String
+        day: String,
+        dvrRange: Pair<Long, Long>
     ): MutableList<Epg> {
         Log.i("Thread", "Before Firestore: ${Thread.currentThread().name}")
 
         val epgList = mutableListOf<Epg>()
 
         val currentDayGmtProgrammesList =
-            getEpgDaysRef(countryCode, channelId, month)
+            getEpgDaysRef(channelId, month)
                 .document(day)
                 .collection("programmes_list").get().await()
 
+        Log.i("current gmt epg", currentDayGmtProgrammesList.documents.toString())
+
         for (epgDoc in currentDayGmtProgrammesList.documents) {
+            Log.i("epg title", epgDoc["title"].toString())
+            Log.i("epg title","epg day $day")
+            Log.i("epg title", "epg stop time ${epgDoc["stop_time"]}")
             val startTime = epgDoc["start_time"].toString().toLong()
             val stopTime = epgDoc["stop_time"].toString().toLong()
             val duration = stopTime - startTime
             val title = epgDoc["title"].toString()
 
-            val epg = Epg(startTime, stopTime, duration, title)
+            var isDvrAvailable = false
+
+            if (
+                dvrRange.first > 0 &&
+                dvrRange.first <= startTime &&
+                (dvrRange.second >= stopTime || startTime < Utils.getGmtTime())
+            ) {
+                isDvrAvailable = true
+            }
+
+            val epg = Epg(startTime, stopTime, duration, title, isDvrAvailable)
             epgList += epg
             Log.i("WHAT", "${epg.toString()} $day")
         }
@@ -154,7 +169,7 @@ class EpgRepository @Inject constructor(
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
-    fun getEpgById(countryCode: String, channelId: String) = flow {
+    fun getEpgById(channelId: String, dvrRange: Pair<Long, Long>) = flow {
         val datePattern = "yyyy d M HH:mm:ss"
 
         val currentGmtTime = Utils.getGmtTime()
@@ -171,9 +186,11 @@ class EpgRepository @Inject constructor(
         var allPreviousDaysFetched = false
         var allNextDaysFetched = false
 
-        val firstAndLastEpgDay = getEpgFirstAndLastDays(countryCode, channelId, currentGmtMonth.toString())
+        val firstAndLastEpgDay = getEpgFirstAndLastDays(channelId, currentGmtMonth.toString())
         val firstEpgDay = firstAndLastEpgDay.first
         val lastEpgDay = firstAndLastEpgDay.second
+
+        Log.i("first and last epg day", "$firstEpgDay $lastEpgDay")
 
         if (firstEpgDay == -1) return@flow
 
@@ -222,12 +239,11 @@ class EpgRepository @Inject constructor(
             }
 
             val startTimeSortedEpg = getDayEpg(
-                countryCode,
                 channelId,
                 currentGmtMonth.toString(),
-                localGmtDay.toString()
+                localGmtDay.toString(),
+                dvrRange
             )
-
 
             startTimeSortedEpg.add(0, dummyEpg)
             Log.i("WHY", startTimeSortedEpg.toString())
