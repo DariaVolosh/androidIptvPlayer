@@ -28,15 +28,15 @@ class ChannelsViewModel @Inject constructor(
     private val _focusedChannel: MutableLiveData<PlaylistChannel> = MutableLiveData()
     val focusedChannel: LiveData<PlaylistChannel> = _focusedChannel
 
-    private fun updateFocusedChannel() {
+    private fun updateFocusedChannelIndex() {
         _focusedChannel.value = channels.value?.getOrNull(focusedChannelIndex.value ?: 0)
     }
 
-    fun updateFocusedChannel(focused: Int) {
+    fun updateFocusedChannelIndex(focused: Int) {
         _channels.value?.size?.let { channelsSize ->
             if (focused < channelsSize || focused >= 0) {
                 _focusedChannelIndex.value = focused
-                updateFocusedChannel()
+                updateFocusedChannelIndex()
             }
         }
     }

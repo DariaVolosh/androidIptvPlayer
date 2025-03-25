@@ -1,8 +1,6 @@
 package com.example.iptvplayer.data.repositories
 
-import android.os.Build
 import android.util.Log
-import androidx.annotation.RequiresApi
 import com.example.iptvplayer.data.Epg
 import com.example.iptvplayer.data.Utils
 import com.google.firebase.firestore.CollectionReference
@@ -35,7 +33,6 @@ class EpgRepository @Inject constructor(
         return code.await()
     } */
 
-    @RequiresApi(Build.VERSION_CODES.O)
     fun getEpgYearRef(
         channelId: String
     ): DocumentReference {
@@ -47,18 +44,15 @@ class EpgRepository @Inject constructor(
             .collection("years").document("2025")
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     fun getEpgMonthsRef(channelId: String): CollectionReference {
         return getEpgYearRef(channelId).collection("months")
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     fun getEpgDaysRef(channelId: String, month: String): CollectionReference {
         return getEpgMonthsRef(channelId)
             .document(month).collection("days")
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     suspend fun getEpgMonth(
         channelId: String
     ): Int {
@@ -68,7 +62,6 @@ class EpgRepository @Inject constructor(
     }
 
 
-    @RequiresApi(Build.VERSION_CODES.O)
     suspend fun getEpgFirstAndLastDays(
         channelId: String,
         month: String
@@ -86,7 +79,6 @@ class EpgRepository @Inject constructor(
         return firstAndLastDay
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     suspend fun getFirstAndLastEpgTimestamps(
         channelId: String,
         month: String
@@ -109,7 +101,6 @@ class EpgRepository @Inject constructor(
         return Pair(firstEpgTimestamp, lastEpgTimestamp)
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     suspend fun getFirstEpgTimestampOfDay(dayRef: CollectionReference): Long {
         val firstEpgTimestamp = dayRef.orderBy("start_time").get().await()
         return firstEpgTimestamp.documents[0].id.toLong()
@@ -120,7 +111,6 @@ class EpgRepository @Inject constructor(
         return lastEpgTimestamp.documents[lastEpgTimestamp.documents.size-1].id.toLong()
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     suspend fun getDayEpg(
         channelId: String,
         month: String,
@@ -168,7 +158,6 @@ class EpgRepository @Inject constructor(
         return epgList.sortedBy { epg -> epg.startTime }.toMutableList()
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     fun getEpgById(channelId: String, dvrRange: Pair<Long, Long>) = flow {
         val datePattern = "yyyy d M HH:mm:ss"
 
@@ -195,7 +184,7 @@ class EpgRepository @Inject constructor(
         if (firstEpgDay == -1) return@flow
 
         var dayCount = 0
-        while (dayCount < 10) {
+        while (!allNextDaysFetched || !allPreviousDaysFetched) {
             var localGmtDay: Int
 
             // dummy epg to indicate that all the epgs of the day are fetched
@@ -246,7 +235,7 @@ class EpgRepository @Inject constructor(
             )
 
             startTimeSortedEpg.add(0, dummyEpg)
-            Log.i("WHY", startTimeSortedEpg.toString())
+            Log.i("WHY", "${startTimeSortedEpg}")
             Log.i("WHY", localGmtDay.toString())
             if (startTimeSortedEpg.size > 1) emit(startTimeSortedEpg)
             dayCount++

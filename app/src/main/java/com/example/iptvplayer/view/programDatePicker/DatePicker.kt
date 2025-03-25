@@ -1,7 +1,5 @@
 package com.example.iptvplayer.view.programDatePicker
 
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,7 +23,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.data.Utils
 import com.example.iptvplayer.view.channels.ArchiveViewModel
 
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun DatePicker(
     modifier: Modifier,

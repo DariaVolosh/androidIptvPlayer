@@ -1,8 +1,6 @@
 package com.example.iptvplayer.view.channelInfo
 
-import android.os.Build
 import android.util.Log
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,15 +27,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.example.iptvplayer.data.Utils.formatDate
 import com.example.iptvplayer.view.channels.ArchiveViewModel
 import com.example.iptvplayer.view.channels.ChannelsViewModel
 import com.example.iptvplayer.view.epg.EpgViewModel
 import kotlinx.coroutines.delay
 
-@RequiresApi(Build.VERSION_CODES.O)
-@OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 fun ChannelInfo(
     modifier: Modifier,
@@ -86,7 +81,7 @@ fun ChannelInfo(
     }
 
     LaunchedEffect(focusedEpg) {
-        if (focusedEpg == null) {
+        if (focusedEpg == null || focusedEpg?.isDvrAvailable == false) {
             val progressUpdatePeriod = 10 // in seconds
             var secondsPassed = 0
 
@@ -126,7 +121,9 @@ fun ChannelInfo(
                     .padding(horizontal = 10.dp)
                     .fillMaxWidth()
             ) {
-                focusedEpg?.let {
+                val localFocusedEpg = focusedEpg
+
+                if (localFocusedEpg != null && localFocusedEpg.isDvrAvailable) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth(),
@@ -163,7 +160,7 @@ fun ChannelInfo(
                         .fillMaxWidth(),
                 ) {
 
-                    if (focusedEpg != null) {
+                    if (localFocusedEpg != null && localFocusedEpg.isDvrAvailable) {
                         Column(
                             verticalArrangement = Arrangement.spacedBy(7.dp)
                         ) {
@@ -206,7 +203,7 @@ fun ChannelInfo(
 
                         Log.i("SHIT4", "RECOMPOSED")
 
-                        focusedEpg?.let {
+                        if (localFocusedEpg != null && localFocusedEpg.isDvrAvailable) {
                             PlaybackControls(
                                 focusedChannel?.url ?: "",
                                 { started -> seekingStarted = started },
@@ -216,7 +213,7 @@ fun ChannelInfo(
                         }
                     }
 
-                    focusedEpg?.let {
+                    if (localFocusedEpg != null && localFocusedEpg.isDvrAvailable) {
                         Row(
                             modifier = Modifier.align(Alignment.TopEnd),
                             verticalAlignment = Alignment.CenterVertically

@@ -35,6 +35,7 @@ fun ChannelList(
     modifier: Modifier,
     channels: List<PlaylistChannel>,
     focusedChannel: Int,
+    isChannelsListFocused: Boolean,
     channelOnKeyEvent: (Key) -> Unit,
     playMedia: (String) -> Unit
 ) {
@@ -47,8 +48,14 @@ fun ChannelList(
     var visibleItems by remember { mutableIntStateOf(0) }
     var borderYOffset by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(Unit) {
-        visibleItems = lazyColumnState.layoutInfo.visibleItemsInfo.size
+    LaunchedEffect(isChannelsListFocused) {
+        if (isChannelsListFocused) {
+            visibleItems = lazyColumnState.layoutInfo.visibleItemsInfo.size
+            coroutineScope.launch {
+                Log.i("SCROLL", "-$borderYOffset")
+                lazyColumnState.scrollToItem(focusedChannel, -borderYOffset + 31)
+            }
+        }
     }
 
     val localDensity = LocalDensity.current.density

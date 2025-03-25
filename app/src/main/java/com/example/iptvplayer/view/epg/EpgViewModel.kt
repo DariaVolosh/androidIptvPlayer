@@ -1,8 +1,6 @@
 package com.example.iptvplayer.view.epg
 
-import android.os.Build
 import android.util.Log
-import androidx.annotation.RequiresApi
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -123,7 +121,6 @@ class EpgViewModel @Inject constructor(
         return epgList.value?.getOrNull(index)
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     suspend fun getFirstAndLastEpgDays(channelId: String, epgMonth: String) {
         val firstAndLastEpgTimestamps = getFirstAndLastEpgTimestampsUseCase.getFirstAndLastEpgTimestamps(
             channelId,
@@ -148,17 +145,20 @@ class EpgViewModel @Inject constructor(
 
     private var epgCollectionJob: Job? = null
 
-    @RequiresApi(Build.VERSION_CODES.O)
     fun getEpgById(channelId: String, dvrRange: Pair<Long,Long>) {
-        Log.i("epg month channel id", "called")
-        val mappedEpgId = channelsIdToEpgIdMapper[channelId] ?: ""
-        Log.i("epg month channel id", "playlist $channelId")
-
-        if (mappedEpgId == "") return
         epgCollectionJob?.cancel()
         _liveProgramme.value = -1
         _focusedEpgIndex.value = -1
         _epgList.value = listOf()
+
+        Log.i("epg month channel id", "called")
+        val mappedEpgId = channelsIdToEpgIdMapper[channelId] ?: ""
+        Log.i("epg month channel id", "playlist $channelId")
+        Log.i("getEpgById called", dvrRange.toString())
+
+        if (mappedEpgId == "") return
+
+        Log.i("getEpgById called", "$channelId")
 
         epgCollectionJob = viewModelScope.launch {
             //val countryCode = getCountryCodeByIdUseCase.getCountryCodeById(mappedEpgId)
@@ -204,17 +204,19 @@ class EpgViewModel @Inject constructor(
                         }
 
                         if (_focusedEpgIndex.value == -1 && startTime <= currentTime && stopTime >= currentTime) {
-                            Log.i("CURRENT EPG", "$epg $i ${i-1} ${dayEpg.size}")
+                            //Log.i("CURRENT EPG", "$epg $i ${i-1} ${dayEpg.size}")
                             _focusedEpgIndex.value = i -1
                             _liveProgramme.value = i - 1
                         }
 
                         if (i == dayEpg.size - 1) {
-                            Log.i("FOCUSED PROGRAMME", _focusedEpgIndex.value.toString())
-                            Log.i("changed focused programme", "${dayEpg.size} ${allDaysEpgList.size}")
+                            //Log.i("FOCUSED PROGRAMME", _focusedEpgIndex.value.toString())
+                            //Log.i("changed focused programme", "${dayEpg.size} ${allDaysEpgList.size}")
+
+                            _epgList.value = allDaysEpgList
                             if (isPreviousDay && _focusedEpgIndex.value != -1) {
                                 _focusedEpgIndex.value?.let { focused ->
-                                    Log.i("changed focused programme", "$focused ${dayEpg.size} ${allDaysEpgList.size}")
+                                    Log.i("changed focused programme", "$focused ${dayEpg.size} ${allDaysEpgList.size} $channelId")
                                     _focusedEpgIndex.value = focused + dayEpg.size - 1
                                 }
 
@@ -222,8 +224,6 @@ class EpgViewModel @Inject constructor(
                                     _liveProgramme.value = live + dayEpg.size - 1
                                 }
                             }
-
-                            _epgList.value = allDaysEpgList
                         }
                     }
                 }

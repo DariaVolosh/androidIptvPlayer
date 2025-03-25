@@ -1,8 +1,6 @@
 package com.example.iptvplayer.view.programDatePicker
 
-import android.os.Build
 import android.util.Log
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,12 +20,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.iptvplayer.data.Utils
 import com.example.iptvplayer.view.channels.ArchiveViewModel
 import kotlinx.coroutines.delay
 
 // passing live time from the parent composable only one time
 // to avoid unnecessary recompositions of this composable
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun ProgramDatePickerModal(
     modifier: Modifier,
@@ -45,6 +43,7 @@ fun ProgramDatePickerModal(
     LaunchedEffect(chosenDateSinceEpoch, chosenTimeSinceEpoch) {
         val totalDateSinceEpoch = chosenDateSinceEpoch + chosenTimeSinceEpoch
         Log.i("chosen time since epoch", "total time: $totalDateSinceEpoch date: $chosenDateSinceEpoch time $chosenTimeSinceEpoch" )
+        Log.i("chosen time since epoch", Utils.formatDate(totalDateSinceEpoch, "EEEE d MMMM HH:mm:ss"))
 
 
         if (isCurrentDateSet) {

@@ -1,6 +1,5 @@
 package com.example.iptvplayer
 
-import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.SurfaceHolder
@@ -8,7 +7,6 @@ import android.view.SurfaceView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.OptIn
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -49,7 +47,6 @@ import kotlinx.coroutines.delay
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         (applicationContext as MyApp).appComponent.inject(this)
@@ -62,7 +59,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(UnstableApi::class)
 @Composable
 fun MainScreen() {
@@ -98,12 +94,13 @@ fun MainScreen() {
         when (key) {
             Key.DirectionDown -> {
                 focusedChannelIndex?.let { focused ->
-                    channelsViewModel.updateFocusedChannel(focused + 1)
+                    Log.i("FIRED", "focused channel down")
+                    channelsViewModel.updateFocusedChannelIndex(focused + 1)
                 }
             }
             Key.DirectionUp -> {
                 focusedChannelIndex?.let { focused ->
-                    channelsViewModel.updateFocusedChannel(focused - 1)
+                    channelsViewModel.updateFocusedChannelIndex(focused - 1)
                 }
             }
             Key.DirectionRight -> {
@@ -125,11 +122,13 @@ fun MainScreen() {
         when (key) {
             Key.DirectionDown -> {
                 focusedEpgIndex?.let { focused ->
+                    Log.i("FIRED", "focused epg down")
                     epgViewModel.updateFocusedEpgIndex(focused + 1)
                 }
             }
             Key.DirectionUp -> {
                 focusedEpgIndex?.let { focused ->
+                    Log.i("FIRED", "focused epg up")
                     epgViewModel.updateFocusedEpgIndex(focused - 1)
                 }
             }
@@ -145,6 +144,7 @@ fun MainScreen() {
 
                         focusedEpg?.let { epg ->
                             archiveViewModel.setCurrentTime(epg.startTime)
+                            archiveViewModel.getArchiveUrl(focusedChannel?.url ?: "")
                         }
 
                         isChannelInfoShown = true
@@ -153,6 +153,10 @@ fun MainScreen() {
                 }
             }
         }
+    }
+
+    LaunchedEffect(focusedChannelIndex) {
+        Log.i("focused channel index", focusedChannelIndex.toString())
     }
 
     LaunchedEffect(Unit) {
@@ -171,13 +175,12 @@ fun MainScreen() {
 
     LaunchedEffect(focusedChannel) {
         focusedChannel?.let { channel ->
+            Log.i("focused channel", focusedChannel.toString())
             archiveViewModel.getDvrRange(channel.id)
-        }
-    }
-
-    LaunchedEffect(dvrRange) {
-        dvrRange?.let { range ->
-            epgViewModel.getEpgById(focusedChannel?.id ?: "", range)
+            dvrRange?.let { range ->
+                Log.i("focused channel", "dvr $range")
+                epgViewModel.getEpgById(channel.id, range)
+            }
         }
     }
 
@@ -185,14 +188,12 @@ fun MainScreen() {
         epgViewModel.updateFocusedEpg()
     }
 
-    LaunchedEffect(liveProgramme) {
+    LaunchedEffect(epg) {
         // updating live programme index
         epg?.let { e ->
             liveProgramme?.let { l ->
                 while (true) {
-                    val liveProgrammeIndex = epgViewModel.liveProgramme
-                    Log.i("LIVE", "MAIN ACTIVITY $liveProgrammeIndex")
-                    if (l != -1 && e[l].stopTime < Utils.getGmtTime()) {
+                    if (l != -1 && l < e.size && e[l].stopTime < Utils.getGmtTime()) {
                         epgViewModel.updateLiveProgramme(l+1)
                     }
 
@@ -291,6 +292,7 @@ fun MainScreen() {
                             Modifier.fillMaxWidth(0.5f),
                             channels,
                             if (isChannelsListFocused) focusedChannelIndex ?: -1 else -1,
+                            isChannelsListFocused,
                             {key -> handleChannelOnKeyEvent(key)},
                         ) { url ->
                             Log.i("LAMBDA CALLED?", "CALLED")

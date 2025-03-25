@@ -1,8 +1,6 @@
 package com.example.iptvplayer.view.channels
 
-import android.os.Build
 import android.util.Log
-import androidx.annotation.RequiresApi
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -87,21 +85,17 @@ class ArchiveViewModel @Inject constructor(
         _dvrMonth.value = Utils.getCalendarMonth(firstDayCalendar) + 1
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    fun getDvrRange(streamName: String) {
-        viewModelScope.launch {
-            val dvrRange = getDvrRangeUseCase.getDvrRange(streamName)
-            _dvrRange.value = dvrRange
+    suspend fun getDvrRange(streamName: String) {
+        val dvrRange = getDvrRangeUseCase.getDvrRange(streamName)
+        _dvrRange.value = dvrRange
 
-            val dvrRangeStartCalendar = Utils.getCalendar(dvrRange.first)
-            val dvrRangeEndCalendar = Utils.getCalendar(dvrRange.second)
+        val dvrRangeStartCalendar = Utils.getCalendar(dvrRange.first)
+        val dvrRangeEndCalendar = Utils.getCalendar(dvrRange.second)
 
-            getDvrMonth(dvrRangeStartCalendar)
-            getDvrFirstAndLastDays(dvrRangeStartCalendar, dvrRangeEndCalendar)
-        }
+        getDvrMonth(dvrRangeStartCalendar)
+        getDvrFirstAndLastDays(dvrRangeStartCalendar, dvrRangeEndCalendar)
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
     fun getArchiveUrl(url: String) {
         Log.i("GET ARCHIVE URL", "GET ARCHIVE URL ${currentTime.value}")
         if (url == "") return

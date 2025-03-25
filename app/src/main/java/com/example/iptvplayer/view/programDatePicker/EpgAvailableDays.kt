@@ -1,8 +1,6 @@
 package com.example.iptvplayer.view.programDatePicker
 
-import android.os.Build
 import android.util.Log
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
@@ -36,7 +34,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.iptvplayer.data.Utils
 
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun EpgAvailableDays(
     dvrMonth: Int,
@@ -83,7 +80,8 @@ fun EpgAvailableDays(
             Log.i("FOCUS REQUESTER", daysAndFocusRequesters.value[focusedDay].toString())
             daysAndFocusRequesters.value[focusedDay]?.requestFocus()
 
-            val dateSinceEpoch = Utils.dateToEpochSeconds(focusedDay, dvrMonth, 2025, 0, 0)
+            Log.i("dvr month", dvrMonth.toString())
+            val dateSinceEpoch = Utils.dateToEpochSeconds(focusedDay, dvrMonth-1, 2025, 0, 0)
             onDateChanged(dateSinceEpoch)
         }
     }

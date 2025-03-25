@@ -1,8 +1,6 @@
 package com.example.iptvplayer.view.channelInfo
 
-import android.os.Build
 import android.util.Log
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,7 +20,6 @@ import com.example.iptvplayer.view.channels.MediaViewModel
 import com.example.iptvplayer.view.epg.EpgViewModel
 import kotlinx.coroutines.launch
 
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun PlaybackControls(
     channelUrl: String,

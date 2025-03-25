@@ -58,7 +58,7 @@ fun EpgList(
 
     var borderYOffset by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(epg) {
         Log.i("EPGLIST", epg.toString() )
         Log.i("EPGLIST", epg.size.toString())
         visibleItems = listState.layoutInfo.visibleItemsInfo.size
@@ -78,9 +78,9 @@ fun EpgList(
             }
     }
 
-    LaunchedEffect(focusedEpg) {
+    LaunchedEffect(focusedEpg, isListFocused) {
         Log.i("focused epg", focusedEpg.toString())
-        if (focusedEpg != -1) {
+        if (focusedEpg != -1 && isListFocused) {
             listState.scrollToItem(focusedEpg, -borderYOffset + 31)
         }
     }

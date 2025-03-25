@@ -1,8 +1,6 @@
 package com.example.iptvplayer.view.programDatePicker
 
-import android.os.Build
 import android.util.Log
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.MaterialTheme
@@ -22,7 +20,6 @@ import androidx.compose.ui.unit.sp
 import com.example.iptvplayer.data.Utils
 import java.util.Calendar
 
-@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun TimePicker(
     modifier: Modifier,
@@ -85,8 +82,10 @@ fun TimePicker(
             // (if the focused day is dvr last day)
             val newTotalTime = getTotalTime(hours, minutes)
             val totalDate = newTotalTime + chosenDateSinceEpoch
+            Log.i("hours and mins", "$hours $minutes")
 
             if (!isNewTimeWithinDvrRange(totalDate)) {
+                Log.i("not within dvr range", "real")
                 val focusedDay = Utils.getCalendarDay(Utils.getCalendar(totalDate))
 
                 val dvrFirstDayCalendar = Utils.getCalendar(dvrRange.first)
