@@ -1,5 +1,7 @@
 package com.example.iptvplayer.data.repositories
 
+import android.util.Log
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
@@ -39,6 +41,22 @@ class FileUtilsRepository @Inject constructor (
             inputStream.close()
             bufferedReader.close()
             content
+        }
+
+    suspend fun isLinkAccessible(url: String): Boolean =
+        withContext(Dispatchers.IO) {
+            Log.i("accessible called", "$url")
+            val isAccessible = CompletableDeferred<Boolean>()
+            try {
+                val connection = URL(url).openConnection() as HttpURLConnection
+                connection.connect()
+
+                isAccessible.complete(connection.responseCode == HttpURLConnection.HTTP_OK)
+            } catch (e: Exception) {
+                isAccessible.complete(false)
+            }
+
+            isAccessible.await()
         }
 
     fun unzipGzip(inputStream: InputStream): GZIPInputStream {

@@ -24,21 +24,18 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.iptvplayer.data.Epg
+import com.example.iptvplayer.data.Utils
 import com.example.iptvplayer.data.Utils.formatDate
 import com.example.iptvplayer.view.channels.ArchiveViewModel
 import com.example.iptvplayer.view.epg.EpgViewModel
-import kotlinx.coroutines.delay
 import java.util.Locale
 import kotlin.math.abs
 
 @Composable
 fun LinearProgressWithDot(
     modifier: Modifier,
-    seekingStarted: Boolean,
-    isPaused: Boolean,
-    setProgressBarXOffset: (Int) -> Unit,
-    setDotXOffset: (Int) -> Unit,
-    updateIsLiveProgramme: (Boolean) -> Unit,
+    channelUrl: String,
     updateCurrentDate: (String) -> Unit
 ) {
     val decimalFormat = DecimalFormat("#.##", DecimalFormatSymbols(Locale.US))
@@ -47,8 +44,10 @@ fun LinearProgressWithDot(
     val archiveViewModel: ArchiveViewModel = hiltViewModel()
     val epgViewModel: EpgViewModel = hiltViewModel()
 
-    val seekSeconds by archiveViewModel.seekSeconds.observeAsState()
+    val seekSecondsFlow = archiveViewModel.seekSecondsFlow
     val currentTime by archiveViewModel.currentTime.observeAsState()
+    val seekingStarted by archiveViewModel.isSeeking.observeAsState()
+    val dvrRange by archiveViewModel.dvrRange.observeAsState()
 
     val focusedEpg by epgViewModel.focusedEpg.observeAsState()
     val focusedEpgIndex by epgViewModel.focusedEpgIndex.observeAsState()
@@ -58,77 +57,97 @@ fun LinearProgressWithDot(
 
     val localDensity = LocalDensity.current.density
 
-    val updateProgrammeProgress = {
-        var currentSeek = 0
+    val updateEpgSeekbarProgress: (Long, Epg, Int) -> Unit = { newTime, epg, epgIndex ->
+        // checking if new time is within dvr range
+        Log.i("NEW TIME", "${Utils.formatDate(newTime, datePattern)}")
 
+        Log.i("REALLY", "UPDATE PROGRAM PROCESS ${focusedEpg.toString()}")
+
+        val timeElapsedSinceProgrammeStart = newTime - epg.startTime
+        Log.i("ELAPSED", timeElapsedSinceProgrammeStart.toString())
+        Log.i("ELAPSED", focusedEpg.toString())
+        Log.i("ELAPSED", newTime.toString())
+
+        if (newTime < epg.startTime) {
+            epgViewModel.updateFocusedEpgIndex(epgIndex - 1)
+        } else if (newTime > epg.stopTime) {
+            epgViewModel.updateFocusedEpgIndex(epgIndex + 1)
+        } else {
+            currentProgrammeProgress =
+                decimalFormat.format(
+                    timeElapsedSinceProgrammeStart.toFloat() * 100 / epg.duration
+                ).toFloat()
+
+        }
+
+        Log.i(
+            "CURRENT TIME IN FUNCTIONS",
+            "${formatDate(newTime, datePattern)} $timeElapsedSinceProgrammeStart"
+        )
+        Log.i("PERCENT", currentProgrammeProgress.toString())
+    }
+
+    val updateDvrSeekbarProgress: (Long, Pair<Long, Long>) -> Unit = { newTime, dvrRange ->
+        val timeElapsedSinceDvrStart = newTime - dvrRange.first
+        val dvrDuration = dvrRange.second - dvrRange.first
+
+        currentProgrammeProgress =
+            decimalFormat.format(
+                timeElapsedSinceDvrStart.toFloat() * 100 / dvrDuration
+            ).toFloat()
+    }
+
+    val getNewTime: (Int) -> Long = { seek ->
         currentTime?.let { time ->
-            seekSeconds?.let { seek ->
-                if (seekingStarted) {
-                    currentSeek = if (abs(seek) >= 64) {
-                        if (seek < 0) -64
-                        else 64
-                    } else {
-                        seek / 2
-                    }
-
-                    archiveViewModel.setCurrentTime(time + currentSeek)
-                }
+            val currentSeek = if (abs(seek) >= 60) {
+                if (seek < 0) -60
+                else 60
+            } else {
+                seek
             }
 
-            Log.i("seek channel info", currentSeek.toString())
-            Log.i("seek channel info", formatDate(time, datePattern))
-            Log.i("REALLY", "UPDATE PROGRAM PROCESS ${focusedEpg.toString()}")
 
+            val newTime = time + currentSeek
+            newTime
+        } ?: 0
+    }
+
+    LaunchedEffect(currentTime) {
+        currentTime?.let { currentTime ->
             val localFocusedEpg = focusedEpg
             val localFocusedEpgIndex = focusedEpgIndex
+            val localDvrRange = dvrRange
 
-            if (localFocusedEpg != null && localFocusedEpgIndex != null) {
-                val timeElapsedSinceProgrammeStart = time - localFocusedEpg.startTime
-                Log.i("ELAPSED", timeElapsedSinceProgrammeStart.toString())
-                Log.i("ELAPSED", focusedEpg.toString())
-                Log.i("ELAPSED", time.toString())
-
-                if (time < localFocusedEpg.startTime) {
-                    epgViewModel.updateFocusedEpgIndex(localFocusedEpgIndex - 1)
-                } else if (time > localFocusedEpg.stopTime) {
-                    epgViewModel.updateFocusedEpgIndex(localFocusedEpgIndex + 1)
-                } else {
-                    currentProgrammeProgress =
-                        decimalFormat.format(
-                            timeElapsedSinceProgrammeStart.toFloat() * 100 / localFocusedEpg.duration
-                        ).toFloat()
-
-                }
-
-                Log.i("CURRENT TIME IN FUNCTIONS", "${formatDate(time, datePattern)} $timeElapsedSinceProgrammeStart")
-                Log.i("PERCENT", currentProgrammeProgress.toString())
+            // epg is available, use epg timestamps
+            if (localFocusedEpg != null && localFocusedEpgIndex != null && localFocusedEpgIndex != -1) {
+                updateEpgSeekbarProgress(currentTime, localFocusedEpg, localFocusedEpgIndex)
+            // epg is not available, but dvr is available, use dvr timestamps
+            } else if (localDvrRange != null && localDvrRange.first != 0L) {
+                updateDvrSeekbarProgress(currentTime, localDvrRange)
             }
         }
     }
 
-    LaunchedEffect(seekingStarted, isPaused, focusedEpg) {
-        val progressUpdatePeriod = 10 // in seconds
-        var secondsPassed = 0
+    LaunchedEffect(Unit) {
+        seekSecondsFlow.collect { seek ->
+            Log.i("collected seekSeconds", seek.toString())
 
-        while (!seekingStarted && !isPaused) {
-            if (secondsPassed == 0) updateProgrammeProgress()
-            delay(1000)
+            if (channelUrl.isNotEmpty()) {
+                if (seek != 0) {
+                    val newTime = getNewTime(seek)
+                    Log.i("get new time", Utils.formatDate(newTime, datePattern))
 
-            // converting milliseconds to seconds
-            archiveViewModel.setCurrentTime(currentTime?.plus(1) ?: 0)
-            secondsPassed += 1
-
-            if (secondsPassed == progressUpdatePeriod) secondsPassed = 0
-            updateCurrentDate(formatDate(currentTime ?: 0, datePattern))
-        }
-    }
-
-    LaunchedEffect(seekSeconds, focusedEpg) {
-        seekSeconds?.let { seek ->
-            if (seek != 0) {
-                updateIsLiveProgramme(false)
-                updateProgrammeProgress()
-                updateCurrentDate(formatDate(currentTime ?: 0, datePattern))
+                    val isAccessible = archiveViewModel.isStreamWithinDvrRange(newTime)
+                    Log.i("is accessible", isAccessible.toString())
+                    if (isAccessible) {
+                        archiveViewModel.updateIsLive(false)
+                        archiveViewModel.setCurrentTime(newTime)
+                        updateCurrentDate(formatDate(newTime, datePattern))
+                    }
+                } else {
+                    archiveViewModel.getArchiveUrl(channelUrl)
+                    archiveViewModel.updateIsSeeking(false)
+                }
             }
         }
     }
@@ -143,7 +162,6 @@ fun LinearProgressWithDot(
                 .onGloballyPositioned { coordinates ->
                     val xOffset = coordinates.positionInRoot().x
                     Log.i("progress bar offset", xOffset.toString())
-                    setProgressBarXOffset((xOffset / localDensity).toInt())
                     progressBarWidthPx = coordinates.size.width
                 },
             progress = {(currentProgrammeProgress / 100)},
@@ -156,7 +174,6 @@ fun LinearProgressWithDot(
                 .fillMaxWidth(),
         ) {
             val progressPosition = progressBarWidthPx * (currentProgrammeProgress / 100)
-            setDotXOffset((progressPosition / density).toInt())
 
             drawCircle(
                 color = Color.Gray,

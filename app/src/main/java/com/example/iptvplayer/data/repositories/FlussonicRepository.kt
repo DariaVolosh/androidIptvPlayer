@@ -67,9 +67,9 @@ class FlussonicRepository @Inject constructor(
 
                                 startSeconds = minStartSeconds
                                 endSeconds = maxEndSeconds
-
-                                Log.i("on response", "${Utils.formatDate(startSeconds, datePattern)} ${Utils.formatDate(endSeconds, datePattern)}")
                             }
+
+                            Log.i("on response", "${Utils.formatDate(startSeconds, datePattern)} ${Utils.formatDate(endSeconds, datePattern)}")
 
                             dvrRange.complete(Pair(startSeconds, endSeconds))
                         }

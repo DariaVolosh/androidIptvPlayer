@@ -33,6 +33,9 @@ class MediaViewModel @Inject constructor(
     private val _isPaused: MutableLiveData<Boolean> = MutableLiveData(false)
     val isPaused: LiveData<Boolean> = _isPaused
 
+    private val _isPlaybackStarted: MutableLiveData<Boolean> = MutableLiveData(false)
+    val isPlaybackStarted: LiveData<Boolean> = _isPlaybackStarted
+
     private val urlQueue = LinkedList<String>()
     private var isPlayerReset = true
     private var firstSegmentRead = false
@@ -83,6 +86,7 @@ class MediaViewModel @Inject constructor(
             isPlayerReset = true
             firstSegmentRead = false
             _isDataSourceSet.postValue(false)
+            _isPlaybackStarted.value = false
         }
 
         tsJob?.cancel()
@@ -93,16 +97,27 @@ class MediaViewModel @Inject constructor(
                 Log.i("emission", "collected $u")
                 if (ijkPlayer == null || isPlayerReset) {
                     ijkPlayer = IjkMediaPlayer()
+
+                    ijkPlayer?.setOnPreparedListener {
+                        play()
+                        _isDataSourceSet.postValue(true)
+                    }
+
+                    ijkPlayer?.setOnInfoListener { mp, what, extra ->
+                        when (what) {
+                            IjkMediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START -> {
+                                _isPlaybackStarted.value = true
+                                true
+                            }
+                            else -> false
+                        }
+                    }
+
                     ijkPlayer?.setDataSource(getMediaDataSourceUseCase.getMediaDataSource())
                     IjkMediaPlayer.native_setLogLevel(IjkMediaPlayer.IJK_LOG_DEBUG)
 
                     setOnSegmentRequestCallback()
                     setNextUrl(u)
-
-                    ijkPlayer?.setOnPreparedListener {
-                        _isDataSourceSet.postValue(true)
-                    }
-
                     isPlayerReset = false
 
                 } else {
@@ -115,10 +130,16 @@ class MediaViewModel @Inject constructor(
     fun pause() {
         ijkPlayer?.pause()
         _isPaused.value = true
+        Log.i("paused", "true")
     }
 
     fun play() {
         ijkPlayer?.start()
         _isPaused.value = false
+        Log.i("paused", "false")
+    }
+
+    fun release() {
+        ijkPlayer?.release()
     }
 }
