@@ -8,7 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.iptvplayer.data.Epg
 import com.example.iptvplayer.data.Utils
 import com.example.iptvplayer.domain.GetEpgByIdUseCase
-import com.example.iptvplayer.domain.GetEpgMonthUseCase
+import com.example.iptvplayer.domain.GetFirstAndLastEpgMonthUseCase
 import com.example.iptvplayer.domain.GetFirstAndLastEpgTimestampsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -18,7 +18,7 @@ import javax.inject.Inject
 @HiltViewModel
 class EpgViewModel @Inject constructor(
     private val getEpgByIdUseCase: GetEpgByIdUseCase,
-    private val getEpgMonthUseCase: GetEpgMonthUseCase,
+    private val getFirstAndLastEpgMonthUseCase: GetFirstAndLastEpgMonthUseCase,
     private val getFirstAndLastEpgTimestampsUseCase: GetFirstAndLastEpgTimestampsUseCase,
     //private val getCountryCodeByIdUseCase: GetCountryCodeByIdUseCase
 ): ViewModel() {
@@ -121,10 +121,9 @@ class EpgViewModel @Inject constructor(
         return epgList.value?.getOrNull(index)
     }
 
-    suspend fun getFirstAndLastEpgDays(channelId: String, epgMonth: String) {
+    suspend fun getFirstAndLastEpgDays(channelId: String) {
         val firstAndLastEpgTimestamps = getFirstAndLastEpgTimestampsUseCase.getFirstAndLastEpgTimestamps(
-            channelId,
-            epgMonth
+            channelId
         )
 
         Log.i("FIRST AND LAST EPG TIMESTAMPS", firstAndLastEpgTimestamps.toString())
@@ -163,12 +162,12 @@ class EpgViewModel @Inject constructor(
         epgCollectionJob = viewModelScope.launch {
             //val countryCode = getCountryCodeByIdUseCase.getCountryCodeById(mappedEpgId)
             Log.i("epg month channel id", "playlist $mappedEpgId")
-            val epgMonth = getEpgMonthUseCase.getEpgMonth(mappedEpgId)
+            /*val epgMonth = getFirstAndLastEpgMonthUseCase.getFirstAndLastEpgMonth(mappedEpgId)
             Log.i("epg month", epgMonth.toString())
             if (epgMonth == -1) return@launch
-            _epgMonth.value = epgMonth
+            _epgMonth.value = epgMonth */
 
-            getFirstAndLastEpgDays(mappedEpgId, epgMonth.toString())
+            getFirstAndLastEpgDays(mappedEpgId)
 
             val epgFlow = getEpgByIdUseCase.getEpgById(mappedEpgId, dvrRange)
             val allDaysEpgList = mutableListOf<Epg>()

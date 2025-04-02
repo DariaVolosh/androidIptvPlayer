@@ -8,8 +8,7 @@ class GetFirstAndLastEpgTimestampsUseCase @Inject constructor(
 ){
     suspend fun getFirstAndLastEpgTimestamps(
         channelId: String,
-        month: String
     ): Pair<Long, Long> {
-        return epgRepository.getFirstAndLastEpgTimestamps(channelId, month)
+        return epgRepository.getFirstAndLastEpgTimestamps(channelId)
     }
 }

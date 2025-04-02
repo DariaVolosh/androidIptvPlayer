@@ -22,7 +22,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
-import androidx.compose.ui.platform.LocalDensity
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.data.Epg
 import com.example.iptvplayer.data.Utils
@@ -46,7 +45,6 @@ fun LinearProgressWithDot(
 
     val seekSecondsFlow = archiveViewModel.seekSecondsFlow
     val currentTime by archiveViewModel.currentTime.observeAsState()
-    val seekingStarted by archiveViewModel.isSeeking.observeAsState()
     val dvrRange by archiveViewModel.dvrRange.observeAsState()
 
     val focusedEpg by epgViewModel.focusedEpg.observeAsState()
@@ -54,8 +52,6 @@ fun LinearProgressWithDot(
 
     var progressBarWidthPx by remember { mutableIntStateOf(0) }
     var currentProgrammeProgress by remember { mutableFloatStateOf(0f) }
-
-    val localDensity = LocalDensity.current.density
 
     val updateEpgSeekbarProgress: (Long, Epg, Int) -> Unit = { newTime, epg, epgIndex ->
         // checking if new time is within dvr range

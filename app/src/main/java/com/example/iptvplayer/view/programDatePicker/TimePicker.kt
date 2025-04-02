@@ -27,6 +27,7 @@ fun TimePicker(
     isFocused: Boolean,
     dvrRange: Pair<Long, Long>,
     chosenDateSinceEpoch: Long,
+    onArchiveSearch: () -> Unit,
     onTimeChanged: (Long) -> Unit,
     onDatePickerFocus: () -> Unit
 ) {
@@ -72,51 +73,48 @@ fun TimePicker(
         newTotalDate >= dvrRange.first && newTotalDate <= dvrRange.second
     }
 
-
-    LaunchedEffect(isFocused) {
-        if (isFocused) {
-            // if after changing focused day the time is not within dvr range
-            // we have to reset the time to the lowest dvr range bound
-            // (if the focused day is dvr first day)
-            // and reset the time to the up dvr range bound
-            // (if the focused day is dvr last day)
-            val newTotalTime = getTotalTime(hours, minutes)
-            val totalDate = newTotalTime + chosenDateSinceEpoch
-            Log.i("hours and mins", "$hours $minutes")
-
-            if (!isNewTimeWithinDvrRange(totalDate)) {
-                Log.i("not within dvr range", "real")
-                val focusedDay = Utils.getCalendarDay(Utils.getCalendar(totalDate))
-
-                val dvrFirstDayCalendar = Utils.getCalendar(dvrRange.first)
-                val dvrLastDayCalendar = Utils.getCalendar(dvrRange.second)
-
-                val dvrFirstDay = Utils.getCalendarDay(dvrFirstDayCalendar)
-
-                if (focusedDay == dvrFirstDay) {
-                    val dvrFirstMinute = dvrFirstDayCalendar.get(Calendar.MINUTE)
-                    val dvrFirstHour = dvrFirstDayCalendar.get(Calendar.HOUR_OF_DAY)
-
-                    hours = dvrFirstHour
-                    minutes = dvrFirstMinute
-                } else {
-                    val dvrLastMinute = dvrLastDayCalendar.get(Calendar.MINUTE)
-                    val dvrLastHour = dvrLastDayCalendar.get(Calendar.HOUR_OF_DAY)
-
-                    hours = dvrLastHour
-                    minutes = dvrLastMinute
-                }
-            }
-
-            hoursFocusRequester.requestFocus()
-        }
-    }
-
     LaunchedEffect(hours, minutes) {
-        Log.i("MINUTES", "minutes $minutes")
-        Log.i("current time launched effect", Utils.formatDate(currentTime, "EEEE d MMMM HH:mm:ss"))
         val totalTimeSinceEpoch = getTotalTime(hours, minutes)
         onTimeChanged(totalTimeSinceEpoch.toLong())
+    }
+
+    LaunchedEffect(isFocused) {
+        if (isFocused) hoursFocusRequester.requestFocus()
+    }
+
+    LaunchedEffect(chosenDateSinceEpoch) {
+        // if after changing focused day the time is not within dvr range
+        // we have to reset the time to the lowest dvr range bound
+        // (if the focused day is dvr first day)
+        // and reset the time to the up dvr range bound
+        // (if the focused day is dvr last day)
+        val newTotalTime = getTotalTime(hours, minutes)
+        val totalDate = newTotalTime + chosenDateSinceEpoch
+        Log.i("hours and mins", "$hours $minutes")
+
+        if (!isNewTimeWithinDvrRange(totalDate)) {
+            Log.i("not within dvr range", "real")
+            val focusedDay = Utils.getCalendarDay(Utils.getCalendar(totalDate))
+
+            val dvrFirstDayCalendar = Utils.getCalendar(dvrRange.first)
+            val dvrLastDayCalendar = Utils.getCalendar(dvrRange.second)
+
+            val dvrFirstDay = Utils.getCalendarDay(dvrFirstDayCalendar)
+
+            if (focusedDay == dvrFirstDay) {
+                val dvrFirstMinute = dvrFirstDayCalendar.get(Calendar.MINUTE)
+                val dvrFirstHour = dvrFirstDayCalendar.get(Calendar.HOUR_OF_DAY)
+
+                hours = dvrFirstHour
+                minutes = dvrFirstMinute
+            } else {
+                val dvrLastMinute = dvrLastDayCalendar.get(Calendar.MINUTE)
+                val dvrLastHour = dvrLastDayCalendar.get(Calendar.HOUR_OF_DAY)
+
+                hours = dvrLastHour
+                minutes = dvrLastMinute
+            }
+        }
     }
 
 
@@ -141,6 +139,9 @@ fun TimePicker(
                 val newTotalTime = getTotalTime(newHour, minutes)
                 if (isNewTimeWithinDvrRange(newTotalTime + chosenDateSinceEpoch)) hours = newHour
             }
+            Key.DirectionCenter -> {
+                onArchiveSearch()
+            }
         }
     }
 
@@ -156,6 +157,9 @@ fun TimePicker(
                 val newMinutes = if (minutes > 0) minutes - 1 else 59
                 val newTotalTime = getTotalTime(hours, newMinutes)
                 if (isNewTimeWithinDvrRange(newTotalTime + chosenDateSinceEpoch)) minutes = newMinutes
+            }
+            Key.DirectionCenter -> {
+                onArchiveSearch()
             }
         }
     }

@@ -84,7 +84,7 @@ object Utils {
         val calendar = Calendar.getInstance()
         calendar.apply {
             set(Calendar.DAY_OF_MONTH, day)
-            set(Calendar.MONTH, month)
+            set(Calendar.MONTH, month - 1)
             set(Calendar.YEAR, year)
             set(Calendar.HOUR_OF_DAY, hour)
             set(Calendar.MINUTE, minute)
@@ -96,7 +96,7 @@ object Utils {
     fun getDayOfWeek(month: Int, day: Int): String {
         val calendar = Calendar.getInstance()
         calendar.apply {
-            set(Calendar.MONTH, month)
+            set(Calendar.MONTH, month - 1)
             set(Calendar.DAY_OF_MONTH, day)
             set(Calendar.YEAR, 2025)
         }

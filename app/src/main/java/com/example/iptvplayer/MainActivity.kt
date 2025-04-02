@@ -219,6 +219,56 @@ fun MainScreen() {
         }
     }
 
+    val datePattern = "EEEE d MMMM HH:mm:ss"
+
+
+    // lambda to update epg after calendar rewind
+    val updateEpg: (Long) -> Unit = { currentTime ->
+        val epgList = epg
+        val focusedEpgIndex = focusedEpgIndex
+        var isPreviousEpg = false
+
+        if (epgList != null && focusedEpgIndex != null) {
+            var currentEpg = epgList[focusedEpgIndex]
+            var currentIndex = focusedEpgIndex
+
+            Log.i("TIMEEE", "${Utils.formatDate(currentEpg.startTime, datePattern)}")
+            Log.i("TIMEEE", "${Utils.formatDate(currentTime, datePattern)}")
+
+            if (currentEpg.startTime <= currentTime && currentEpg.stopTime >= currentTime) {
+
+            } else {
+                if (currentEpg.startTime >= currentTime) {
+                    isPreviousEpg = true
+                }
+            }
+
+            Log.i("is previous epg", isPreviousEpg.toString())
+
+            if (isPreviousEpg) {
+                while (--currentIndex >= 0) {
+                    currentEpg = epgList[currentIndex]
+                    Log.i("EPG LIST START DATE", Utils.formatDate(currentEpg.startTime, datePattern))
+                    Log.i("EPG LIST START DATE", currentEpg.title)
+
+                    if (currentEpg.startTime <= currentTime && currentEpg.stopTime >= currentTime) {
+                        epgViewModel.updateFocusedEpgIndex(currentIndex)
+                        break
+                    }
+                }
+            } else {
+                while (++currentIndex < epgList.size) {
+                    currentEpg = epgList[currentIndex]
+
+                    if (currentEpg.startTime <= currentTime && currentEpg.stopTime >= currentTime) {
+                        epgViewModel.updateFocusedEpgIndex(currentIndex)
+                        break
+                    }
+                }
+            }
+        }
+    }
+
     LaunchedEffect(Unit) {
         Log.i("initialized", "init")
         channelsViewModel.parsePlaylist()
@@ -326,14 +376,17 @@ fun MainScreen() {
             }
 
             if (isProgramDatePickerShown) {
+                isChannelInfoShown = false
                 archiveViewModel.currentTime.value?.let { currentTime ->
                     ProgramDatePickerModal(
                         modifier = Modifier
-                            .fillMaxWidth(0.7f)
+                            .fillMaxWidth(0.6f)
                             .align(Alignment.Center),
                         currentTime
                     ) { secondsSinceEpoch ->
                         archiveViewModel.setCurrentTime(secondsSinceEpoch)
+                        updateEpg(secondsSinceEpoch)
+                        archiveViewModel.updateIsLive(false)
                         focusedChannelIndex?.let { focused ->
                             archiveViewModel.getArchiveUrl(channelsViewModel.getChannelByIndex(focused)?.url ?: "")
                         }

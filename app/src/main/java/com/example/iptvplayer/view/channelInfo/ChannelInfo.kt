@@ -2,7 +2,6 @@ package com.example.iptvplayer.view.channelInfo
 
 import android.util.Log
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -105,7 +104,6 @@ fun ChannelInfo(
     if (isChannelInfoShown) {
         Box(
             modifier = modifier
-                .border(1.dp, Color.Red)
                 .zIndex(99f)
                 .focusRequester(focusRequester)
                 .focusable()

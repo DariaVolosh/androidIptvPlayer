@@ -27,7 +27,7 @@ class DummyViewModel @Inject constructor(
                 .document("trial")
                 .get().await()
 
-            val isTrial = doc.getField<Boolean>("isTrial") ?: false
+            val isTrial = doc.getField<Boolean>("is2versionTrial") ?: false
             _isTrial.value = isTrial
         }
     }

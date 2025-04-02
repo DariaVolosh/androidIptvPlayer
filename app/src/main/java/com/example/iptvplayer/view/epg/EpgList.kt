@@ -52,7 +52,6 @@ fun EpgList(
     isChannelClicked: Boolean,
     epgOnKeyEvent: (Key) -> Unit
 ) {
-
     val localDensity = LocalDensity.current.density
 
     val listState = rememberLazyListState()
@@ -61,8 +60,12 @@ fun EpgList(
 
     var visibleItems by remember { mutableIntStateOf(0) }
     var isVisibleItemsMiddle by remember { mutableStateOf(false) }
-    var itemHeight by remember { mutableIntStateOf(0) }
+
+    var epgItemHeight by remember { mutableIntStateOf(0) }
+    var epgDateHeight by remember { mutableIntStateOf(0) }
+
     var borderYOffset by remember { mutableIntStateOf(0) }
+    var epgIndexWithDateIndex by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(epg) {
         Log.i("EPGLIST", epg.toString() )
@@ -78,7 +81,11 @@ fun EpgList(
 
                 Log.i("epg scroll performed", "$focusedEpg $borderYOffset")
                 coroutineScope.launch {
-                    listState.scrollToItem(focusedEpg, -borderYOffset + (15 * localDensity).toInt())
+                    if (focusedEpg == epgIndexWithDateIndex) {
+                        listState.scrollToItem(focusedEpg, -borderYOffset + ((15 + epgDateHeight) * localDensity).toInt())
+                    } else {
+                        listState.scrollToItem(focusedEpg, -borderYOffset + (15 * localDensity).toInt())
+                    }
                 }
             } else {
                 isVisibleItemsMiddle = false
@@ -130,8 +137,13 @@ fun EpgList(
 
                     val prevDate = if (index != 0) formatDate(epg[index-1].startTime, dayAndMonthPattern) else ""
 
+                    // compare days, if current day is more than the previous one - add date
                     if (index == 0 || Utils.compareDates(currentDate, prevDate) > 0) {
-                        EpgDate(currentDate)
+                        EpgDate(currentDate) { height ->
+                            epgDateHeight = height
+                        }
+
+                        epgIndexWithDateIndex = index
                     }
 
                     Log.i("EPGITEM", "${index == focusedEpg} ${epgItem.title}")
@@ -142,7 +154,7 @@ fun EpgList(
                         epgItem.title,
                         index == focusedEpg && isListFocused,
                         epgItem.isDvrAvailable
-                    ) { height -> itemHeight = height }
+                    ) { height -> epgItemHeight = height }
                 }
             }
 
@@ -150,7 +162,7 @@ fun EpgList(
                 modifier = Modifier
                     .offset {
                         if (!isVisibleItemsMiddle) {
-                            IntOffset(0, ((15 + focusedEpg * itemHeight + focusedEpg * 7) * localDensity).toInt())
+                            IntOffset(0, ((15 + focusedEpg * epgItemHeight + focusedEpg * 7) * localDensity).toInt())
                         } else {
                             IntOffset(0,0)
                         }
@@ -158,7 +170,7 @@ fun EpgList(
                     .alpha(if (!isListFocused) 0f else 1f)
                     .align(if (isVisibleItemsMiddle) Alignment.Center else Alignment.TopCenter)
                     .fillMaxWidth()
-                    .height(itemHeight.dp)
+                    .height(epgItemHeight.dp)
                     .border(1.dp, Color.White)
                     .onGloballyPositioned { cords ->
                         borderYOffset = cords.positionInParent().y.toInt()

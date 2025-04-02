@@ -22,7 +22,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.data.Utils
 import com.example.iptvplayer.view.channels.ArchiveViewModel
-import kotlinx.coroutines.delay
 
 // passing live time from the parent composable only one time
 // to avoid unnecessary recompositions of this composable
@@ -30,67 +29,56 @@ import kotlinx.coroutines.delay
 fun ProgramDatePickerModal(
     modifier: Modifier,
     currentTime: Long,
-    onDateChanged: (Long) -> Unit
+    onArchiveSearch: (Long) -> Unit
 ) {
     val archiveViewModel: ArchiveViewModel = hiltViewModel()
+
     val dvrRange by archiveViewModel.dvrRange.observeAsState()
+    val dvrFirstAndLastDays by archiveViewModel.dvrFirstAndLastDay.observeAsState()
+    val dvrFirstAndLastMonths by archiveViewModel.dvrFirstAndLastMonth.observeAsState()
 
     var isDatePickerFocused by remember { mutableStateOf(true) }
+
     var chosenDateSinceEpoch by remember { mutableLongStateOf(0) }
     var chosenTimeSinceEpoch by remember { mutableLongStateOf(0) }
-    var isCurrentDateSet by remember { mutableStateOf(false) }
 
     LaunchedEffect(chosenDateSinceEpoch, chosenTimeSinceEpoch) {
         val totalDateSinceEpoch = chosenDateSinceEpoch + chosenTimeSinceEpoch
         Log.i("chosen time since epoch", "total time: $totalDateSinceEpoch date: $chosenDateSinceEpoch time $chosenTimeSinceEpoch" )
         Log.i("chosen time since epoch", Utils.formatDate(totalDateSinceEpoch, "EEEE d MMMM HH:mm:ss"))
-
-
-        if (isCurrentDateSet) {
-            // delay for 2 seconds if no changes in time, and then set the time and call callback
-            // to reduce amount of operations if the change in time is fast
-            delay(3000)
-            onDateChanged(totalDateSinceEpoch)
-        } else {
-            // if this condition is true - it means that the initial time setup was
-            // completed (current time is chosen) and we can call onDateChange callback
-            if (chosenDateSinceEpoch != 0L && chosenTimeSinceEpoch != 0L) {
-                isCurrentDateSet = true
-            }
-        }
-    }
-
-    LaunchedEffect(chosenDateSinceEpoch) {
-        delay(1000)
-        isDatePickerFocused = false
     }
 
 
     Column(
         modifier = modifier
             .background(MaterialTheme.colorScheme.secondary.copy(0.8f))
-            .padding(25.dp)
+            .padding(25.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(15.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            DatePicker(
-                Modifier.fillMaxWidth(0.6f),
-                currentTime,
+            DayPicker(
+                Modifier.fillMaxWidth(0.5f),
                 isDatePickerFocused,
-                { date -> chosenDateSinceEpoch = date }
+                dvrFirstAndLastDays ?: Pair(0,0),
+                dvrFirstAndLastMonths ?: Pair(0,0),
+                { onArchiveSearch(chosenDateSinceEpoch + chosenTimeSinceEpoch) },
+                { date -> chosenDateSinceEpoch = date}
             ) {
                 isDatePickerFocused = false
             }
 
             TimePicker(
-                Modifier.fillMaxWidth(0.8f),
+                Modifier.fillMaxWidth(0.7f),
                 currentTime,
                 !isDatePickerFocused,
                 dvrRange ?: Pair(0,0),
                 chosenDateSinceEpoch,
+                { onArchiveSearch(chosenDateSinceEpoch + chosenTimeSinceEpoch) },
                 { time -> chosenTimeSinceEpoch = time }
             ) {
                 isDatePickerFocused = true

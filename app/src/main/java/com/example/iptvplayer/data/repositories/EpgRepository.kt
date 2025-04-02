@@ -53,12 +53,12 @@ class EpgRepository @Inject constructor(
             .document(month).collection("days")
     }
 
-    suspend fun getEpgMonth(
+    suspend fun getFirstAndLastMonths(
         channelId: String
     ): Int {
         Log.i("get epg month", channelId)
-        val epgMonth = getEpgMonthsRef(channelId).get().await()
-        return if (epgMonth.documents.size == 0) -1 else epgMonth.documents[0].id.toInt()
+        val epgMonthsRef = getEpgMonthsRef(channelId).get().await()
+        return if (epgMonthsRef.documents.size == 0) -1 else epgMonthsRef.documents[0].id.toInt()
     }
 
 
@@ -80,10 +80,9 @@ class EpgRepository @Inject constructor(
     }
 
     suspend fun getFirstAndLastEpgTimestamps(
-        channelId: String,
-        month: String
+        channelId: String
     ): Pair<Long, Long> {
-        val epgFirstAndLastDays = getEpgFirstAndLastDays(channelId, month)
+        /*val epgFirstAndLastDays = getEpgFirstAndLastDays(channelId, month)
         if (epgFirstAndLastDays.first == -1) return Pair(-1,-1)
 
 
@@ -98,7 +97,8 @@ class EpgRepository @Inject constructor(
         val firstEpgTimestamp = getFirstEpgTimestampOfDay(firstDayEpgRef)
         val lastEpgTimestamp = getLastEpgTimestampOfDay(lastDayEpgRef)
 
-        return Pair(firstEpgTimestamp, lastEpgTimestamp)
+        return Pair(firstEpgTimestamp, lastEpgTimestamp) */
+        return Pair(0,0)
     }
 
     suspend fun getFirstEpgTimestampOfDay(dayRef: CollectionReference): Long {
@@ -159,86 +159,108 @@ class EpgRepository @Inject constructor(
     }
 
     fun getEpgById(channelId: String, dvrRange: Pair<Long, Long>) = flow {
-        val datePattern = "yyyy d M HH:mm:ss"
-
         val currentGmtTime = Utils.getGmtTime()
         val currentGmtCalendar = Utils.getCalendar(currentGmtTime, TimeZone.getTimeZone("Z"))
-        val currentGmtDay = Utils.getCalendarDay(currentGmtCalendar)
-        val currentGmtMonth = Utils.getCalendarMonth(currentGmtCalendar) + 1
+        val currentGmtDay = Utils.getCalendarDay(currentGmtCalendar) // 1 april
+        var currentGmtMonth = Utils.getCalendarMonth(currentGmtCalendar) + 1 // 04 (april)
 
-        var previousGmtDay = currentGmtDay - 1
-        var nextGmtDay = currentGmtDay + 1
+        var previousGmtDay = currentGmtDay - 1 // 0 -> should switch to previous month
+        var nextGmtDay = currentGmtDay + 1 // 2 april
+        var previousGmtMonth = currentGmtMonth // initially current month (april)
+        var nextGmtMonth = currentGmtMonth // initially current month (april)
 
-        var isCurrentDayEpgFetched = false
         var isPreviousDayEpgFetched = false
 
         var allPreviousDaysFetched = false
         var allNextDaysFetched = false
 
-        val firstAndLastEpgDay = getEpgFirstAndLastDays(channelId, currentGmtMonth.toString())
-        val firstEpgDay = firstAndLastEpgDay.first
-        val lastEpgDay = firstAndLastEpgDay.second
+        // dummy epg to indicate that all the epgs of the day are fetched
+        // this is needed to calculate the positions of the epg programmes in overall list
+        // of epg in UI
+        var dummyEpg: Epg
 
-        Log.i("first and last epg day", "$firstEpgDay $lastEpgDay")
+        // fetching current day epg
+        val startTimeSortedEpg = getDayEpg(
+            channelId,
+            currentGmtMonth.toString(),
+            currentGmtDay.toString(),
+            dvrRange
+        )
 
-        if (firstEpgDay == -1) return@flow
+        Log.i("fetched epg", "$currentGmtDay $currentGmtMonth $startTimeSortedEpg")
 
-        var dayCount = 0
+        if (startTimeSortedEpg.isNotEmpty()) {
+            // dummy epg that indicates that all the epg of the current day are being fetched
+            dummyEpg = Epg(-1,-1,-1,"")
+            startTimeSortedEpg.add(0, dummyEpg)
+            emit(startTimeSortedEpg)
+        } else {
+            allNextDaysFetched = true
+        }
+
+
+        // fetching previous and next days
         while (!allNextDaysFetched || !allPreviousDaysFetched) {
-            var localGmtDay: Int
+            if (!isPreviousDayEpgFetched && !allPreviousDaysFetched) {
+                if (previousGmtDay == 0) {
+                    previousGmtDay = Utils.getDaysOfMonth(previousGmtMonth)
 
-            // dummy epg to indicate that all the epgs of the day are fetched
-            // this is needed to calculate the positions of the epg programmes in overall list
-            // of epg in UI
-            var dummyEpg: Epg
+                    // choosing previous month
+                    previousGmtMonth -= 1
+                }
 
-            if (!isCurrentDayEpgFetched) {
-                localGmtDay = currentGmtDay
-                isCurrentDayEpgFetched = true
+                val startTimeSortedEpg = getDayEpg(
+                    channelId,
+                    previousGmtMonth.toString(),
+                    previousGmtDay.toString(),
+                    dvrRange
+                )
 
-                // dummy epg that indicates that all the epg of the current day are being fetched
-                dummyEpg = Epg(-1,-1,-1,"")
-            } else {
-                if (!isPreviousDayEpgFetched && !allPreviousDaysFetched) {
-                    localGmtDay = previousGmtDay
-                    previousGmtDay -= 1
-                    if (previousGmtDay < firstEpgDay) {
-                        allPreviousDaysFetched = true
-                        isPreviousDayEpgFetched = !isPreviousDayEpgFetched
-                    }
+                Log.i("fetched epg", "$previousGmtDay $currentGmtMonth $startTimeSortedEpg")
 
+                if (startTimeSortedEpg.isNotEmpty()) {
+                    previousGmtDay--
                     // dummy epg that indicates that all the epg of the previous day are being fetched
                     dummyEpg = Epg(-2,-2,-2,"")
+                    startTimeSortedEpg.add(0, dummyEpg)
+                    emit(startTimeSortedEpg)
                 } else {
-                    localGmtDay = nextGmtDay
-                    nextGmtDay += 1
+                    allPreviousDaysFetched = true
+                }
 
-                    if (nextGmtDay > lastEpgDay) {
-                        allNextDaysFetched = true
-                        isPreviousDayEpgFetched = !isPreviousDayEpgFetched
-                    }
+                isPreviousDayEpgFetched = !allNextDaysFetched
+
+            } else {
+                val currentMonthLastDay = Utils.getDaysOfMonth(currentGmtMonth)
+                if (nextGmtDay > currentMonthLastDay) {
+                    nextGmtDay = 1
+
+                    // choosing next month
+                    nextGmtMonth += 1
+                }
+
+                val startTimeSortedEpg = getDayEpg(
+                    channelId,
+                    nextGmtMonth.toString(),
+                    nextGmtDay.toString(),
+                    dvrRange
+                )
+
+                Log.i("fetched epg", "$nextGmtDay $currentGmtMonth $startTimeSortedEpg")
+
+                if (startTimeSortedEpg.isNotEmpty()) {
+                    nextGmtDay++
 
                     // dummy epg that indicates that all the epg of the next day are being fetched
                     dummyEpg = Epg(-3,-3,-3,"")
+                    startTimeSortedEpg.add(0, dummyEpg)
+                    emit(startTimeSortedEpg)
+                } else {
+                    allNextDaysFetched = true
                 }
 
-                if (!allNextDaysFetched && !allPreviousDaysFetched) {
-                    isPreviousDayEpgFetched = !isPreviousDayEpgFetched
-                }
+                isPreviousDayEpgFetched = false
             }
-
-            val startTimeSortedEpg = getDayEpg(
-                channelId,
-                currentGmtMonth.toString(),
-                localGmtDay.toString(),
-                dvrRange
-            )
-
-            startTimeSortedEpg.add(0, dummyEpg)
-            Log.i("WHY", "${startTimeSortedEpg}")
-            Log.i("WHY", localGmtDay.toString())
-            if (startTimeSortedEpg.size > 1) emit(startTimeSortedEpg)
-            dayCount++
         }
     }
 }

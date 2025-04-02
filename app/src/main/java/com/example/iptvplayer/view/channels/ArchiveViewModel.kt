@@ -46,6 +46,9 @@ class ArchiveViewModel @Inject constructor(
     private val _dvrFirstAndLastDay: MutableLiveData<Pair<Int, Int>> = MutableLiveData()
     val dvrFirstAndLastDay: LiveData<Pair<Int, Int>> = _dvrFirstAndLastDay
 
+    private val _dvrFirstAndLastMonth: MutableLiveData<Pair<Int, Int>> = MutableLiveData()
+    val dvrFirstAndLastMonth: MutableLiveData<Pair<Int, Int>> = _dvrFirstAndLastMonth
+
     private val _isContinuousRewind: MutableLiveData<Boolean> = MutableLiveData(false)
     val isContinuousRewind: LiveData<Boolean> = _isContinuousRewind
 
@@ -118,8 +121,14 @@ class ArchiveViewModel @Inject constructor(
         _dvrFirstAndLastDay.value = Pair(dvrFirstDay, dvrLastDay)
     }
 
-    private fun getDvrMonth(firstDayCalendar: Calendar) {
-        _dvrMonth.value = Utils.getCalendarMonth(firstDayCalendar) + 1
+    private fun getDvrFirstAndLastMonths(
+        firstDayCalendar: Calendar,
+        lastDayCalendar: Calendar
+    ) {
+        val dvrFirstMonth = Utils.getCalendarMonth(firstDayCalendar) + 1
+        val dvrLastMonth = Utils.getCalendarMonth(lastDayCalendar) + 1
+
+        _dvrFirstAndLastMonth.value = Pair(dvrFirstMonth, dvrLastMonth)
     }
 
     suspend fun getDvrRange(streamName: String) {
@@ -129,8 +138,8 @@ class ArchiveViewModel @Inject constructor(
         val dvrRangeStartCalendar = Utils.getCalendar(dvrRange.first)
         val dvrRangeEndCalendar = Utils.getCalendar(dvrRange.second)
 
-        getDvrMonth(dvrRangeStartCalendar)
         getDvrFirstAndLastDays(dvrRangeStartCalendar, dvrRangeEndCalendar)
+        getDvrFirstAndLastMonths(dvrRangeStartCalendar, dvrRangeEndCalendar)
     }
 
     fun getArchiveUrl(url: String) {

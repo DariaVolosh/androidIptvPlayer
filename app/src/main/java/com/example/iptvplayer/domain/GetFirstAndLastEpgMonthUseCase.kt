@@ -3,9 +3,9 @@ package com.example.iptvplayer.domain
 import com.example.iptvplayer.data.repositories.EpgRepository
 import javax.inject.Inject
 
-class GetEpgMonthUseCase @Inject constructor(
+class GetFirstAndLastEpgMonthUseCase @Inject constructor(
     private val epgRepository: EpgRepository
 ) {
-    suspend fun getEpgMonth(channelId: String) =
-        epgRepository.getEpgMonth(channelId)
+    suspend fun getFirstAndLastEpgMonth(channelId: String) =
+        epgRepository.getFirstAndLastMonths(channelId)
 }
