@@ -60,6 +60,7 @@ fun EpgList(
 
     var visibleItems by remember { mutableIntStateOf(0) }
     var isVisibleItemsMiddle by remember { mutableStateOf(false) }
+    var isListEnd by remember { mutableStateOf(false) }
 
     var epgItemHeight by remember { mutableIntStateOf(0) }
     var epgDateHeight by remember { mutableIntStateOf(0) }
@@ -76,10 +77,18 @@ fun EpgList(
 
     LaunchedEffect(focusedEpg, isChannelClicked) {
         if (!isChannelClicked) {
-            if (focusedEpg >= visibleItems / 2) {
-                isVisibleItemsMiddle = true
+            // end of the list is reached, focus has to be moved down
 
-                Log.i("epg scroll performed", "$focusedEpg $borderYOffset")
+            if (focusedEpg >= epg.size - visibleItems / 2) {
+                isListEnd = true
+                isVisibleItemsMiddle = false
+                coroutineScope.launch {
+                    listState.scrollToItem(epg.size - 1)
+                }
+            } else if (focusedEpg >= visibleItems / 2) {
+                isVisibleItemsMiddle = true
+                isListEnd = false
+
                 coroutineScope.launch {
                     if (focusedEpg == epgIndexWithDateIndex) {
                         listState.scrollToItem(focusedEpg, -borderYOffset + ((15 + epgDateHeight) * localDensity).toInt())
@@ -89,6 +98,7 @@ fun EpgList(
                 }
             } else {
                 isVisibleItemsMiddle = false
+
                 coroutineScope.launch {
                     listState.scrollToItem(0)
                 }
@@ -115,6 +125,7 @@ fun EpgList(
                         Log.i("EPG LIST HEIGHT", cords.size.toString())
                     }
                     .focusRequester(focusRequester)
+                    .border(1.dp, Color.Red)
                     .focusable(true)
                     .onKeyEvent { event ->
                         if (event.type == KeyEventType.KeyDown) {
@@ -162,14 +173,36 @@ fun EpgList(
                 modifier = Modifier
                     .offset {
                         if (!isVisibleItemsMiddle) {
-                            IntOffset(0, ((15 + focusedEpg * epgItemHeight + focusedEpg * 7) * localDensity).toInt())
+                            Log.i("epg scroll performed", "$focusedEpg $epgIndexWithDateIndex")
+
+                            if (!isListEnd) {
+                                IntOffset(
+                                    0, ((15 + focusedEpg * epgItemHeight + focusedEpg * 7 + epgItemHeight) * localDensity).toInt()
+                                )
+                            } else {
+                                val itemsFromBottom = epg.size - focusedEpg - 1
+                                IntOffset(
+                                    0, ((-15 - itemsFromBottom * epgItemHeight - itemsFromBottom * 7) * localDensity).toInt()
+                                    )
+                            }
                         } else {
+                            Log.i("epg scroll performed", "$focusedEpg $epgIndexWithDateIndex")
                             IntOffset(0,0)
                         }
                     }
                     .alpha(if (!isListFocused) 0f else 1f)
-                    .align(if (isVisibleItemsMiddle) Alignment.Center else Alignment.TopCenter)
+                    .align(
+                        if (isVisibleItemsMiddle) Alignment.Center
+                        else {
+                            if (isListEnd) {
+                                Alignment.BottomCenter
+                            } else {
+                                Alignment.TopCenter
+                            }
+                        }
+                    )
                     .fillMaxWidth()
+                    .padding(horizontal = 15.dp)
                     .height(epgItemHeight.dp)
                     .border(1.dp, Color.White)
                     .onGloballyPositioned { cords ->

@@ -47,8 +47,8 @@ fun LinearProgressWithDot(
     val currentTime by archiveViewModel.currentTime.observeAsState()
     val dvrRange by archiveViewModel.dvrRange.observeAsState()
 
-    val focusedEpg by epgViewModel.focusedEpg.observeAsState()
-    val focusedEpgIndex by epgViewModel.focusedEpgIndex.observeAsState()
+    val currentEpg by epgViewModel.currentEpg.observeAsState()
+    val currentEpgIndex by epgViewModel.focusedEpgIndex.observeAsState()
 
     var progressBarWidthPx by remember { mutableIntStateOf(0) }
     var currentProgrammeProgress by remember { mutableFloatStateOf(0f) }
@@ -57,16 +57,18 @@ fun LinearProgressWithDot(
         // checking if new time is within dvr range
         Log.i("NEW TIME", "${Utils.formatDate(newTime, datePattern)}")
 
-        Log.i("REALLY", "UPDATE PROGRAM PROCESS ${focusedEpg.toString()}")
+        Log.i("REALLY", "UPDATE PROGRAM PROCESS ${currentEpg.toString()}")
 
         val timeElapsedSinceProgrammeStart = newTime - epg.startTime
         Log.i("ELAPSED", timeElapsedSinceProgrammeStart.toString())
-        Log.i("ELAPSED", focusedEpg.toString())
+        Log.i("ELAPSED", currentEpg.toString())
         Log.i("ELAPSED", newTime.toString())
 
         if (newTime < epg.startTime) {
+            epgViewModel.updateCurrentEpgIndex(epgIndex - 1)
             epgViewModel.updateFocusedEpgIndex(epgIndex - 1)
         } else if (newTime > epg.stopTime) {
+            epgViewModel.updateCurrentEpgIndex(epgIndex + 1)
             epgViewModel.updateFocusedEpgIndex(epgIndex + 1)
         } else {
             currentProgrammeProgress =
@@ -110,8 +112,8 @@ fun LinearProgressWithDot(
 
     LaunchedEffect(currentTime) {
         currentTime?.let { currentTime ->
-            val localFocusedEpg = focusedEpg
-            val localFocusedEpgIndex = focusedEpgIndex
+            val localFocusedEpg = currentEpg
+            val localFocusedEpgIndex = currentEpgIndex
             val localDvrRange = dvrRange
 
             // epg is available, use epg timestamps
@@ -136,13 +138,22 @@ fun LinearProgressWithDot(
                     val isAccessible = archiveViewModel.isStreamWithinDvrRange(newTime)
                     Log.i("is accessible", isAccessible.toString())
                     if (isAccessible) {
+                        archiveViewModel.updateIsSeeking(true)
                         archiveViewModel.updateIsLive(false)
                         archiveViewModel.setCurrentTime(newTime)
                         updateCurrentDate(formatDate(newTime, datePattern))
+                    } else {
+                        if (seek < 0) {
+                            archiveViewModel.setRewindError("Cannot rewind back")
+                        } else {
+                            archiveViewModel.setRewindError("Cannot rewind forward")
+                        }
                     }
                 } else {
-                    archiveViewModel.getArchiveUrl(channelUrl)
-                    archiveViewModel.updateIsSeeking(false)
+                    if (archiveViewModel.isSeeking.value == true) {
+                        archiveViewModel.getArchiveUrl(channelUrl)
+                        archiveViewModel.updateIsSeeking(false)
+                    }
                 }
             }
         }

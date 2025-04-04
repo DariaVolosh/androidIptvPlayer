@@ -1,7 +1,9 @@
 package com.example.iptvplayer.view.channelInfo
 
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +32,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -49,6 +52,7 @@ fun ChannelInfo(
     showProgrammeDatePicker: (Boolean) -> Unit,
     showChannelInfo: (Boolean) -> Unit
 ) {
+    val context = LocalContext.current
     val archiveViewModel: ArchiveViewModel = hiltViewModel()
     // injecting epgViewModel and channelsViewModel because i need to use 2 methods from them
     val epgViewModel: EpgViewModel = hiltViewModel()
@@ -64,8 +68,9 @@ fun ChannelInfo(
     val isSeeking by archiveViewModel.isSeeking.observeAsState()
     val isLiveProgram by archiveViewModel.isLive.observeAsState()
     val dvrRange by archiveViewModel.dvrRange.observeAsState()
+    val rewindError by archiveViewModel.rewindError.observeAsState()
 
-    val focusedEpg by epgViewModel.focusedEpg.observeAsState()
+    val currentEpg by epgViewModel.currentEpg.observeAsState()
 
     val focusedChannel by channelsViewModel.focusedChannel.observeAsState()
     val focusedChannelIndex by channelsViewModel.focusedChannelIndex.observeAsState()
@@ -75,7 +80,7 @@ fun ChannelInfo(
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(isChannelInfoShown) {
-        Log.i("IS CHANNEL INFO SHOWN", focusedEpg.toString())
+        Log.i("IS CHANNEL INFO SHOWN", currentEpg.toString())
         Log.i("IS CHANNEL INFO SHOWN", isChannelInfoShown.toString())
         if (isChannelInfoShown) {
             focusRequester.requestFocus()
@@ -101,10 +106,20 @@ fun ChannelInfo(
         }
     }
 
+    LaunchedEffect(rewindError) {
+        rewindError?.let { error ->
+            if (error.isNotEmpty()) {
+                Toast.makeText(context, rewindError, Toast.LENGTH_LONG).show()
+                archiveViewModel.setRewindError("")
+            }
+        }
+    }
+
     if (isChannelInfoShown) {
         Box(
             modifier = modifier
                 .zIndex(99f)
+                .border(1.dp, Color.Red)
                 .focusRequester(focusRequester)
                 .focusable()
                 .onKeyEvent { event ->
@@ -118,18 +133,6 @@ fun ChannelInfo(
                     true
                 }
         ) {
-            /*if (seekingStarted) {
-                PreviewWindow(
-                    Modifier
-                        .zIndex(999f)
-                        .align(Alignment.TopStart),
-                    focusedChannel?.id ?: "-1",
-                    currentTime ?: 0,
-                    progressBarXOffset,
-                    dotXOffset
-                )
-            } */
-
             Column (
                 modifier = Modifier
                     .background(MaterialTheme.colorScheme.secondary.copy(0.8f))
@@ -139,7 +142,7 @@ fun ChannelInfo(
             ) {
                 focusedChannel?.let { focusedChannel ->
                     TimeSeekbarWithTimeMarkers(
-                        focusedEpg,
+                        currentEpg,
                         dvrRange,
                         focusedChannel,
                     ) { newDate -> currentFullDate = newDate}
@@ -147,6 +150,7 @@ fun ChannelInfo(
 
                 Box(
                     modifier = Modifier
+                        .padding(bottom = if (dvrRange?.first == 0L) 17.dp else 0.dp)
                         //.border(1.dp, Color.Yellow)
                         .fillMaxWidth(),
                 ) {
@@ -173,20 +177,19 @@ fun ChannelInfo(
                         Text(
                             modifier = Modifier.padding(top = 10.dp),
                             fontSize = 18.sp,
-                            text = focusedEpg?.title ?: "No epg",
+                            text = currentEpg?.title ?:"No epg",
                             color = MaterialTheme.colorScheme.onSecondary
                         )
 
                         Log.i("SHIT4", "RECOMPOSED")
 
                         // archive is available, show playback controls
-                        if (dvrRange?.first != 0L) {
-                            PlaybackControls(
-                                focusedChannel?.url ?: "",
-                                { showChannelInfo(false) },
-                                { secondsNotInteracted = 0 },
-                            ) { showDatePicker -> showProgrammeDatePicker(showDatePicker) }
-                        }
+                        PlaybackControls(
+                            focusedChannel?.url ?: "",
+                            { showChannelInfo(false) },
+                            dvrRange?.first != 0L,
+                            { secondsNotInteracted = 0 },
+                        ) { showDatePicker -> showProgrammeDatePicker(showDatePicker) }
                     }
 
                     Row(
@@ -207,6 +210,8 @@ fun ChannelInfo(
                         )
                     }
                 }
+
+
             }
         }
     }

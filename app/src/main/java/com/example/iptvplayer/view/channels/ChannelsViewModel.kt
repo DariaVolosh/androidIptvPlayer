@@ -1,5 +1,6 @@
 package com.example.iptvplayer.view.channels
 
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -28,15 +29,16 @@ class ChannelsViewModel @Inject constructor(
     private val _focusedChannel: MutableLiveData<PlaylistChannel> = MutableLiveData()
     val focusedChannel: LiveData<PlaylistChannel> = _focusedChannel
 
-    private fun updateFocusedChannelIndex() {
+    private fun updateFocusedChannel() {
         _focusedChannel.value = channels.value?.getOrNull(focusedChannelIndex.value ?: 0)
     }
 
-    fun updateFocusedChannelIndex(focused: Int) {
+    fun updateFocusedChannel(focused: Int) {
         _channels.value?.size?.let { channelsSize ->
-            if (focused < channelsSize || focused >= 0) {
+            if (focused in 0..<channelsSize) {
                 _focusedChannelIndex.value = focused
-                updateFocusedChannelIndex()
+                Log.i("focused channel", focused.toString())
+                updateFocusedChannel()
             }
         }
     }

@@ -128,9 +128,11 @@ class MediaViewModel @Inject constructor(
     }
 
     fun pause() {
-        ijkPlayer?.pause()
-        _isPaused.value = true
-        Log.i("paused", "true")
+        if (isPaused.value == false) {
+            ijkPlayer?.pause()
+            _isPaused.value = true
+            Log.i("paused", "true")
+        }
     }
 
     fun play() {

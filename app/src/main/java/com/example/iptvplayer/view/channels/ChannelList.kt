@@ -60,23 +60,46 @@ fun ChannelList(
     var borderYOffset by remember { mutableIntStateOf(0) }
 
     var visibleItems by remember { mutableIntStateOf(0) }
+
     var isVisibleItemsMiddle by remember { mutableStateOf(false) }
+    var isListEnd by remember { mutableStateOf(false) }
 
     LaunchedEffect(channels, isChannelClicked) {
-        if (!isChannelClicked) visibleItems = lazyColumnState.layoutInfo.visibleItemsInfo.size
+        if (!isChannelClicked) {
+            val visibleItemsLocal = lazyColumnState.layoutInfo.visibleItemsInfo.size
+            visibleItems = visibleItemsLocal
+        }
     }
 
     LaunchedEffect(focusedChannel, isChannelClicked) {
         if (!isChannelClicked) {
-            if (focusedChannel >= visibleItems / 2) {
-                Log.i("is middle", "$focusedChannel")
+
+            // end of the list is reached, focus has to be moved down
+            if (focusedChannel >= channels.size - visibleItems / 2) {
+                Log.i("end of channels list", "true $focusedChannel")
+
+                isListEnd = true
+                isVisibleItemsMiddle = false
+                coroutineScope.launch {
+                    lazyColumnState.scrollToItem(channels.size - 1)
+                }
+
+            // fixed in the center focus
+            } else if (focusedChannel >= visibleItems / 2) {
+                Log.i("middle of channels list", "true $focusedChannel")
+
                 isVisibleItemsMiddle = true
+                isListEnd = false
+
                 coroutineScope.launch {
                     // taking into consideration list padding (converting it to pixels)
                     Log.i("border y offset", borderYOffset.toString())
                     lazyColumnState.scrollToItem(focusedChannel, -borderYOffset + (15 * localDensity).toInt())
                 }
+
+            // beginning of the list reached, focus has to be moved up
             } else {
+                Log.i("beginning of channels list", "true $focusedChannel")
                 isVisibleItemsMiddle = false
                 // scrolling to the first item by default
                 coroutineScope.launch {
@@ -137,13 +160,32 @@ fun ChannelList(
                 modifier = Modifier
                     .offset {
                         if (!isVisibleItemsMiddle) {
-                            IntOffset(0, ((15 + focusedChannel * itemHeight + focusedChannel * 17) * localDensity).toInt())
+                            if (!isListEnd) {
+                                IntOffset(
+                                    0, ((15 + focusedChannel * itemHeight + focusedChannel * 17) * localDensity).toInt()
+                                )
+                            } else {
+                                val itemsFromBottom = channels.size - focusedChannel - 1
+                                Log.i("ITEMS FROM BOTTOM", "items from bottom $itemsFromBottom $focusedChannel")
+                                IntOffset(
+                                    0, ((-15 - itemsFromBottom * itemHeight - itemsFromBottom * 17) * localDensity).toInt()
+                                )
+                            }
                         } else {
                             IntOffset(0, 0)
                         }
                     }
                     .alpha(if (!isChannelsListFocused) 0f else 1f)
-                    .align(if (isVisibleItemsMiddle) Alignment.Center else Alignment.TopCenter)
+                    .align(
+                        if (isVisibleItemsMiddle) Alignment.Center
+                        else {
+                            if (isListEnd) {
+                                Alignment.BottomCenter
+                            } else {
+                                Alignment.TopCenter
+                            }
+                        }
+                    )
                     .fillMaxWidth()
                     .padding(horizontal = 7.dp)
                     .height(itemHeight.dp)

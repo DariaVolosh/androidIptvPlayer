@@ -25,16 +25,21 @@ class EpgViewModel @Inject constructor(
     private val _epgList: MutableLiveData<List<Epg>> = MutableLiveData()
     val epgList: LiveData<List<Epg>> = _epgList
 
-    private val _focusedEpgIndex: MutableLiveData<Int> = MutableLiveData()
+    // focused epg index, that changes when the user scrolls epg list
+    private val _focusedEpgIndex: MutableLiveData<Int> = MutableLiveData(-1)
     val focusedEpgIndex: LiveData<Int> = _focusedEpgIndex
 
-    private val _focusedEpg: MutableLiveData<Epg> = MutableLiveData()
-    val focusedEpg: LiveData<Epg> = _focusedEpg
+    // currently chosen epg, the program, that should be played
+    private val _currentEpg: MutableLiveData<Epg> = MutableLiveData()
+    val currentEpg: LiveData<Epg> = _currentEpg
+
+    private val _currentEpgIndex: MutableLiveData<Int> = MutableLiveData(-1)
+    val currentEpgIndex: LiveData<Int> = _currentEpgIndex
 
     // defining live programme as a live data because in main composable inside launched effect
     // the new value will not be captured if it is not specified as a key in launched effect
-    private var _liveProgramme: MutableLiveData<Int> = MutableLiveData()
-    val liveProgramme: LiveData<Int> = _liveProgramme
+    private var _liveProgrammeIndex: MutableLiveData<Int> = MutableLiveData(-1)
+    val liveProgrammeIndex: LiveData<Int> = _liveProgrammeIndex
 
     private val _firstAndLastEpgDay: MutableLiveData<Pair<Int,Int>> = MutableLiveData()
     val firstAndLastEpgDay: LiveData<Pair<Int, Int>> = _firstAndLastEpgDay
@@ -96,25 +101,42 @@ class EpgViewModel @Inject constructor(
         // TAK TV
         "ch19" to "ch047",
         // 1+1 marafon
-        "ch11" to "ch048"
+        "ch11" to "ch048",
+        "ch005" to "ch049",
+        "ch172" to "ch050",
+        "ch170" to "ch051",
+        "ch169" to "ch052",
+        "ch006" to "ch053",
+        "ch179" to "ch054",
+        "ch002" to "ch055",
+        "ch004" to "ch056",
+        "ch168" to "ch057"
     )
 
 
-    fun updateFocusedEpg() {
-        _focusedEpg.value = epgList.value?.getOrNull(focusedEpgIndex.value ?: 0)
-    }
-
-    fun updateFocusedEpgIndex(focused: Int) {
-        epgList.value?.size?.let { epgSize ->
-            if (focused < epgSize && focused >= 0) {
-                _focusedEpgIndex.value = focused
-                updateFocusedEpg()
+    fun updateCurrentEpg() {
+        epgList.value?.let { epgList ->
+            if (currentEpgIndex.value != -1) {
+                _currentEpg.value = epgList[currentEpgIndex.value ?: 0]
             }
         }
     }
 
+    fun updateCurrentEpgIndex(current: Int) {
+        epgList.value?.size?.let { epgSize ->
+            if (current < epgSize && current >= 0) {
+                _currentEpgIndex.value = current
+                updateCurrentEpg()
+            }
+        }
+    }
+
+    fun updateFocusedEpgIndex(index: Int) {
+        _focusedEpgIndex.value = index
+    }
+
     fun updateLiveProgramme(index: Int) {
-        _liveProgramme.value = index
+        _liveProgrammeIndex.value = index
     }
 
     fun getEpgByIndex(index: Int): Epg? {
@@ -146,8 +168,9 @@ class EpgViewModel @Inject constructor(
 
     fun getEpgById(channelId: String, dvrRange: Pair<Long,Long>) {
         epgCollectionJob?.cancel()
-        _liveProgramme.value = -1
+        _liveProgrammeIndex.value = -1
         _focusedEpgIndex.value = -1
+        _currentEpgIndex.value = -1
         _epgList.value = listOf()
 
         Log.i("epg month channel id", "called")
@@ -204,8 +227,9 @@ class EpgViewModel @Inject constructor(
 
                         if (_focusedEpgIndex.value == -1 && startTime <= currentTime && stopTime >= currentTime) {
                             //Log.i("CURRENT EPG", "$epg $i ${i-1} ${dayEpg.size}")
-                            _focusedEpgIndex.value = i -1
-                            _liveProgramme.value = i - 1
+                            _focusedEpgIndex.value = i - 1
+                            _currentEpgIndex.value = i - 1
+                            _liveProgrammeIndex.value = i - 1
                         }
 
                         if (i == dayEpg.size - 1) {
@@ -217,10 +241,11 @@ class EpgViewModel @Inject constructor(
                                 _focusedEpgIndex.value?.let { focused ->
                                     Log.i("changed focused programme", "$focused ${dayEpg.size} ${allDaysEpgList.size} $channelId")
                                     _focusedEpgIndex.value = focused + dayEpg.size - 1
+                                    _currentEpgIndex.value = focused + dayEpg.size - 1
                                 }
 
-                                _liveProgramme.value?.let { live ->
-                                    _liveProgramme.value = live + dayEpg.size - 1
+                                _liveProgrammeIndex.value?.let { live ->
+                                    _liveProgrammeIndex.value = live + dayEpg.size - 1
                                 }
                             }
                         }

@@ -106,7 +106,8 @@ fun MainScreen() {
 
     val epg by epgViewModel.epgList.observeAsState()
     val focusedEpgIndex by epgViewModel.focusedEpgIndex.observeAsState()
-    val focusedEpg by epgViewModel.focusedEpg.observeAsState()
+    val currentEpg by epgViewModel.currentEpg.observeAsState()
+    val currentEpgIndex by epgViewModel.currentEpgIndex.observeAsState()
 
     val archiveSegmentUrl by archiveViewModel.archiveSegmentUrl.observeAsState()
     val liveTime by archiveViewModel.liveTime.observeAsState()
@@ -129,21 +130,23 @@ fun MainScreen() {
             Key.DirectionDown -> {
                 focusedChannelIndex?.let { focused ->
                     Log.i("FIRED", "focused channel down")
-                    channelsViewModel.updateFocusedChannelIndex(focused + 1)
+                    channelsViewModel.updateFocusedChannel(focused + 1)
                 }
             }
             Key.DirectionUp -> {
                 focusedChannelIndex?.let { focused ->
-                    channelsViewModel.updateFocusedChannelIndex(focused - 1)
+                    channelsViewModel.updateFocusedChannel(focused - 1)
                 }
             }
             Key.DirectionRight -> {
-                epgViewModel.updateFocusedEpg()
-                isChannelsListFocused = false
+                if (epg?.isNotEmpty() == true) {
+                    isChannelsListFocused = false
+                }
             }
             Key.DirectionCenter -> {
                 dvrCollectionJob.value?.cancel()
                 archiveViewModel.updateIsLive(true)
+
                 liveTime?.let { liveTime ->
                     archiveViewModel.setCurrentTime(liveTime)
                 }
@@ -194,27 +197,32 @@ fun MainScreen() {
                 isChannelsListFocused = true
             }
             Key.DirectionCenter -> {
-                focusedEpg?.let { focused ->
+                currentEpg?.let { focused ->
                     if (focused.isDvrAvailable) {
                         archiveViewModel.updateIsLive(false)
+
+                        focusedEpgIndex?.let { focused ->
+                            epgViewModel.updateCurrentEpgIndex(focused)
+                        }
+
                         focusedChannel?.let { channel ->
                             archiveViewModel.getArchiveUrl(channel.url)
                         }
 
-                        focusedEpg?.let { epg ->
+                        currentEpg?.let { epg ->
                             archiveViewModel.setCurrentTime(epg.startTime)
                             archiveViewModel.getArchiveUrl(focusedChannel?.url ?: "")
                         }
 
-                        isChannelInfoShown = true
                         isChannelClicked = true
+                        isChannelInfoShown = true
                     }
                 }
             }
 
             Key.Back -> {
-                isChannelInfoShown = true
                 isChannelClicked = true
+                isChannelInfoShown = true
             }
         }
     }
@@ -252,6 +260,7 @@ fun MainScreen() {
                     Log.i("EPG LIST START DATE", currentEpg.title)
 
                     if (currentEpg.startTime <= currentTime && currentEpg.stopTime >= currentTime) {
+                        epgViewModel.updateCurrentEpgIndex(currentIndex)
                         epgViewModel.updateFocusedEpgIndex(currentIndex)
                         break
                     }
@@ -261,7 +270,7 @@ fun MainScreen() {
                     currentEpg = epgList[currentIndex]
 
                     if (currentEpg.startTime <= currentTime && currentEpg.stopTime >= currentTime) {
-                        epgViewModel.updateFocusedEpgIndex(currentIndex)
+                        epgViewModel.updateCurrentEpgIndex(currentIndex)
                         break
                     }
                 }
@@ -289,13 +298,17 @@ fun MainScreen() {
         }
     }
 
-    LaunchedEffect(focusedEpgIndex) {
+    /*LaunchedEffect(focusedEpgIndex) {
         epgViewModel.updateFocusedEpg()
+    } */
+
+    LaunchedEffect(currentEpgIndex) {
+        epgViewModel.updateCurrentEpg()
     }
 
     // launch first channel after application boot
    LaunchedEffect(channels) {
-        channelsViewModel.updateFocusedChannelIndex(0)
+        channelsViewModel.updateFocusedChannel(0)
         channels?.let { channels ->
             mediaViewModel.setMediaUrl(channels[0].url)
         }
@@ -376,6 +389,7 @@ fun MainScreen() {
             }
 
             if (isProgramDatePickerShown) {
+                Log.i("is called program date picker?", "true")
                 isChannelInfoShown = false
                 archiveViewModel.currentTime.value?.let { currentTime ->
                     ProgramDatePickerModal(

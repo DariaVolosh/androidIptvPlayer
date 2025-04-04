@@ -33,7 +33,6 @@ data class PlaybackControl(
     val image: Int,
     val contentDescription: Int,
     val isFocused: Boolean,
-    val isEnabled: Boolean,
     val changeFocusedControl: (Int) -> Unit,
     val onPressed: () -> Unit,
     val onLongPressed: () -> Unit,
@@ -43,6 +42,7 @@ data class PlaybackControl(
 @Composable
 fun PlaybackControl(
     playbackControlInfo: PlaybackControl,
+    isPlayerPaused: Boolean,
     onBack: () -> Unit,
 ) {
 
@@ -59,9 +59,9 @@ fun PlaybackControl(
 
     val name = stringResource(playbackControlInfo.contentDescription)
 
-    LaunchedEffect(isLongPressed, playbackControlInfo.isEnabled) {
+    LaunchedEffect(isLongPressed) {
         Log.i("SHIT1", "$isLongPressed $name")
-        while (isLongPressed && playbackControlInfo.isEnabled) {
+        while (isLongPressed) {
             playbackControlInfo.onLongPressed()
             delay(400)
         }
@@ -69,14 +69,16 @@ fun PlaybackControl(
 
     LaunchedEffect(playbackControlInfo.isFocused) {
         if (playbackControlInfo.isFocused) {
+            delay(100)
             focusRequester.requestFocus()
+            Log.i("control info", playbackControlInfo.contentDescription.toString())
         } else {
             focusRequester.freeFocus()
         }
     }
 
     val handleKeyEvent: (Key, KeyEventType) -> Unit = { key, type ->
-        if (key == Key.DirectionCenter && playbackControlInfo.isEnabled) {
+        if (key == Key.DirectionCenter) {
             if (type == KeyEventType.KeyDown) {
                 Log.i("SHIT1", "Key down $name")
                 if (!isKeyPressed) {
@@ -103,18 +105,20 @@ fun PlaybackControl(
 
                 val nextFocusedControl = when (playbackControlInfo.contentDescription) {
                     R.string.pause -> if (left) R.string.back else R.string.forward
-                    R.string.back -> if (left) R.string.previous_program else R.string.pause
+                    R.string.play -> if (left) R.string.back else R.string.forward
+                    R.string.back -> if (left) R.string.previous_program else if (isPlayerPaused) R.string.play else R.string.pause
                     R.string.previous_program -> if (left) R.string.calendar else R.string.back
                     R.string.calendar -> if (left) R.string.go_live else R.string.previous_program
                     R.string.go_live -> if (left) R.string.next_program else R.string.calendar
                     R.string.next_program -> if (left) R.string.forward else R.string.go_live
-                    R.string.forward -> if (left) R.string.pause else R.string.next_program
+                    R.string.forward -> if (!left) R.string.next_program else if (isPlayerPaused) R.string.play else R.string.pause
                     else -> 0
                 }
 
                 playbackControlInfo.changeFocusedControl(nextFocusedControl)
             }
         } else if (key == Key.Back) {
+            Log.i("back pressed", "channel info back")
             onBack()
         }
     }

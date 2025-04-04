@@ -22,7 +22,7 @@ import com.example.iptvplayer.data.Utils.formatDate
 
 @Composable
 fun TimeSeekbarWithTimeMarkers(
-    focusedEpg: Epg?,
+    currentEpg: Epg?,
     dvrRange: Pair<Long, Long>?,
     focusedChannel: PlaylistChannel,
     updateCurrentDate: (String) -> Unit
@@ -33,10 +33,10 @@ fun TimeSeekbarWithTimeMarkers(
     var startTime by remember { mutableStateOf("") }
     var stopTime by remember { mutableStateOf("") }
 
-    LaunchedEffect(focusedEpg, dvrRange) {
-        if (focusedEpg != null) {
-            startTime = formatDate(focusedEpg.startTime, timePattern)
-            stopTime = formatDate(focusedEpg.stopTime, timePattern)
+    LaunchedEffect(currentEpg, dvrRange) {
+        if (currentEpg != null) {
+            startTime = formatDate(currentEpg.startTime, timePattern)
+            stopTime = formatDate(currentEpg.stopTime, timePattern)
         } else if (dvrRange != null && dvrRange.first != 0L) {
             startTime = formatDate(dvrRange.first, datePattern)
             stopTime = formatDate(dvrRange.second, datePattern)

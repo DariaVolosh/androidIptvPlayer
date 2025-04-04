@@ -35,12 +35,8 @@ class ArchiveViewModel @Inject constructor(
     private val _isSeeking: MutableLiveData<Boolean> = MutableLiveData(false)
     val isSeeking: LiveData<Boolean> = _isSeeking
 
-    private val _dvrRange: MutableLiveData<Pair<Long, Long>> = MutableLiveData()
+    private val _dvrRange: MutableLiveData<Pair<Long, Long>> = MutableLiveData(Pair(0,0))
     val dvrRange: LiveData<Pair<Long, Long>> = _dvrRange
-
-    // for example march -> 3
-    private val _dvrMonth: MutableLiveData<Int> = MutableLiveData()
-    val dvrMonth: LiveData<Int> = _dvrMonth
 
     // for example 3 march -> 3
     private val _dvrFirstAndLastDay: MutableLiveData<Pair<Int, Int>> = MutableLiveData()
@@ -49,15 +45,19 @@ class ArchiveViewModel @Inject constructor(
     private val _dvrFirstAndLastMonth: MutableLiveData<Pair<Int, Int>> = MutableLiveData()
     val dvrFirstAndLastMonth: MutableLiveData<Pair<Int, Int>> = _dvrFirstAndLastMonth
 
-    private val _isContinuousRewind: MutableLiveData<Boolean> = MutableLiveData(false)
-    val isContinuousRewind: LiveData<Boolean> = _isContinuousRewind
-
     private val _isLive: MutableLiveData<Boolean> = MutableLiveData()
     val isLive: LiveData<Boolean> = _isLive
+
+    private val _rewindError: MutableLiveData<String> = MutableLiveData()
+    val rewindError: LiveData<String> = _rewindError
 
     fun setLiveTime(time: Long) {
         Log.i("LIVE TIME", time.toString())
         _liveTime.value = time
+    }
+
+    fun setRewindError(error: String) {
+        _rewindError.value = error
     }
 
     fun onSeekFinish() {
@@ -174,10 +174,6 @@ class ArchiveViewModel @Inject constructor(
         _isSeeking.value = isSeeking
     }
 
-    fun updateIsContinuousRewind(isContinuous: Boolean) {
-        _isContinuousRewind.value = isContinuous
-    }
-
     fun isStreamWithinDvrRange(newTime: Long): Boolean =
         dvrRange.value?.let { dvrRange ->
             val datePattern = "EEEE d MMMM HH:mm:ss"
@@ -185,10 +181,20 @@ class ArchiveViewModel @Inject constructor(
             Log.i("dvr range compare","${Utils.formatDate(newTime, datePattern)}")
             Log.i("dvr range compare","${Utils.formatDate(dvrRange.second, datePattern)}")
 
-            newTime >= dvrRange.first && newTime <= dvrRange.second
+            val isMoreThanFirstBound = newTime >= dvrRange.first
+            val isLessThanSecondBound = newTime <= dvrRange.second
+
+            val isWithinDvrRange = isMoreThanFirstBound && isLessThanSecondBound
+            isWithinDvrRange
         } ?: false
 
-    fun updateIsLive(isLive: Boolean) {
-        _isLive.value = isLive
+    fun updateIsLive(isLive: Boolean): Boolean {
+        if (_isLive.value == true && isLive) {
+            _rewindError.value = "Already in live"
+            return false
+        } else {
+            _isLive.value = isLive
+            return true
+        }
     }
 }
