@@ -34,7 +34,7 @@ fun TimeSeekbarWithTimeMarkers(
     var stopTime by remember { mutableStateOf("") }
 
     LaunchedEffect(currentEpg, dvrRange) {
-        if (currentEpg != null) {
+        if (currentEpg != null && currentEpg != Epg()) {
             startTime = formatDate(currentEpg.startTime, timePattern)
             stopTime = formatDate(currentEpg.stopTime, timePattern)
         } else if (dvrRange != null && dvrRange.first != 0L) {

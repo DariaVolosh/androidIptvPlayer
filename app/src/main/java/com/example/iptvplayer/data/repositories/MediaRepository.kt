@@ -60,7 +60,7 @@ class MediaDataSource @Inject constructor(
                 Log.i("lel", "setMediaUrl $url ${this@MediaDataSource}")
                 nextSegmentRequested = false
             } catch (e: Exception) {
-                //Log.i("exception", e.message.toString())
+
             }
         }
     }

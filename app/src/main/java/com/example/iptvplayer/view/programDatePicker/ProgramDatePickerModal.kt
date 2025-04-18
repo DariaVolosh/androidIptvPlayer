@@ -1,6 +1,7 @@
 package com.example.iptvplayer.view.programDatePicker
 
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -18,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.data.Utils
@@ -32,6 +34,8 @@ fun ProgramDatePickerModal(
     onArchiveSearch: (Long) -> Unit
 ) {
     val archiveViewModel: ArchiveViewModel = hiltViewModel()
+
+    val context = LocalContext.current
 
     val dvrRange by archiveViewModel.dvrRange.observeAsState()
     val dvrFirstAndLastDays by archiveViewModel.dvrFirstAndLastDay.observeAsState()
@@ -48,6 +52,18 @@ fun ProgramDatePickerModal(
         Log.i("chosen time since epoch", Utils.formatDate(totalDateSinceEpoch, "EEEE d MMMM HH:mm:ss"))
     }
 
+
+    val onArchiveSearchLocal: () -> Unit = {
+        val newTotalDate = chosenDateSinceEpoch + chosenTimeSinceEpoch
+        dvrRange?.let { dvrRange ->
+            if (newTotalDate >= dvrRange.first && newTotalDate <= dvrRange.second) {
+                onArchiveSearch(newTotalDate)
+            } else {
+                Toast.makeText(context, "Chosen date archive is not available", Toast.LENGTH_LONG)
+                    .show()
+            }
+        }
+    }
 
     Column(
         modifier = modifier
@@ -66,7 +82,7 @@ fun ProgramDatePickerModal(
                 isDatePickerFocused,
                 dvrFirstAndLastDays ?: Pair(0,0),
                 dvrFirstAndLastMonths ?: Pair(0,0),
-                { onArchiveSearch(chosenDateSinceEpoch + chosenTimeSinceEpoch) },
+                onArchiveSearchLocal,
                 { date -> chosenDateSinceEpoch = date}
             ) {
                 isDatePickerFocused = false
@@ -76,9 +92,8 @@ fun ProgramDatePickerModal(
                 Modifier.fillMaxWidth(0.7f),
                 currentTime,
                 !isDatePickerFocused,
-                dvrRange ?: Pair(0,0),
                 chosenDateSinceEpoch,
-                { onArchiveSearch(chosenDateSinceEpoch + chosenTimeSinceEpoch) },
+                onArchiveSearchLocal,
                 { time -> chosenTimeSinceEpoch = time }
             ) {
                 isDatePickerFocused = true

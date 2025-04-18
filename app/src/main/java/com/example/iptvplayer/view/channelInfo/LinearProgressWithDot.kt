@@ -48,7 +48,7 @@ fun LinearProgressWithDot(
     val dvrRange by archiveViewModel.dvrRange.observeAsState()
 
     val currentEpg by epgViewModel.currentEpg.observeAsState()
-    val currentEpgIndex by epgViewModel.focusedEpgIndex.observeAsState()
+    val currentEpgIndex by epgViewModel.currentEpgIndex.observeAsState()
 
     var progressBarWidthPx by remember { mutableIntStateOf(0) }
     var currentProgrammeProgress by remember { mutableFloatStateOf(0f) }
@@ -93,6 +93,8 @@ fun LinearProgressWithDot(
             decimalFormat.format(
                 timeElapsedSinceDvrStart.toFloat() * 100 / dvrDuration
             ).toFloat()
+
+        Log.i("current dvr progress", currentProgrammeProgress.toString())
     }
 
     val getNewTime: (Int) -> Long = { seek ->
@@ -112,15 +114,17 @@ fun LinearProgressWithDot(
 
     LaunchedEffect(currentTime) {
         currentTime?.let { currentTime ->
-            val localFocusedEpg = currentEpg
-            val localFocusedEpgIndex = currentEpgIndex
+            val localCurrentEpg = currentEpg
+            val localCurrentEpgIndex = currentEpgIndex
             val localDvrRange = dvrRange
 
             // epg is available, use epg timestamps
-            if (localFocusedEpg != null && localFocusedEpgIndex != null && localFocusedEpgIndex != -1) {
-                updateEpgSeekbarProgress(currentTime, localFocusedEpg, localFocusedEpgIndex)
+            if (localCurrentEpg != null && localCurrentEpgIndex != null && localCurrentEpgIndex != -1) {
+                Log.i("DVR OR EPG", "epg")
+                updateEpgSeekbarProgress(currentTime, localCurrentEpg, localCurrentEpgIndex)
             // epg is not available, but dvr is available, use dvr timestamps
             } else if (localDvrRange != null && localDvrRange.first != 0L) {
+                Log.i("DVR OR EPG", "dvr")
                 updateDvrSeekbarProgress(currentTime, localDvrRange)
             }
         }

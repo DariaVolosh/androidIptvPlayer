@@ -8,6 +8,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.iptvplayer.data.Utils
 import com.example.iptvplayer.domain.GetDvrRangeUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
@@ -45,11 +47,13 @@ class ArchiveViewModel @Inject constructor(
     private val _dvrFirstAndLastMonth: MutableLiveData<Pair<Int, Int>> = MutableLiveData()
     val dvrFirstAndLastMonth: MutableLiveData<Pair<Int, Int>> = _dvrFirstAndLastMonth
 
-    private val _isLive: MutableLiveData<Boolean> = MutableLiveData()
+    private val _isLive: MutableLiveData<Boolean> = MutableLiveData(false)
     val isLive: LiveData<Boolean> = _isLive
 
     private val _rewindError: MutableLiveData<String> = MutableLiveData()
     val rewindError: LiveData<String> = _rewindError
+
+    private var dvrCollectionJob: Job? = null
 
     fun setLiveTime(time: Long) {
         Log.i("LIVE TIME", time.toString())
@@ -151,7 +155,7 @@ class ArchiveViewModel @Inject constructor(
             Log.i("REALLY", time.toString())
             val baseUrl = url.substring(0, url.lastIndexOf("/") + 1)
 
-            val archiveUrl = baseUrl + "index-$time-now.m3u8"
+            val archiveUrl = baseUrl + "index-$time-now.m3u8?token=IKT0neFHTB1Ki0"
             // checking again, because if the rewind was not continuous, time did not change,
             // therefore still in present, rewinding to current time would result in
             // file not found exception
@@ -166,7 +170,8 @@ class ArchiveViewModel @Inject constructor(
     fun setCurrentTime(time: Long) {
         if (time != 0L) {
             _currentTime.value = time
-            Log.i("TIME", _currentTime.value.toString())
+            val datePattern = "EEEE d MMMM HH:mm:ss"
+            Log.i("current time!", Utils.formatDate(time, datePattern))
         }
     }
 
@@ -188,13 +193,25 @@ class ArchiveViewModel @Inject constructor(
             isWithinDvrRange
         } ?: false
 
-    fun updateIsLive(isLive: Boolean): Boolean {
-        if (_isLive.value == true && isLive) {
-            _rewindError.value = "Already in live"
-            return false
-        } else {
-            _isLive.value = isLive
-            return true
+    fun updateIsLive(isLive: Boolean) {
+        _isLive.value = isLive
+    }
+
+    fun startDvrCollectionJob(streamName: String, getEpgById: (Pair<Long, Long>) -> Unit) {
+        dvrCollectionJob?.cancel()
+
+        dvrCollectionJob = viewModelScope.launch {
+            getDvrRange(streamName)
+
+            dvrRange.value?.let { range ->
+                Log.i("dvr range in archive view model", range.toString())
+                getEpgById(range)
+            }
+
+            while (true) {
+                getDvrRange(streamName)
+                delay(5000)
+            }
         }
     }
 }

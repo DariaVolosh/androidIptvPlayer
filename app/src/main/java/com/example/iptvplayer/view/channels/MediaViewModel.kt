@@ -142,6 +142,8 @@ class MediaViewModel @Inject constructor(
     }
 
     fun release() {
+        Log.i("CALLED RELEASE", "called")
         ijkPlayer?.release()
+        ijkPlayer?.reset()
     }
 }

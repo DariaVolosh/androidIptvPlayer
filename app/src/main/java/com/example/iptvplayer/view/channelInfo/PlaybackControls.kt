@@ -67,8 +67,10 @@ fun PlaybackControls(
         focusedEpgIndex?.let { focusedEpgIndex ->
             resetSecondsNotInteracted()
             val prevProgram = epgViewModel.getEpgByIndex(focusedEpgIndex - 1)
+            Log.i("prev program", prevProgram.toString())
 
             if (prevProgram != null && channelUrl.isNotEmpty() && prevProgram.isDvrAvailable) {
+                archiveViewModel.updateIsLive(false)
                 archiveViewModel.setCurrentTime(prevProgram.startTime)
                 archiveViewModel.getArchiveUrl(channelUrl)
                 archiveViewModel.updateIsSeeking(true)
@@ -88,6 +90,7 @@ fun PlaybackControls(
             val nextProgram = epgViewModel.getEpgByIndex(focusedEpgIndex + 1)
 
             if (nextProgram != null && channelUrl.isNotEmpty() && nextProgram.isDvrAvailable) {
+                archiveViewModel.updateIsLive(false)
                 archiveViewModel.setCurrentTime(nextProgram.startTime)
                 archiveViewModel.getArchiveUrl(channelUrl)
                 archiveViewModel.updateIsSeeking(true)
@@ -120,9 +123,13 @@ fun PlaybackControls(
     }
 
     val handlePauseOnClick = {
-        focusedControl = R.string.play
-        resetSecondsNotInteracted()
-        mediaViewModel.pause()
+        if (isDvrAvailable) {
+            focusedControl = R.string.play
+            resetSecondsNotInteracted()
+            mediaViewModel.pause()
+        } else {
+            archiveViewModel.setRewindError("Archive is not available")
+        }
     }
 
     val handlePlayOnClick = {
@@ -140,7 +147,8 @@ fun PlaybackControls(
         if (channelUrl.isNotEmpty()) {
             resetSecondsNotInteracted()
 
-            if (archiveViewModel.updateIsLive(true)) {
+            if (archiveViewModel.isLive.value == false) {
+                archiveViewModel.updateIsLive(true)
                 archiveViewModel.updateIsSeeking(true)
                 coroutineScope.launch {
                     epgViewModel.liveProgrammeIndex.value?.let { l ->
@@ -148,11 +156,10 @@ fun PlaybackControls(
                         epgViewModel.updateFocusedEpgIndex(l)
                     }
                     mediaViewModel.setMediaUrl(channelUrl)
-                    archiveViewModel.liveTime.value?.let { t ->
-                        archiveViewModel.setCurrentTime(t)
-                    }
                 }
                 archiveViewModel.updateIsSeeking(false)
+            } else {
+                archiveViewModel.setRewindError("Already in live")
             }
         }
     }

@@ -4,6 +4,7 @@ import android.util.Log
 import com.instacart.library.truetime.TrueTime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okio.IOException
 import java.text.DateFormatSymbols
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -105,8 +106,12 @@ object Utils {
 
     suspend fun getGmtTime(): Long =
         withContext(Dispatchers.IO) {
-            TrueTime.build().withNtpHost("pool.ntp.org").initialize()
-            Log.i("I SEE YOU", TrueTime.now().time.toString())
-            TrueTime.now().time / 1000
+            try {
+                TrueTime.build().withNtpHost("pool.ntp.org").initialize()
+                Log.i("I SEE YOU", TrueTime.now().time.toString())
+                TrueTime.now().time / 1000
+            } catch (e: IOException) {
+                0
+            }
         }
 }

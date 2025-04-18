@@ -16,31 +16,39 @@ class FileUtilsRepository @Inject constructor (
 
 ) {
 
-    suspend fun getFileInputStream(fileUrl: String): InputStream =
+    suspend fun getFileInputStream(fileUrl: String): InputStream? =
         withContext(Dispatchers.IO) {
-            val url = URL(fileUrl)
-            val connection = url.openConnection() as HttpURLConnection
-            connection.connect()
-
-            connection.inputStream
+            Log.i("file url read", fileUrl.toString())
+            try {
+                val url = URL(fileUrl)
+                val connection = url.openConnection() as HttpURLConnection
+                connection.connect()
+                connection.inputStream
+            } catch (e: Exception) {
+                Log.i("get file input stream", e.toString())
+                null
+            }
         }
 
     suspend fun readFile(fileUrl: String): List<String> =
         withContext(Dispatchers.IO) {
             val inputStream = getFileInputStream(fileUrl)
-            val bufferedReader = BufferedReader(InputStreamReader(inputStream))
-
             val content = mutableListOf<String>()
-            var line: String? = bufferedReader.readLine()
 
-            while (line != null) {
-                content += line
-                line = bufferedReader.readLine()
-            }
+            inputStream?.let { stream ->
+                val bufferedReader = BufferedReader(InputStreamReader(stream))
 
-            inputStream.close()
-            bufferedReader.close()
-            content
+                var line: String? = bufferedReader.readLine()
+
+                while (line != null) {
+                    content += line
+                    line = bufferedReader.readLine()
+                }
+
+                stream.close()
+                bufferedReader.close()
+                content
+            } ?: content
         }
 
     suspend fun isLinkAccessible(url: String): Boolean =

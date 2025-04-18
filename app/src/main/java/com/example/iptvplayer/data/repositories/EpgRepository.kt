@@ -55,10 +55,13 @@ class EpgRepository @Inject constructor(
 
     suspend fun getFirstAndLastMonths(
         channelId: String
-    ): Int {
+    ): Pair<Int, Int> {
         Log.i("get epg month", channelId)
         val epgMonthsRef = getEpgMonthsRef(channelId).get().await()
-        return if (epgMonthsRef.documents.size == 0) -1 else epgMonthsRef.documents[0].id.toInt()
+        if (epgMonthsRef.documents.isEmpty()) return Pair(-1, -1)
+        val firstMonth = epgMonthsRef.documents[0].id.toInt()
+        val lastMonth = epgMonthsRef.documents[epgMonthsRef.documents.size-1].id.toInt()
+        return Pair(firstMonth, lastMonth)
     }
 
 
@@ -82,23 +85,26 @@ class EpgRepository @Inject constructor(
     suspend fun getFirstAndLastEpgTimestamps(
         channelId: String
     ): Pair<Long, Long> {
-        /*val epgFirstAndLastDays = getEpgFirstAndLastDays(channelId, month)
-        if (epgFirstAndLastDays.first == -1) return Pair(-1,-1)
+        val firstAndLastEpgMonths = getFirstAndLastMonths(channelId)
+        val firstMonth = firstAndLastEpgMonths.first
+        val lastMonth = firstAndLastEpgMonths.second
 
+        val epgFirstMonthDaysRange = getEpgFirstAndLastDays(channelId, firstMonth.toString())
+        if (epgFirstMonthDaysRange.first == -1) return Pair(-1,-1)
+        val epgLastMonthDaysRange = getEpgFirstAndLastDays(channelId, lastMonth.toString())
 
-        val firstDayEpgRef = getEpgDaysRef(channelId, month)
-            .document(epgFirstAndLastDays.first.toString())
+        val firstDayEpgRef = getEpgDaysRef(channelId, firstMonth.toString())
+            .document(epgFirstMonthDaysRange.first.toString())
             .collection("programmes_list")
 
-        val lastDayEpgRef = getEpgDaysRef(channelId, month)
-            .document(epgFirstAndLastDays.second.toString())
+        val lastDayEpgRef = getEpgDaysRef(channelId, lastMonth.toString())
+            .document(epgLastMonthDaysRange.second.toString())
             .collection("programmes_list")
 
         val firstEpgTimestamp = getFirstEpgTimestampOfDay(firstDayEpgRef)
         val lastEpgTimestamp = getLastEpgTimestampOfDay(lastDayEpgRef)
 
-        return Pair(firstEpgTimestamp, lastEpgTimestamp) */
-        return Pair(0,0)
+        return Pair(firstEpgTimestamp, lastEpgTimestamp)
     }
 
     suspend fun getFirstEpgTimestampOfDay(dayRef: CollectionReference): Long {
@@ -118,6 +124,7 @@ class EpgRepository @Inject constructor(
         dvrRange: Pair<Long, Long>
     ): MutableList<Epg> {
         Log.i("Thread", "Before Firestore: ${Thread.currentThread().name}")
+        Log.i("day data", "$month $day $dvrRange")
 
         val epgList = mutableListOf<Epg>()
 
@@ -159,10 +166,25 @@ class EpgRepository @Inject constructor(
     }
 
     fun getEpgById(channelId: String, dvrRange: Pair<Long, Long>) = flow {
+        Log.i("epg id", channelId.toString())
         val currentGmtTime = Utils.getGmtTime()
         val currentGmtCalendar = Utils.getCalendar(currentGmtTime, TimeZone.getTimeZone("Z"))
-        val currentGmtDay = Utils.getCalendarDay(currentGmtCalendar) // 1 april
+        var currentGmtDay = Utils.getCalendarDay(currentGmtCalendar) // 1 april
         var currentGmtMonth = Utils.getCalendarMonth(currentGmtCalendar) + 1 // 04 (april)
+
+        val datePattern = "EEEE d MMMM HH:mm:ss"
+
+        val firstAndLastEpgTimestamps = getFirstAndLastEpgTimestamps(channelId)
+        Log.i("first and last epg timestamps", "${Utils.formatDate(firstAndLastEpgTimestamps.first, datePattern)}")
+        Log.i("first and last epg timestamps", "${Utils.formatDate(firstAndLastEpgTimestamps.second, datePattern)}")
+
+        var lastEpgDay = Utils.getCalendarDay(Utils.getCalendar(firstAndLastEpgTimestamps.second, TimeZone.getTimeZone("Z")))
+        var lastEpgMonth = Utils.getCalendarMonth(Utils.getCalendar(firstAndLastEpgTimestamps.second, TimeZone.getTimeZone("Z"))) + 1
+
+        if (currentGmtDay > lastEpgDay) {
+            currentGmtDay = lastEpgDay
+            currentGmtMonth = lastEpgMonth
+        }
 
         var previousGmtDay = currentGmtDay - 1 // 0 -> should switch to previous month
         var nextGmtDay = currentGmtDay + 1 // 2 april
@@ -187,27 +209,26 @@ class EpgRepository @Inject constructor(
             dvrRange
         )
 
-        Log.i("fetched epg", "$currentGmtDay $currentGmtMonth $startTimeSortedEpg")
-
         if (startTimeSortedEpg.isNotEmpty()) {
             // dummy epg that indicates that all the epg of the current day are being fetched
             dummyEpg = Epg(-1,-1,-1,"")
             startTimeSortedEpg.add(0, dummyEpg)
             emit(startTimeSortedEpg)
-        } else {
-            allNextDaysFetched = true
         }
 
 
         // fetching previous and next days
         while (!allNextDaysFetched || !allPreviousDaysFetched) {
+            Log.i("previous and all fetched", "is previous day epg fetched: $isPreviousDayEpgFetched, all previous fetched: $allPreviousDaysFetched")
             if (!isPreviousDayEpgFetched && !allPreviousDaysFetched) {
                 if (previousGmtDay == 0) {
-                    previousGmtDay = Utils.getDaysOfMonth(previousGmtMonth)
-
                     // choosing previous month
                     previousGmtMonth -= 1
+                    previousGmtDay = Utils.getDaysOfMonth(previousGmtMonth)
                 }
+
+                Log.i("previous gmt day and month", "$previousGmtDay $previousGmtMonth")
+
 
                 val startTimeSortedEpg = getDayEpg(
                     channelId,
@@ -216,13 +237,13 @@ class EpgRepository @Inject constructor(
                     dvrRange
                 )
 
-                Log.i("fetched epg", "$previousGmtDay $currentGmtMonth $startTimeSortedEpg")
-
                 if (startTimeSortedEpg.isNotEmpty()) {
-                    previousGmtDay--
                     // dummy epg that indicates that all the epg of the previous day are being fetched
                     dummyEpg = Epg(-2,-2,-2,"")
                     startTimeSortedEpg.add(0, dummyEpg)
+                    Log.i("fetched epg", "previous $previousGmtDay $currentGmtMonth $startTimeSortedEpg")
+                    previousGmtDay--
+
                     emit(startTimeSortedEpg)
                 } else {
                     allPreviousDaysFetched = true
@@ -246,14 +267,13 @@ class EpgRepository @Inject constructor(
                     dvrRange
                 )
 
-                Log.i("fetched epg", "$nextGmtDay $currentGmtMonth $startTimeSortedEpg")
-
                 if (startTimeSortedEpg.isNotEmpty()) {
-                    nextGmtDay++
-
                     // dummy epg that indicates that all the epg of the next day are being fetched
                     dummyEpg = Epg(-3,-3,-3,"")
                     startTimeSortedEpg.add(0, dummyEpg)
+                    Log.i("fetched epg", "next: $nextGmtDay $currentGmtMonth $startTimeSortedEpg")
+                    nextGmtDay++
+
                     emit(startTimeSortedEpg)
                 } else {
                     allNextDaysFetched = true

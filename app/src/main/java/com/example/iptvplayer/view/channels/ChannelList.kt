@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -16,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,7 +30,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
@@ -38,19 +39,24 @@ import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import com.example.iptvplayer.data.PlaylistChannel
+import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.launch
 
 @Composable
 fun ChannelList(
     modifier: Modifier,
-    channels: List<PlaylistChannel>,
-    focusedChannel: Int,
-    isChannelsListFocused: Boolean,
-    isChannelClicked: Boolean,
-    channelOnKeyEvent: (Key) -> Unit,
+    setMediaUrl: (String) -> Unit,
+    setIsEpgListFocused: (Boolean) -> Unit,
+    getEpgById: (String, Pair<Long, Long>) -> Unit
 ) {
     val localDensity = LocalDensity.current.density
+    val channelsViewModel: ChannelsViewModel = hiltViewModel()
+
+    //val channels by channelsViewModel.playlistChannels.observeAsState()
+    val channelsData by channelsViewModel.channelsData.observeAsState()
+    val isChannelsListFocused by channelsViewModel.isChannelsListFocused.observeAsState()
+    val focusedChannelIndex by channelsViewModel.focusedChannelIndex.observeAsState()
+    val isChannelClicked by channelsViewModel.isChannelClicked.observeAsState()
 
     val lazyColumnState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -63,30 +69,38 @@ fun ChannelList(
 
     var isVisibleItemsMiddle by remember { mutableStateOf(false) }
     var isListEnd by remember { mutableStateOf(false) }
+    var allChannelsAreVisible by remember { mutableStateOf(false) }
 
-    LaunchedEffect(channels, isChannelClicked) {
-        if (!isChannelClicked) {
+    LaunchedEffect(channelsData, isChannelClicked) {
+        if (isChannelClicked == false) {
             val visibleItemsLocal = lazyColumnState.layoutInfo.visibleItemsInfo.size
             visibleItems = visibleItemsLocal
+            if (visibleItemsLocal == channelsData?.size) allChannelsAreVisible = true
         }
     }
 
-    LaunchedEffect(focusedChannel, isChannelClicked) {
-        if (!isChannelClicked) {
+    LaunchedEffect(focusedChannelIndex, isChannelClicked) {
+        val localChannels = channelsData
+        val focusedChannelIndexLocal = focusedChannelIndex
+
+        if (isChannelClicked == false && focusedChannelIndexLocal != null) {
+            Log.i("focused stuff", "focused channel $focusedChannelIndex visible ${visibleItems / 2}")
+
+            if (allChannelsAreVisible) return@LaunchedEffect
 
             // end of the list is reached, focus has to be moved down
-            if (focusedChannel >= channels.size - visibleItems / 2) {
-                Log.i("end of channels list", "true $focusedChannel")
+            if (localChannels != null && focusedChannelIndexLocal >= localChannels.size - visibleItems / 2) {
+                Log.i("end of channels list", "true $focusedChannelIndex")
 
                 isListEnd = true
                 isVisibleItemsMiddle = false
                 coroutineScope.launch {
-                    lazyColumnState.scrollToItem(channels.size - 1)
+                    lazyColumnState.scrollToItem(localChannels.size - 1)
                 }
 
             // fixed in the center focus
-            } else if (focusedChannel >= visibleItems / 2) {
-                Log.i("middle of channels list", "true $focusedChannel")
+            } else if (focusedChannelIndexLocal >= visibleItems / 2) {
+                Log.i("middle of channels list", "true $focusedChannelIndexLocal")
 
                 isVisibleItemsMiddle = true
                 isListEnd = false
@@ -94,12 +108,12 @@ fun ChannelList(
                 coroutineScope.launch {
                     // taking into consideration list padding (converting it to pixels)
                     Log.i("border y offset", borderYOffset.toString())
-                    lazyColumnState.scrollToItem(focusedChannel, -borderYOffset + (15 * localDensity).toInt())
+                    lazyColumnState.scrollToItem(focusedChannelIndexLocal, -borderYOffset + (15 * localDensity).toInt())
                 }
 
             // beginning of the list reached, focus has to be moved up
             } else {
-                Log.i("beginning of channels list", "true $focusedChannel")
+                Log.i("beginning of channels list", "true $focusedChannelIndexLocal")
                 isVisibleItemsMiddle = false
                 // scrolling to the first item by default
                 coroutineScope.launch {
@@ -110,24 +124,29 @@ fun ChannelList(
     }
 
     LaunchedEffect(isChannelsListFocused, isChannelClicked) {
-        if (!isChannelClicked) {
-            if (isChannelsListFocused) focusRequester.requestFocus()
+        if (isChannelClicked == false) {
+            if (isChannelsListFocused == true) focusRequester.requestFocus()
             else focusRequester.freeFocus()
         }
     }
 
-    if (!isChannelClicked) {
+    if (isChannelClicked == false) {
         Box(
             modifier = modifier
         ) {
             LazyColumn(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .fillMaxSize()
                     .focusRequester(focusRequester)
                     .focusable(true)
                     .onKeyEvent { event ->
                         if (event.type == KeyEventType.KeyDown) {
-                            channelOnKeyEvent(event.key)
+                            channelsViewModel.handleChannelOnKeyEvent(
+                                event.key,
+                                setMediaUrl,
+                                setIsEpgListFocused,
+                                getEpgById
+                            )
                         }
 
                         true
@@ -136,7 +155,7 @@ fun ChannelList(
                         Brush.horizontalGradient(
                             listOf(
                                 MaterialTheme.colorScheme.primary,
-                                MaterialTheme.colorScheme.secondary.copy(alpha = 0.55f)
+                                MaterialTheme.colorScheme.secondary.copy(alpha = 0.8f)
                             )
                         )
                     )
@@ -147,35 +166,45 @@ fun ChannelList(
                 verticalArrangement = Arrangement.spacedBy(17.dp),
                 state = lazyColumnState
             ) {
-                items(channels.size) { index ->
-                    Channel(
-                        channels[index].name,
-                        channels[index].logo,
-                        index
-                    ) { height -> itemHeight = height }
+                items(channelsData?.size ?: 0) { index ->
+                    channelsData?.get(index)?.let { channelData ->
+                        val channel = channelData.channel[0]
+                        Channel(
+                            channel.channelScreenName,
+                            channel.logo,
+                            index
+                        ) { height -> itemHeight = height }
+                    }
                 }
             }
 
             Box(
                 modifier = Modifier
                     .offset {
-                        if (!isVisibleItemsMiddle) {
+                        val focusedChannelIndexLocal = focusedChannelIndex
+
+                        if (!isVisibleItemsMiddle && focusedChannelIndexLocal != null) {
                             if (!isListEnd) {
                                 IntOffset(
-                                    0, ((15 + focusedChannel * itemHeight + focusedChannel * 17) * localDensity).toInt()
+                                    0, ((15 + focusedChannelIndexLocal * itemHeight + focusedChannelIndexLocal * 17) * localDensity).toInt()
                                 )
                             } else {
-                                val itemsFromBottom = channels.size - focusedChannel - 1
-                                Log.i("ITEMS FROM BOTTOM", "items from bottom $itemsFromBottom $focusedChannel")
-                                IntOffset(
-                                    0, ((-15 - itemsFromBottom * itemHeight - itemsFromBottom * 17) * localDensity).toInt()
-                                )
+                                val localChannels = channelsData
+                                if (localChannels != null) {
+                                    val itemsFromBottom = localChannels.size - focusedChannelIndexLocal - 1
+                                    Log.i("ITEMS FROM BOTTOM", "items from bottom $itemsFromBottom $focusedChannelIndexLocal")
+                                    IntOffset(
+                                        0, ((-15 - itemsFromBottom * itemHeight - itemsFromBottom * 17) * localDensity).toInt()
+                                    )
+                                } else {
+                                    IntOffset(0, 0)
+                                }
                             }
                         } else {
                             IntOffset(0, 0)
                         }
                     }
-                    .alpha(if (!isChannelsListFocused) 0f else 1f)
+                    .alpha(if (isChannelsListFocused == false) 0f else 1f)
                     .align(
                         if (isVisibleItemsMiddle) Alignment.Center
                         else {

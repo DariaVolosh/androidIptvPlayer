@@ -8,12 +8,12 @@ import kotlinx.coroutines.flow.flow
 import javax.inject.Inject
 
 interface PlaylistRepository {
-    fun getChannelsData(playlistContent: List<String>): List<PlaylistChannel>
+    fun parsePlaylistData(playlistContent: List<String>): List<PlaylistChannel>
     fun extractTsSegments(rootUrl: String, readFile: suspend (String) -> List<String>): Flow<String>
 }
 
 class M3U8PlaylistRepository @Inject constructor(): PlaylistRepository {
-    override fun getChannelsData(playlistContent: List<String>): List<PlaylistChannel> {
+    override fun parsePlaylistData(playlistContent: List<String>): List<PlaylistChannel> {
         val channelsData = mutableListOf<PlaylistChannel>()
         var currentChannelData = PlaylistChannel()
 

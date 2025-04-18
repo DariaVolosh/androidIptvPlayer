@@ -18,10 +18,12 @@ class FlussonicRepository @Inject constructor(
     // stream name is the same as tvg-id tag in a m3u8 playlist
     suspend fun getDvrRange(streamName: String): Pair<Long, Long> {
         ***REMOVED***
-        val credentials = createBasicAuthCredentials("admin", "ysH2SAvQ")
+        val credentials = createBasicAuthCredentials("admin", "12345670")
         ***REMOVED***
         ***REMOVED***
         val authHeader = "Basic $credentials"
+
+        Log.i("auth header", authHeader)
 
         Log.i("get dvr range stream name", streamName)
 
@@ -31,8 +33,10 @@ class FlussonicRepository @Inject constructor(
         call.enqueue(object: Callback<DvrRangeResponse> {
             override fun onResponse(call: Call<DvrRangeResponse>, response: Response<DvrRangeResponse>) {
                 if (response.isSuccessful) {
+                    Log.i("dvr range call success", "is")
                     response.body()?.let { dvrRangeResponse ->
                         if (dvrRangeResponse.ranges.isEmpty()) {
+                            Log.i("dvr range call success", "range empty")
                             dvrRange.complete(Pair(0,0))
                         } else {
                             val datePattern = "EEEE d MMMM HH:mm:ss"

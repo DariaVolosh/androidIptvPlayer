@@ -1,9 +1,7 @@
 package com.example.iptvplayer.view.channelInfo
 
 import android.util.Log
-import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,10 +36,12 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.LiveData
+import com.example.iptvplayer.data.Epg
 import com.example.iptvplayer.data.Utils.formatDate
 import com.example.iptvplayer.view.channels.ArchiveViewModel
 import com.example.iptvplayer.view.channels.ChannelsViewModel
 import com.example.iptvplayer.view.epg.EpgViewModel
+import com.example.iptvplayer.view.toast.CustomToast
 import kotlinx.coroutines.delay
 
 @Composable
@@ -68,7 +68,7 @@ fun ChannelInfo(
     val isSeeking by archiveViewModel.isSeeking.observeAsState()
     val isLiveProgram by archiveViewModel.isLive.observeAsState()
     val dvrRange by archiveViewModel.dvrRange.observeAsState()
-    val rewindError by archiveViewModel.rewindError.observeAsState()
+    val liveTime by archiveViewModel.liveTime.observeAsState()
 
     val currentEpg by epgViewModel.currentEpg.observeAsState()
 
@@ -98,28 +98,33 @@ fun ChannelInfo(
 
     LaunchedEffect(isSeeking, isPaused) {
         Log.i("is paused", isPaused.toString())
+        Log.i("channel info current time", currentTime.toString())
 
         while (isSeeking == false && isPaused == false) {
-            archiveViewModel.setCurrentTime(currentTime?.plus(1) ?: 0)
-            currentFullDate = formatDate(currentTime ?: 0, datePattern)
+            currentTime?.let { currentTime ->
+                archiveViewModel.setCurrentTime(currentTime.plus(1))
+                currentFullDate = formatDate(currentTime, datePattern)
+            }
             delay(1000)
         }
     }
 
-    LaunchedEffect(rewindError) {
-        rewindError?.let { error ->
-            if (error.isNotEmpty()) {
-                Toast.makeText(context, rewindError, Toast.LENGTH_LONG).show()
-                archiveViewModel.setRewindError("")
+    LaunchedEffect(isLiveProgram, liveTime) {
+        if (isLiveProgram == true) {
+            archiveViewModel.liveTime.value?.let { liveTime ->
+                archiveViewModel.setCurrentTime(liveTime)
             }
         }
+    }
+
+    LaunchedEffect(currentEpg) {
+        Log.i("current epg?", currentEpg.toString())
     }
 
     if (isChannelInfoShown) {
         Box(
             modifier = modifier
                 .zIndex(99f)
-                .border(1.dp, Color.Red)
                 .focusRequester(focusRequester)
                 .focusable()
                 .onKeyEvent { event ->
@@ -150,7 +155,6 @@ fun ChannelInfo(
 
                 Box(
                     modifier = Modifier
-                        .padding(bottom = if (dvrRange?.first == 0L) 17.dp else 0.dp)
                         //.border(1.dp, Color.Yellow)
                         .fillMaxWidth(),
                 ) {
@@ -170,26 +174,29 @@ fun ChannelInfo(
                         Text(
                             //modifier = Modifier.border(1.dp, Color.Blue),
                             fontSize = 18.sp,
-                            text = currentFullDate,
+                            text = currentFullDate.ifEmpty { "No current time" },
                             color = MaterialTheme.colorScheme.onSecondary
                         )
 
                         Text(
                             modifier = Modifier.padding(top = 10.dp),
                             fontSize = 18.sp,
-                            text = currentEpg?.title ?:"No epg",
+                            text = if (currentEpg != null && currentEpg != Epg()) currentEpg?.title ?: "No epg" else "No epg",
                             color = MaterialTheme.colorScheme.onSecondary
                         )
 
                         Log.i("SHIT4", "RECOMPOSED")
 
-                        // archive is available, show playback controls
                         PlaybackControls(
                             focusedChannel?.url ?: "",
                             { showChannelInfo(false) },
                             dvrRange?.first != 0L,
                             { secondsNotInteracted = 0 },
                         ) { showDatePicker -> showProgrammeDatePicker(showDatePicker) }
+
+                        CustomToast(
+                            modifier = Modifier.padding(bottom = 15.dp)
+                        )
                     }
 
                     Row(
@@ -210,8 +217,6 @@ fun ChannelInfo(
                         )
                     }
                 }
-
-
             }
         }
     }

@@ -1,5 +1,6 @@
 package com.example.iptvplayer.view
 
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -27,7 +28,8 @@ class DummyViewModel @Inject constructor(
                 .document("trial")
                 .get().await()
 
-            val isTrial = doc.getField<Boolean>("is2versionTrial") ?: false
+            val isTrial = doc.getField<Boolean>("is4VersionTrial") ?: false
+            Log.i("IS TRIAL", isTrial.toString())
             _isTrial.value = isTrial
         }
     }
