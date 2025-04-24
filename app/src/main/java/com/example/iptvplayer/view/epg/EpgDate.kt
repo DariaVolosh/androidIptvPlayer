@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 fun EpgDate(
+    modifier: Modifier,
     date: String,
     onGloballyPositioned: (Int) -> Unit
 ) {
@@ -24,7 +25,7 @@ fun EpgDate(
     val localDensity = LocalDensity.current.density
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .onGloballyPositioned { cords ->
                 val height = cords.size.height
                 Log.i("epg date height", "${height / localDensity}")

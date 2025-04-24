@@ -2,8 +2,8 @@ package com.example.iptvplayer.data.repositories
 
 import android.util.Log
 import com.example.iptvplayer.data.Utils
-import com.example.iptvplayer.retrofit.DvrRangeResponse
-import com.example.iptvplayer.retrofit.FlussonicService
+import com.example.iptvplayer.retrofit.data.DvrRangeResponse
+import com.example.iptvplayer.retrofit.services.FlussonicService
 import kotlinx.coroutines.CompletableDeferred
 import retrofit2.Call
 import retrofit2.Callback
@@ -73,7 +73,7 @@ class FlussonicRepository @Inject constructor(
                                 endSeconds = maxEndSeconds
                             }
 
-                            Log.i("on response", "${Utils.formatDate(startSeconds, datePattern)} ${Utils.formatDate(endSeconds, datePattern)}")
+                            Log.i("on response dvr", "${Utils.formatDate(startSeconds, datePattern)} ${Utils.formatDate(endSeconds, datePattern)}")
 
                             dvrRange.complete(Pair(startSeconds, endSeconds))
                         }

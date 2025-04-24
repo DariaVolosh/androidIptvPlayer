@@ -55,7 +55,7 @@ class MediaViewModel @Inject constructor(
 
     private fun startPlayback(mediaSource: MediaDataSource) {
         try {
-            Log.i("lel", "startPlayback $mediaSource")
+            Log.i("START PLAYBACK VIEW MODEL", "startPlayback $mediaSource")
             ijkPlayer?.prepareAsync()
             firstSegmentRead = true
         } catch (e: Exception) {
@@ -99,6 +99,7 @@ class MediaViewModel @Inject constructor(
                     ijkPlayer = IjkMediaPlayer()
 
                     ijkPlayer?.setOnPreparedListener {
+                        Log.i("on prepared", "yea")
                         play()
                         _isDataSourceSet.postValue(true)
                     }

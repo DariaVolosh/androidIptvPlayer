@@ -9,8 +9,11 @@ import androidx.lifecycle.viewModelScope
 import com.example.iptvplayer.data.PlaylistChannel
 import com.example.iptvplayer.domain.GetChannelsDataUseCase
 import com.example.iptvplayer.domain.GetPlaylistDataUseCase
+import com.example.iptvplayer.domain.GetStreamsUrlTemplatesUseCase
 import com.example.iptvplayer.domain.ReadFileUseCase
-import com.example.iptvplayer.retrofit.ChannelBackendInfo
+import com.example.iptvplayer.retrofit.data.ChannelBackendInfo
+import com.example.iptvplayer.retrofit.data.ChannelData
+import com.example.iptvplayer.retrofit.data.StreamUrlTemplate
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -19,7 +22,8 @@ import javax.inject.Inject
 class ChannelsViewModel @Inject constructor(
     private val readFileUseCase: ReadFileUseCase,
     private val getPlaylistDataUseCase: GetPlaylistDataUseCase,
-    private val getChannelsDataUseCase: GetChannelsDataUseCase
+    private val getChannelsDataUseCase: GetChannelsDataUseCase,
+    private val getStreamsUrlTemplatesUseCase: GetStreamsUrlTemplatesUseCase
 ): ViewModel() {
     private val _playlistChannels: MutableLiveData<List<PlaylistChannel>> = MutableLiveData()
     val playlistChannels: LiveData<List<PlaylistChannel>> = _playlistChannels
@@ -30,8 +34,8 @@ class ChannelsViewModel @Inject constructor(
     private val _focusedChannelIndex: MutableLiveData<Int> = MutableLiveData()
     val focusedChannelIndex: LiveData<Int> = _focusedChannelIndex
 
-    private val _focusedChannel: MutableLiveData<PlaylistChannel> = MutableLiveData()
-    val focusedChannel: LiveData<PlaylistChannel> = _focusedChannel
+    private val _focusedChannel: MutableLiveData<ChannelData> = MutableLiveData()
+    val focusedChannel: LiveData<ChannelData> = _focusedChannel
 
     private val _channelError: MutableLiveData<String> = MutableLiveData()
     val channelError: LiveData<String> = _channelError
@@ -41,6 +45,9 @@ class ChannelsViewModel @Inject constructor(
 
     private val _isChannelClicked: MutableLiveData<Boolean> = MutableLiveData()
     val isChannelClicked: LiveData<Boolean> = _isChannelClicked
+
+    private val _streamsUrlTemplates: MutableLiveData<List<StreamUrlTemplate>> = MutableLiveData()
+    val streamsUrlTemplates: LiveData<List<StreamUrlTemplate>> = _streamsUrlTemplates
 
     private var archiveViewModel: ArchiveViewModel? = null
 
@@ -53,11 +60,11 @@ class ChannelsViewModel @Inject constructor(
     }
 
     private fun updateFocusedChannel() {
-        _focusedChannel.value = playlistChannels.value?.getOrNull(focusedChannelIndex.value ?: 0)
+        _focusedChannel.value = channelsData.value?.getOrNull(focusedChannelIndex.value ?: 0)?.channel?.get(0)
     }
 
     fun updateFocusedChannelIndex(focused: Int) {
-        _playlistChannels.value?.size?.let { channelsSize ->
+        _channelsData.value?.size?.let { channelsSize ->
             if (focused in 0..<channelsSize) {
                 _focusedChannelIndex.value = focused
                 Log.i("focused channel", focused.toString())
@@ -66,8 +73,8 @@ class ChannelsViewModel @Inject constructor(
         }
     }
 
-    fun getChannelByIndex(index: Int): PlaylistChannel? {
-        return _playlistChannels.value?.getOrNull(index)
+    fun getChannelByIndex(index: Int): ChannelData? {
+        return channelsData.value?.getOrNull(index)?.channel?.get(0)
     }
 
     fun setIsChannelsListFocused(isFocused: Boolean) {
@@ -83,6 +90,13 @@ class ChannelsViewModel @Inject constructor(
             val data = getChannelsDataUseCase.getChannelsData(token)
             Log.i("channels data", data.toString())
             _channelsData.value = data
+        }
+    }
+
+    fun fetchStreamsUrlTemplates(token: String) {
+        viewModelScope.launch {
+            val templates = getStreamsUrlTemplatesUseCase.getStreamsUrlTemplates(token)
+            _streamsUrlTemplates.value = templates
         }
     }
 
@@ -108,19 +122,23 @@ class ChannelsViewModel @Inject constructor(
     fun handleChannelOnKeyEvent(
         key: Key,
         setMediaUrl: (String) -> Unit,
-        setIsEpgListFocused: (Boolean) -> Unit,
-        getEpgById: (String, Pair<Long, Long>) -> Unit
+        setIsEpgListFocused: (Boolean) -> Unit
     ) {
+
         when (key) {
             Key.DirectionDown -> {
                 focusedChannelIndex.value?.let { focusedIndex ->
                     Log.i("FIRED", "focused channel down")
                     updateFocusedChannelIndex(focusedIndex + 1)
+                    val name = focusedChannel.value?.name ?: ""
+                    archiveViewModel?.startDvrCollectionJob(name)
                 }
             }
             Key.DirectionUp -> {
                 focusedChannelIndex.value?.let { focusedIndex ->
                     updateFocusedChannelIndex(focusedIndex - 1)
+                    val name = focusedChannel.value?.name ?: ""
+                    archiveViewModel?.startDvrCollectionJob(name)
                 }
             }
             Key.DirectionRight -> {
@@ -130,16 +148,14 @@ class ChannelsViewModel @Inject constructor(
 
             Key.DirectionCenter -> {
                 archiveViewModel?.updateIsLive(true)
+
                 archiveViewModel?.liveTime?.value?.let { liveTime ->
                     archiveViewModel?.setCurrentTime(liveTime)
                 }
 
                 focusedChannel.value?.let { channel ->
-                    setMediaUrl(channel.url)
-
-                    archiveViewModel?.startDvrCollectionJob(channel.id) { dvrRange ->
-                        getEpgById(channel.id, dvrRange)
-                    }
+                    Log.i("channel url", channel.channelUrl)
+                    setMediaUrl(channel.channelUrl)
                 }
             }
 

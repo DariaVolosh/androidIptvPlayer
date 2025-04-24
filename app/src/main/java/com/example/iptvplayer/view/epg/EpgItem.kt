@@ -19,8 +19,8 @@ import androidx.compose.ui.unit.sp
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun EpgItem(
-    startTime: String,
-    stopTime: String,
+    modifier: Modifier,
+    videoTimeRange: String,
     title: String,
     isFocused: Boolean,
     isDvrAvailable: Boolean,
@@ -29,7 +29,7 @@ fun EpgItem(
     val localDensity = LocalDensity.current.density
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .onGloballyPositioned { cords ->
                 if (isFocused) {
                     Log.i("LAUNCHED COROUTINE", title)
@@ -43,7 +43,7 @@ fun EpgItem(
     ) {
         Text(
             modifier = Modifier.alpha(if (isDvrAvailable) 1f else 0.45f),
-            text = "$startTime-$stopTime $title",
+            text = "$videoTimeRange $title",
             fontSize = 17.sp,
             color = MaterialTheme.colorScheme.onSecondary
         )

@@ -36,8 +36,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.LiveData
-import com.example.iptvplayer.data.Epg
 import com.example.iptvplayer.data.Utils.formatDate
+import com.example.iptvplayer.retrofit.data.Epg
 import com.example.iptvplayer.view.channels.ArchiveViewModel
 import com.example.iptvplayer.view.channels.ChannelsViewModel
 import com.example.iptvplayer.view.epg.EpgViewModel
@@ -181,14 +181,14 @@ fun ChannelInfo(
                         Text(
                             modifier = Modifier.padding(top = 10.dp),
                             fontSize = 18.sp,
-                            text = if (currentEpg != null && currentEpg != Epg()) currentEpg?.title ?: "No epg" else "No epg",
+                            text = if (currentEpg != null && currentEpg != Epg()) currentEpg?.epgVideoName ?: "No epg" else "No epg",
                             color = MaterialTheme.colorScheme.onSecondary
                         )
 
                         Log.i("SHIT4", "RECOMPOSED")
 
                         PlaybackControls(
-                            focusedChannel?.url ?: "",
+                            focusedChannel?.channelUrl ?: "",
                             { showChannelInfo(false) },
                             dvrRange?.first != 0L,
                             { secondsNotInteracted = 0 },

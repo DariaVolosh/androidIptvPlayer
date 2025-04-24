@@ -35,6 +35,7 @@ class MediaDataSource @Inject constructor(
             nextSegmentRequested = true
             onNextSegmentRequest()
         }
+
         if (bytesRead != -1) {
             Log.i("LOL", "bytes read: $bytesRead $inputStream")
         }
@@ -52,7 +53,7 @@ class MediaDataSource @Inject constructor(
     suspend fun setMediaUrl(url: String, onUrlSet: (MediaDataSource) -> Unit) {
         withContext(Dispatchers.IO) {
             try {
-                Log.i("emission", "setMediaUrl $url")
+                Log.i("emission set media url", "setMediaUrl $url")
                 val connection = URL(url).openConnection()
                 inputStream = connection.getInputStream()
                 Log.i("inputStream", inputStream.toString())
@@ -60,7 +61,7 @@ class MediaDataSource @Inject constructor(
                 Log.i("lel", "setMediaUrl $url ${this@MediaDataSource}")
                 nextSegmentRequested = false
             } catch (e: Exception) {
-
+                Log.i("exception openin file", e.message.toString())
             }
         }
     }

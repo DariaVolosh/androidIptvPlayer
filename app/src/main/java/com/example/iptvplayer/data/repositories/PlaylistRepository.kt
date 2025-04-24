@@ -50,9 +50,11 @@ class M3U8PlaylistRepository @Inject constructor(): PlaylistRepository {
 
         suspend fun recursiveExtractTsSegments(rootUrl: String) {
             val fileContent = readFile(rootUrl)
+            Log.i("rooturl", rootUrl)
             val baseUrl = rootUrl.substring(0, rootUrl.lastIndexOf("/") + 1)
 
             for (line in fileContent) {
+                Log.i("loop line", line)
                 if (line.indexOf("m3u8") != -1) {
                     val combinedUrl = baseUrl + line
 

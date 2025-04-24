@@ -154,8 +154,10 @@ class ArchiveViewModel @Inject constructor(
             val datePattern = "EEEE d MMMM HH:mm:ss"
             Log.i("REALLY", time.toString())
             val baseUrl = url.substring(0, url.lastIndexOf("/") + 1)
+            val token = url.substring(url.lastIndexOf("=") + 1, url.length-1)
 
-            val archiveUrl = baseUrl + "index-$time-now.m3u8?token=IKT0neFHTB1Ki0"
+            val archiveUrl = baseUrl + "index-$time-now.m3u8?$token"
+            Log.i("base url", "$baseUrl $token $archiveUrl")
             // checking again, because if the rewind was not continuous, time did not change,
             // therefore still in present, rewinding to current time would result in
             // file not found exception
@@ -197,16 +199,11 @@ class ArchiveViewModel @Inject constructor(
         _isLive.value = isLive
     }
 
-    fun startDvrCollectionJob(streamName: String, getEpgById: (Pair<Long, Long>) -> Unit) {
+    fun startDvrCollectionJob(streamName: String) {
         dvrCollectionJob?.cancel()
 
         dvrCollectionJob = viewModelScope.launch {
             getDvrRange(streamName)
-
-            dvrRange.value?.let { range ->
-                Log.i("dvr range in archive view model", range.toString())
-                getEpgById(range)
-            }
 
             while (true) {
                 getDvrRange(streamName)

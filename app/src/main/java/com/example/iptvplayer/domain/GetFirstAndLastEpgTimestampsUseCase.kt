@@ -6,9 +6,9 @@ import javax.inject.Inject
 class GetFirstAndLastEpgTimestampsUseCase @Inject constructor(
     private val epgRepository: EpgRepository
 ){
-    suspend fun getFirstAndLastEpgTimestamps(
+    /*suspend fun getFirstAndLastEpgTimestamps(
         channelId: String,
     ): Pair<Long, Long> {
         return epgRepository.getFirstAndLastEpgTimestamps(channelId)
-    }
+    } */
 }

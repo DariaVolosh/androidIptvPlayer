@@ -1,4 +1,4 @@
-package com.example.iptvplayer.retrofit
+package com.example.iptvplayer.retrofit.data
 
 data class AuthInfo(
     val token: String

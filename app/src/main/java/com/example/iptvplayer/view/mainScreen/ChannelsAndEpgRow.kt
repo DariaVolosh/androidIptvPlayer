@@ -11,9 +11,13 @@ import com.example.iptvplayer.view.epg.EpgList
 @Composable
 fun ChannelsAndEpgRow(
     isChannelClicked: Boolean,
+    token: String,
     setMediaUrl: (String) -> Unit,
+    dvrRange: Pair<Long, Long>,
+    // inject epg view model in this composable to not pass those lambdas
     setIsEpgListFocused: (Boolean) -> Unit,
-    getEpgById: (String, Pair<Long, Long>) -> Unit
+    updateCurrentEpgList: () -> Unit,
+    fetchEpg: (List<Pair<Int, Int>>) -> Unit,
 ) {
 
     // here probably we wil inject channels and epg view models to aggregate data
@@ -22,13 +26,16 @@ fun ChannelsAndEpgRow(
     ) {
         ChannelList(
             Modifier.fillMaxWidth(0.4f),
+            token,
             setMediaUrl,
             setIsEpgListFocused,
-            getEpgById
+            updateCurrentEpgList,
+            fetchEpg,
         )
 
         EpgList(
             Modifier.fillMaxWidth(),
+            dvrRange,
             isChannelClicked
         )
     }

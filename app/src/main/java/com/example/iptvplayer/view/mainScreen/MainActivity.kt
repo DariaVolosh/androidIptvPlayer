@@ -16,6 +16,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
@@ -57,7 +58,6 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             mediaViewModel = hiltViewModel()
-
             IptvPlayerTheme {
                 MainScreen()
             }
@@ -90,26 +90,26 @@ fun MainScreen() {
     val isDataSourceSet by mediaViewModel.isDataSourceSet.observeAsState()
     val isPlaybackStarted by mediaViewModel.isPlaybackStarted.observeAsState()
 
-    val channels by channelsViewModel.playlistChannels.observeAsState()
+    val channels by channelsViewModel.channelsData.observeAsState()
     val focusedChannelIndex by channelsViewModel.focusedChannelIndex.observeAsState()
     val focusedChannel by channelsViewModel.focusedChannel.observeAsState()
     val channelError by channelsViewModel.channelError.observeAsState()
     val isChannelClicked by channelsViewModel.isChannelClicked.observeAsState()
 
-    val epg by epgViewModel.epgList.observeAsState()
-    val focusedEpgIndex by epgViewModel.focusedEpgIndex.observeAsState()
+    val epg by epgViewModel.epgListFlow.collectAsState(emptyList())
+    val focusedEpgIndex by epgViewModel.focusedEpgIndexFlow.collectAsState(0)
     val currentEpgIndex by epgViewModel.currentEpgIndex.observeAsState()
 
     val archiveSegmentUrl by archiveViewModel.archiveSegmentUrl.observeAsState()
     val liveTime by archiveViewModel.liveTime.observeAsState()
     val currentTime by archiveViewModel.currentTime.observeAsState()
     val isSeeking by archiveViewModel.isSeeking.observeAsState()
+    val dvrRange by archiveViewModel.dvrRange.observeAsState()
     val rewindError by archiveViewModel.rewindError.observeAsState()
 
     val mainFocusRequester = remember { FocusRequester() }
     var isChannelInfoShown by remember { mutableStateOf(false) }
     var isProgramDatePickerShown by remember { mutableStateOf(false) }
-    var isErrorOverlayDisplayed by remember { mutableStateOf(false) }
 
     val isTrial by dummyViewModel.isTrial.observeAsState()
 
@@ -117,56 +117,53 @@ fun MainScreen() {
 
     // lambda to update epg after calendar rewind (this should belong to epg view model)
     val updateEpg: (Long) -> Unit = { currentTime ->
-        val epgList = epg
-        val focusedEpgIndex = focusedEpgIndex
+        Log.i("called update epg", "true $focusedEpgIndex $epg")
+
+        var currentEpg = epg[focusedEpgIndex]
+        var currentIndex = focusedEpgIndex
         var isPreviousEpg = false
 
-        Log.i("called update epg", "true $focusedEpgIndex $epgList")
+        Log.i("TIMEEE", "${Utils.formatDate(currentEpg.startSeconds, datePattern)}")
+        Log.i("TIMEEE", "${Utils.formatDate(currentTime, datePattern)}")
 
-        if (epgList != null && focusedEpgIndex != null) {
-            var currentEpg = epgList[focusedEpgIndex]
-            var currentIndex = focusedEpgIndex
+        if (currentEpg.startSeconds <= currentTime && currentEpg.stopSeconds >= currentTime) {
 
-            Log.i("TIMEEE", "${Utils.formatDate(currentEpg.startTime, datePattern)}")
-            Log.i("TIMEEE", "${Utils.formatDate(currentTime, datePattern)}")
+        } else {
+            if (currentEpg.startSeconds >= currentTime) {
+                isPreviousEpg = true
+            }
+        }
 
-            if (currentEpg.startTime <= currentTime && currentEpg.stopTime >= currentTime) {
+        Log.i("is previous epg", isPreviousEpg.toString())
 
-            } else {
-                if (currentEpg.startTime >= currentTime) {
-                    isPreviousEpg = true
+        if (isPreviousEpg) {
+            while (--currentIndex >= 0) {
+                currentEpg = epg[currentIndex]
+                Log.i("EPG LIST START DATE", Utils.formatDate(currentEpg.startSeconds, datePattern))
+                Log.i("EPG LIST START DATE", currentEpg.epgVideoName)
+
+                if (currentEpg.startSeconds <= currentTime && currentEpg.stopSeconds >= currentTime) {
+                    epgViewModel.updateCurrentEpgIndex(currentIndex)
+                    epgViewModel.updateFocusedEpgIndex(currentIndex)
+                    break
                 }
             }
+        } else {
+            while (++currentIndex < epg.size) {
+                currentEpg = epg[currentIndex]
 
-            Log.i("is previous epg", isPreviousEpg.toString())
-
-            if (isPreviousEpg) {
-                while (--currentIndex >= 0) {
-                    currentEpg = epgList[currentIndex]
-                    Log.i("EPG LIST START DATE", Utils.formatDate(currentEpg.startTime, datePattern))
-                    Log.i("EPG LIST START DATE", currentEpg.title)
-
-                    if (currentEpg.startTime <= currentTime && currentEpg.stopTime >= currentTime) {
-                        epgViewModel.updateCurrentEpgIndex(currentIndex)
-                        epgViewModel.updateFocusedEpgIndex(currentIndex)
-                        break
-                    }
-                }
-            } else {
-                while (++currentIndex < epgList.size) {
-                    currentEpg = epgList[currentIndex]
-
-                    if (currentEpg.startTime <= currentTime && currentEpg.stopTime >= currentTime) {
-                        epgViewModel.updateCurrentEpgIndex(currentIndex)
-                        epgViewModel.updateFocusedEpgIndex(currentIndex)
-                        break
-                    }
+                if (currentEpg.startSeconds <= currentTime && currentEpg.stopSeconds >= currentTime) {
+                    epgViewModel.updateCurrentEpgIndex(currentIndex)
+                    epgViewModel.updateFocusedEpgIndex(currentIndex)
+                    break
                 }
             }
         }
 
-        epgViewModel.updateFocusedEpgIndex(0)
-        epgViewModel.updateCurrentEpgIndex(-1)
+        Log.i("update current epg LAMBDA", "-1")
+
+        //epgViewModel.updateFocusedEpgIndex(0)
+        //epgViewModel.updateCurrentEpgIndex(-1)
     }
 
     // think about this during refactoring
@@ -178,7 +175,6 @@ fun MainScreen() {
         Log.i("initialized", "init")
         dummyViewModel.checkIfTrial()
         authViewModel.getBackendToken()
-        channelsViewModel.parsePlaylist()
         archiveViewModel.updateIsLive(true)
         val currentGmtTime = Utils.getGmtTime()
         Log.i("CURRENT GMT TIME", currentGmtTime.toString())
@@ -206,7 +202,10 @@ fun MainScreen() {
    LaunchedEffect(channels) {
         channelsViewModel.updateFocusedChannelIndex(0)
         channels?.let { channels ->
-            mediaViewModel.setMediaUrl(channels[0].url)
+            Log.i("channel url 0", channels[0].channel[0].channelUrl.toString())
+            val firstChannel = channels[0].channel[0]
+            mediaViewModel.setMediaUrl(firstChannel.channelUrl)
+            archiveViewModel.getDvrRange(firstChannel.name)
         }
     }
 
@@ -233,12 +232,6 @@ fun MainScreen() {
                 Toast.makeText(context, channelError, Toast.LENGTH_LONG).show()
                 archiveViewModel.setRewindError("")
             }
-        }
-    }
-
-    LaunchedEffect(token) {
-        token?.let { t ->
-            channelsViewModel.fetchChannelsData(t)
         }
     }
 
@@ -297,7 +290,7 @@ fun MainScreen() {
 
             if (isSeeking == true) {
                 StreamRewindFrame(
-                    focusedChannel?.id ?: "",
+                    focusedChannel?.name ?: "",
                     currentTime ?: 0
                 )
             }
@@ -313,13 +306,14 @@ fun MainScreen() {
                         currentTime
                     ) { secondsSinceEpoch ->
                         archiveViewModel.setCurrentTime(secondsSinceEpoch)
+                        Log.i("called calendar", "$focusedEpgIndex")
                         if (focusedEpgIndex != -1) updateEpg(secondsSinceEpoch)
                         archiveViewModel.updateIsLive(false)
                         focusedChannelIndex?.let { focused ->
                             archiveViewModel.getArchiveUrl(
                                 channelsViewModel.getChannelByIndex(
                                     focused
-                                )?.url ?: ""
+                                )?.channelUrl ?: ""
                             )
                         }
                         isProgramDatePickerShown = false
@@ -330,11 +324,12 @@ fun MainScreen() {
 
             ChannelsAndEpgRow(
                 isChannelClicked ?: true,
+                token ?: "",
                 { url -> mediaViewModel.setMediaUrl(url) },
-                { isEpgListFocused -> epgViewModel.setIsEpgListFocused(isEpgListFocused) }
-            ) { streamId, dvrRange ->
-                epgViewModel.getEpgById(streamId, dvrRange)
-            }
+                dvrRange ?: Pair(0,0),
+                { isEpgListFocused -> epgViewModel.setIsEpgListFocused(isEpgListFocused) },
+                {epgViewModel.updateCurrentEpgList(focusedChannelIndex ?: -1)},
+            ) { channelsData ->  epgViewModel.fetchEpg(channelsData, token ?: "")}
 
             if (isChannelClicked == true) {
                 ChannelInfo(

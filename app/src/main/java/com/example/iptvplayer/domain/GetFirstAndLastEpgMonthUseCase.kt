@@ -6,6 +6,6 @@ import javax.inject.Inject
 class GetFirstAndLastEpgMonthUseCase @Inject constructor(
     private val epgRepository: EpgRepository
 ) {
-    suspend fun getFirstAndLastEpgMonth(channelId: String) =
-        epgRepository.getFirstAndLastMonths(channelId)
+    /*suspend fun getFirstAndLastEpgMonth(channelId: String) =
+        epgRepository.getFirstAndLastMonths(channelId) */
 }

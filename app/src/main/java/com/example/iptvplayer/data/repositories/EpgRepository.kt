@@ -1,18 +1,21 @@
 package com.example.iptvplayer.data.repositories
 
 import android.util.Log
-import com.example.iptvplayer.data.Epg
 import com.example.iptvplayer.data.Utils
-import com.google.firebase.firestore.CollectionReference
-import com.google.firebase.firestore.DocumentReference
+import com.example.iptvplayer.retrofit.data.EpgDataAndCurrentIndex
+import com.example.iptvplayer.retrofit.data.EpgResponse
+import com.example.iptvplayer.retrofit.services.ChannelsAndEpgService
 import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.CompletableDeferred
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 import java.util.TimeZone
 import javax.inject.Inject
 
 class EpgRepository @Inject constructor(
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val channelsAndEpgService: ChannelsAndEpgService
 ) {
     /*suspend fun getCountryCodeById(id: String): String {
         val code = CompletableDeferred<String>()
@@ -33,7 +36,7 @@ class EpgRepository @Inject constructor(
         return code.await()
     } */
 
-    fun getEpgYearRef(
+    /*fun getEpgYearRef(
         channelId: String
     ): DocumentReference {
         Log.i("epg channel id", channelId)
@@ -282,5 +285,89 @@ class EpgRepository @Inject constructor(
                 isPreviousDayEpgFetched = false
             }
         }
+    } */
+
+
+    fun getEpgTimeRangeInSeconds(
+        start: String,
+        stop: String,
+        datePattern: String,
+        timeZone: TimeZone
+    ): Pair<Long, Long> {
+        val startTimeSeconds = Utils.parseDate(start, datePattern, timeZone)
+        val stopTimeSeconds = Utils.parseDate(stop, datePattern, timeZone)
+
+        return Pair(startTimeSeconds, stopTimeSeconds)
+    }
+
+    fun isProgramLive(
+        start: Long,
+        stop: Long,
+        currentTime: Long
+    ): Boolean {
+        return currentTime in start..stop
+    }
+
+
+    // VERSION NEW (IDK IF IT WILL WORKS NORMALLY LMAO)
+   suspend fun getEpgById(channelId: Int, token: String): EpgDataAndCurrentIndex {
+        val epgList = CompletableDeferred<EpgDataAndCurrentIndex>()
+        val currentTime = Utils.getGmtTime()
+        var currentEpgIndex = -1
+
+        Log.i("GET EPG BY ID REPOSITORY", "$channelId $token")
+
+        channelsAndEpgService.getEpgForChannel(channelId, token)
+            .enqueue(object: Callback<EpgResponse> {
+                override fun onResponse(
+                    call: Call<EpgResponse>,
+                    response: Response<EpgResponse>
+                ) {
+                    val datePattern = "yyyyMMddHHmmss"
+                    val timezone = TimeZone.getTimeZone("GMT+04:00")
+
+                    if (response.code() == 200) {
+                        response.body()?.data?.data?.let { data ->
+                            for (i in data.indices) {
+                                val epg = data[i]
+
+                                val epgTimeRangeInSeconds =
+                                    getEpgTimeRangeInSeconds(epg.start, epg.stop, datePattern, timezone)
+                                epg.startSeconds = epgTimeRangeInSeconds.first
+                                epg.stopSeconds = epgTimeRangeInSeconds.second
+                                epg.epgVideoName = epg.epgVideoName.trim()
+
+                                val isProgramLive = isProgramLive(
+                                    epgTimeRangeInSeconds.first,
+                                    epgTimeRangeInSeconds.second,
+                                    currentTime
+                                )
+
+                                if (isProgramLive) currentEpgIndex = i
+                            }
+                            Log.i("response epg data", data.toString())
+                            epgList.complete(
+                                EpgDataAndCurrentIndex(
+                                    data,
+                                    if (currentEpgIndex == -1) data.size-1 else currentEpgIndex
+                                )
+                            )
+                            return
+                        }
+                    }
+
+                    epgList.complete(EpgDataAndCurrentIndex())
+                }
+
+                override fun onFailure(
+                    call: Call<EpgResponse>,
+                    throwable: Throwable
+                ) {
+                    Log.i("response code epg error", throwable.message.toString())
+                    epgList.complete(EpgDataAndCurrentIndex())
+                }
+            })
+
+        return epgList.await()
     }
 }

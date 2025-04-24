@@ -23,9 +23,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.iptvplayer.data.Epg
 import com.example.iptvplayer.data.Utils
 import com.example.iptvplayer.data.Utils.formatDate
+import com.example.iptvplayer.retrofit.data.Epg
 import com.example.iptvplayer.view.channels.ArchiveViewModel
 import com.example.iptvplayer.view.epg.EpgViewModel
 import java.util.Locale
@@ -58,22 +58,23 @@ fun LinearProgressWithDot(
         Log.i("NEW TIME", "${Utils.formatDate(newTime, datePattern)}")
 
         Log.i("REALLY", "UPDATE PROGRAM PROCESS ${currentEpg.toString()}")
+        Log.i("epg start seconds", epg.startSeconds.toString())
 
-        val timeElapsedSinceProgrammeStart = newTime - epg.startTime
+        val timeElapsedSinceProgrammeStart = newTime - epg.startSeconds
         Log.i("ELAPSED", timeElapsedSinceProgrammeStart.toString())
         Log.i("ELAPSED", currentEpg.toString())
         Log.i("ELAPSED", newTime.toString())
 
-        if (newTime < epg.startTime) {
+        if (newTime < epg.startSeconds) {
             epgViewModel.updateCurrentEpgIndex(epgIndex - 1)
             epgViewModel.updateFocusedEpgIndex(epgIndex - 1)
-        } else if (newTime > epg.stopTime) {
+        } else if (newTime > epg.stopSeconds) {
             epgViewModel.updateCurrentEpgIndex(epgIndex + 1)
             epgViewModel.updateFocusedEpgIndex(epgIndex + 1)
         } else {
             currentProgrammeProgress =
                 decimalFormat.format(
-                    timeElapsedSinceProgrammeStart.toFloat() * 100 / epg.duration
+                    timeElapsedSinceProgrammeStart.toFloat() * 100 / (epg.length * 60)
                 ).toFloat()
 
         }

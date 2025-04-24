@@ -1,7 +1,7 @@
 package com.example.iptvplayer.di
 
-import com.example.iptvplayer.retrofit.ChannelsAndEpgService
-import com.example.iptvplayer.retrofit.FlussonicService
+import com.example.iptvplayer.retrofit.services.ChannelsAndEpgService
+import com.example.iptvplayer.retrofit.services.FlussonicService
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

@@ -1,8 +1,8 @@
 package com.example.iptvplayer.data.repositories
 
 import android.util.Log
-import com.example.iptvplayer.retrofit.ChannelsAndEpgAuthResponse
-import com.example.iptvplayer.retrofit.ChannelsAndEpgService
+import com.example.iptvplayer.retrofit.data.ChannelsAndEpgAuthResponse
+import com.example.iptvplayer.retrofit.services.ChannelsAndEpgService
 import kotlinx.coroutines.CompletableDeferred
 import okhttp3.RequestBody
 import retrofit2.Call

@@ -1,10 +1,11 @@
-package com.example.iptvplayer.retrofit
+package com.example.iptvplayer.retrofit.data
 
 data class ChannelData(
     var name: String,
     var logo: String,
     var channelScreenName: String,
-    var epgChannelId: String
+    var epgChannelId: String,
+    var channelUrl: String
 )
 
 data class ChannelBackendInfo(

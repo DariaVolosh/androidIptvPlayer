@@ -42,6 +42,7 @@ fun PlaybackControls(
     val isPaused by mediaViewModel.isPaused.observeAsState()
 
     val isSeeking by archiveViewModel.isSeeking.observeAsState()
+    val dvrRange by archiveViewModel.dvrRange.observeAsState()
 
     LaunchedEffect(isSeeking) {
         isSeeking?.let { isSeeking ->
@@ -67,19 +68,23 @@ fun PlaybackControls(
         focusedEpgIndex?.let { focusedEpgIndex ->
             resetSecondsNotInteracted()
             val prevProgram = epgViewModel.getEpgByIndex(focusedEpgIndex - 1)
+            val localDvrRange = dvrRange
             Log.i("prev program", prevProgram.toString())
 
-            if (prevProgram != null && channelUrl.isNotEmpty() && prevProgram.isDvrAvailable) {
-                archiveViewModel.updateIsLive(false)
-                archiveViewModel.setCurrentTime(prevProgram.startTime)
-                archiveViewModel.getArchiveUrl(channelUrl)
-                archiveViewModel.updateIsSeeking(true)
-                epgViewModel.updateCurrentEpgIndex(focusedEpgIndex - 1)
-                epgViewModel.updateFocusedEpgIndex(focusedEpgIndex - 1)
-                archiveViewModel.updateIsSeeking(false)
-            } else {
-                archiveViewModel.setRewindError("Previous program is not available")
+            if (localDvrRange != null && prevProgram != null) {
+                if (prevProgram.startSeconds in localDvrRange.first..localDvrRange.second) {
+                    archiveViewModel.updateIsLive(false)
+                    archiveViewModel.setCurrentTime(prevProgram.startSeconds)
+                    archiveViewModel.getArchiveUrl(channelUrl)
+                    archiveViewModel.updateIsSeeking(true)
+                    epgViewModel.updateCurrentEpgIndex(focusedEpgIndex - 1)
+                    epgViewModel.updateFocusedEpgIndex(focusedEpgIndex - 1)
+                    archiveViewModel.updateIsSeeking(false)
+                    return@let
+                }
             }
+
+            archiveViewModel.setRewindError("Previous program is not available")
         }
     }
 
@@ -88,18 +93,24 @@ fun PlaybackControls(
             Log.i("FOCUSED", focusedEpgIndex.toString())
             resetSecondsNotInteracted()
             val nextProgram = epgViewModel.getEpgByIndex(focusedEpgIndex + 1)
+            val localDvrRange = dvrRange
 
-            if (nextProgram != null && channelUrl.isNotEmpty() && nextProgram.isDvrAvailable) {
-                archiveViewModel.updateIsLive(false)
-                archiveViewModel.setCurrentTime(nextProgram.startTime)
-                archiveViewModel.getArchiveUrl(channelUrl)
-                archiveViewModel.updateIsSeeking(true)
-                epgViewModel.updateCurrentEpgIndex(focusedEpgIndex + 1)
-                epgViewModel.updateFocusedEpgIndex(focusedEpgIndex + 1)
-                archiveViewModel.updateIsSeeking(false)
-            } else {
-                archiveViewModel.setRewindError("Next program is not available")
+            // CHECK IF DVR IS AVAILABLE
+            if (localDvrRange != null && nextProgram != null) {
+               if (nextProgram.startSeconds in localDvrRange.first..localDvrRange.second) {
+                   archiveViewModel.updateIsLive(false)
+                   archiveViewModel.setCurrentTime(nextProgram.startSeconds)
+                   archiveViewModel.getArchiveUrl(channelUrl)
+                   archiveViewModel.updateIsSeeking(true)
+                   epgViewModel.updateCurrentEpgIndex(focusedEpgIndex + 1)
+                   epgViewModel.updateFocusedEpgIndex(focusedEpgIndex + 1)
+                   archiveViewModel.updateIsSeeking(false)
+
+                   return@let
+               }
             }
+
+            archiveViewModel.setRewindError("Next program is not available")
         }
     }
 

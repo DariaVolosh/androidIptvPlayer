@@ -16,15 +16,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.iptvplayer.data.Epg
-import com.example.iptvplayer.data.PlaylistChannel
 import com.example.iptvplayer.data.Utils.formatDate
+import com.example.iptvplayer.retrofit.data.ChannelData
+import com.example.iptvplayer.retrofit.data.Epg
 
 @Composable
 fun TimeSeekbarWithTimeMarkers(
-    currentEpg: Epg?,
+    currentEpg: com.example.iptvplayer.retrofit.data.Epg?,
     dvrRange: Pair<Long, Long>?,
-    focusedChannel: PlaylistChannel,
+    focusedChannel: ChannelData,
     updateCurrentDate: (String) -> Unit
 ) {
     val timePattern = "HH:mm"
@@ -35,8 +35,8 @@ fun TimeSeekbarWithTimeMarkers(
 
     LaunchedEffect(currentEpg, dvrRange) {
         if (currentEpg != null && currentEpg != Epg()) {
-            startTime = formatDate(currentEpg.startTime, timePattern)
-            stopTime = formatDate(currentEpg.stopTime, timePattern)
+            startTime = formatDate(currentEpg.startSeconds, timePattern)
+            stopTime = formatDate(currentEpg.stopSeconds, timePattern)
         } else if (dvrRange != null && dvrRange.first != 0L) {
             startTime = formatDate(dvrRange.first, datePattern)
             stopTime = formatDate(dvrRange.second, datePattern)
@@ -58,7 +58,7 @@ fun TimeSeekbarWithTimeMarkers(
 
         LinearProgressWithDot(
             Modifier.weight(1f),
-            focusedChannel.url,
+            focusedChannel.channelUrl,
             updateCurrentDate
         )
 

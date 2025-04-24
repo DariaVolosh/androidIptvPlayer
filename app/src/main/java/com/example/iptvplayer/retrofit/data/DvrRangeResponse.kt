@@ -1,4 +1,4 @@
-package com.example.iptvplayer.retrofit
+package com.example.iptvplayer.retrofit.data
 
 data class DvrRange(
     val from: Long,
