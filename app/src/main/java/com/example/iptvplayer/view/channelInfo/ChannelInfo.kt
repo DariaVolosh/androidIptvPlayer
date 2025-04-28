@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.LiveData
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.iptvplayer.data.Utils.formatDate
 import com.example.iptvplayer.retrofit.data.Epg
 import com.example.iptvplayer.view.channels.ArchiveViewModel
@@ -56,7 +57,7 @@ fun ChannelInfo(
     val archiveViewModel: ArchiveViewModel = hiltViewModel()
     // injecting epgViewModel and channelsViewModel because i need to use 2 methods from them
     val epgViewModel: EpgViewModel = hiltViewModel()
-    val channelsViewModel: ChannelsViewModel = hiltViewModel()
+    val channelsViewModel: ChannelsViewModel = viewModel()
 
     val timePattern = "HH:mm"
     val datePattern = "EEEE d MMMM HH:mm:ss"
@@ -72,8 +73,8 @@ fun ChannelInfo(
 
     val currentEpg by epgViewModel.currentEpg.observeAsState()
 
-    val focusedChannel by channelsViewModel.focusedChannel.observeAsState()
-    val focusedChannelIndex by channelsViewModel.focusedChannelIndex.observeAsState()
+    val currentChannel by channelsViewModel.currentChannel.observeAsState()
+    val currentChannelIndex by channelsViewModel.currentChannelIndex.observeAsState()
 
     val isPaused by isPausedLiveData.observeAsState()
 
@@ -98,7 +99,7 @@ fun ChannelInfo(
 
     LaunchedEffect(isSeeking, isPaused) {
         Log.i("is paused", isPaused.toString())
-        Log.i("channel info current time", currentTime.toString())
+        Log.i("channel info current time", formatDate(currentTime ?: 0, datePattern))
 
         while (isSeeking == false && isPaused == false) {
             currentTime?.let { currentTime ->
@@ -145,7 +146,7 @@ fun ChannelInfo(
                     .padding(horizontal = 10.dp)
                     .fillMaxWidth()
             ) {
-                focusedChannel?.let { focusedChannel ->
+                currentChannel?.let { focusedChannel ->
                     TimeSeekbarWithTimeMarkers(
                         currentEpg,
                         dvrRange,
@@ -159,9 +160,9 @@ fun ChannelInfo(
                         .fillMaxWidth(),
                 ) {
                     ChannelShortInfo(
-                        focusedChannelIndex ?: 0,
-                        focusedChannel?.name ?: "",
-                        focusedChannel?.logo ?: ""
+                        currentChannelIndex ?: 0,
+                        currentChannel?.name ?: "",
+                        currentChannel?.logo ?: ""
                     )
 
                     Column(
@@ -188,9 +189,11 @@ fun ChannelInfo(
                         Log.i("SHIT4", "RECOMPOSED")
 
                         PlaybackControls(
-                            focusedChannel?.channelUrl ?: "",
+                            currentChannel?.channelUrl ?: "",
                             { showChannelInfo(false) },
-                            dvrRange?.first != 0L,
+                            dvrRange?.let { range ->
+                                return@let range.first > 0
+                            } ?: false,
                             { secondsNotInteracted = 0 },
                         ) { showDatePicker -> showProgrammeDatePicker(showDatePicker) }
 

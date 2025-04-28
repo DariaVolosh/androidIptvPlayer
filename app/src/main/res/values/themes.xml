@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.IptvPlayer" parent="android:Theme.Material.Light.NoActionBar" />
+    
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/black</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/video_player</item>
+        <item name="postSplashScreenTheme">@style/Theme.IptvPlayer</item>
+    </style>
 </resources>

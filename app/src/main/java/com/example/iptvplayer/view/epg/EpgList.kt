@@ -58,7 +58,6 @@ fun EpgList(
     //val epgList by epgViewModel.epgList.observeAsState()
     //val focusedEpgIndex by epgViewModel.focusedEpgIndex.observeAsState()
     val isFocused by epgViewModel.isEpgListFocused.observeAsState()
-
     val epgList by epgViewModel.epgListFlow.collectAsState(emptyList())
     val focusedEpgIndex by epgViewModel.focusedEpgIndexFlow.collectAsState(-1)
 
@@ -112,6 +111,8 @@ fun EpgList(
     }
 
     LaunchedEffect(focusedEpgIndex, epgList, visibleItems) {
+        Log.i("focused epg in epg list", focusedEpgIndex.toString())
+        Log.i("focsed epg in epg list", epgList.toString())
         if (focusedEpgIndex != -1 && epgList.isNotEmpty()) {
             isListDisplayed = true
 

@@ -66,11 +66,11 @@ fun LinearProgressWithDot(
         Log.i("ELAPSED", newTime.toString())
 
         if (newTime < epg.startSeconds) {
-            epgViewModel.updateCurrentEpgIndex(epgIndex - 1)
-            epgViewModel.updateFocusedEpgIndex(epgIndex - 1)
+            epgViewModel.updateEpgIndex(epgIndex - 1, true)
+            epgViewModel.updateEpgIndex(epgIndex - 1, false)
         } else if (newTime > epg.stopSeconds) {
-            epgViewModel.updateCurrentEpgIndex(epgIndex + 1)
-            epgViewModel.updateFocusedEpgIndex(epgIndex + 1)
+            epgViewModel.updateEpgIndex(epgIndex + 1, true)
+            epgViewModel.updateEpgIndex(epgIndex + 1, false)
         } else {
             currentProgrammeProgress =
                 decimalFormat.format(
@@ -124,7 +124,7 @@ fun LinearProgressWithDot(
                 Log.i("DVR OR EPG", "epg")
                 updateEpgSeekbarProgress(currentTime, localCurrentEpg, localCurrentEpgIndex)
             // epg is not available, but dvr is available, use dvr timestamps
-            } else if (localDvrRange != null && localDvrRange.first != 0L) {
+            } else if (localDvrRange != null && localDvrRange.first > 0) {
                 Log.i("DVR OR EPG", "dvr")
                 updateDvrSeekbarProgress(currentTime, localDvrRange)
             }

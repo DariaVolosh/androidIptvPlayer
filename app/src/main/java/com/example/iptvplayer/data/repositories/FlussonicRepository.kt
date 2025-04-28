@@ -24,7 +24,6 @@ class FlussonicRepository @Inject constructor(
         val authHeader = "Basic $credentials"
 
         Log.i("auth header", authHeader)
-
         Log.i("get dvr range stream name", streamName)
 
         val dvrRange = CompletableDeferred<Pair<Long, Long>>()
@@ -37,7 +36,7 @@ class FlussonicRepository @Inject constructor(
                     response.body()?.let { dvrRangeResponse ->
                         if (dvrRangeResponse.ranges.isEmpty()) {
                             Log.i("dvr range call success", "range empty")
-                            dvrRange.complete(Pair(0,0))
+                            dvrRange.complete(Pair(-1,-1))
                         } else {
                             val datePattern = "EEEE d MMMM HH:mm:ss"
 
@@ -79,13 +78,13 @@ class FlussonicRepository @Inject constructor(
                         }
                     }
                 } else {
-                    dvrRange.complete(Pair(0,0))
+                    dvrRange.complete(Pair(-1,-1))
                 }
             }
 
             override fun onFailure(call: Call<DvrRangeResponse>, exception: Throwable) {
-                dvrRange.complete(Pair(0,0))
-
+                Log.i("get dvr range failure", exception.localizedMessage.toString())
+                dvrRange.complete(Pair(-1,-1))
             }
         })
 

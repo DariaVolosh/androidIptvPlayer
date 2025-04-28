@@ -9,7 +9,6 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.getField
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 
@@ -24,13 +23,19 @@ class DummyViewModel @Inject constructor(
 
     fun checkIfTrial() {
         viewModelScope.launch {
-            val doc = firestore.collection("trial")
+            firestore.collection("trial")
                 .document("trial")
-                .get().await()
-
-            val isTrial = doc.getField<Boolean>("is4VersionTrial") ?: false
-            Log.i("IS TRIAL", isTrial.toString())
-            _isTrial.value = isTrial
+                .get().addOnFailureListener { exception ->
+                    exception.localizedMessage?.let {
+                        Log.i(
+                            "on failure get trial",
+                            it
+                        )
+                    }
+                }
+                .addOnSuccessListener { res ->
+                    _isTrial.value = res.getField<Boolean>("is4VersionTrial") ?: false
+                }
         }
     }
 }

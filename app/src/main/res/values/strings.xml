@@ -13,4 +13,9 @@
     <string name="go_live">Go live</string>
     <string name="stream_thumbnail">Stream thumbnail</string>
     <string name="preview_window_pointer">Preview window pointer</string>
+
+    <string name="preference_file_name">data</string>
+
+    <string name="current_channel_index_key">current_channel_index</string>
+    <string name="current_epg_index_key">current_epg_index</string>
 </resources>

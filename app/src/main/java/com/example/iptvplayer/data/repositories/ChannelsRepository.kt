@@ -1,7 +1,7 @@
 package com.example.iptvplayer.data.repositories
 
 import android.util.Log
-import com.example.iptvplayer.data.backendBaseUrl
+import com.example.iptvplayer.data.BACKEND_BASE_URL
 import com.example.iptvplayer.retrofit.data.ChannelBackendInfo
 import com.example.iptvplayer.retrofit.data.ChannelsBackendInfoResponse
 import com.example.iptvplayer.retrofit.data.StreamUrlTemplate
@@ -36,7 +36,7 @@ class ChannelsRepository @Inject constructor(
                             for (channelData in data) {
                                 val channel = channelData.channel[0]
                                 val replacedSlashesUrl = channelData.channel[0].logo.replace('\\', '/')
-                                val constructedLogoUrl = backendBaseUrl + replacedSlashesUrl
+                                val constructedLogoUrl = BACKEND_BASE_URL + replacedSlashesUrl
                                 channel.logo = constructedLogoUrl
 
                                 val channelUrl = streamUrlTemplate.replace("[channelname]", channel.name)

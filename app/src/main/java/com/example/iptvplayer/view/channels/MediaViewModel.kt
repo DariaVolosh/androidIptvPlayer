@@ -81,16 +81,9 @@ class MediaViewModel @Inject constructor(
 
     fun setMediaUrl(url: String) {
         Log.i("VIEW MODEL SET MEDIA URL", url)
-        if (ijkPlayer != null) {
-            ijkPlayer?.reset()
-            isPlayerReset = true
-            firstSegmentRead = false
-            _isDataSourceSet.postValue(false)
-            _isPlaybackStarted.value = false
+        if (ijkPlayer != null && !isPlayerReset) {
+            reset()
         }
-
-        tsJob?.cancel()
-        urlQueue.clear()
 
         tsJob = viewModelScope.launch {
             getTsSegmentsUseCase.extractTsSegments(url).collect { u ->
@@ -142,9 +135,13 @@ class MediaViewModel @Inject constructor(
         Log.i("paused", "false")
     }
 
-    fun release() {
-        Log.i("CALLED RELEASE", "called")
-        ijkPlayer?.release()
+    fun reset() {
         ijkPlayer?.reset()
+        tsJob?.cancel()
+        urlQueue.clear()
+        isPlayerReset = true
+        firstSegmentRead = false
+        _isDataSourceSet.postValue(false)
+        _isPlaybackStarted.value = false
     }
 }

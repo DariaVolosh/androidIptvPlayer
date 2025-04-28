@@ -40,21 +40,19 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.iptvplayer.view.epg.EpgViewModel
 import kotlinx.coroutines.launch
 
 @Composable
 fun ChannelList(
     modifier: Modifier,
     token: String,
-    setMediaUrl: (String) -> Unit,
-    setIsEpgListFocused: (Boolean) -> Unit,
-    updateCurrentEpgList: () -> Unit,
-    fetchEpg: (List<Pair<Int, Int>>) -> Unit,
+    setMediaUrl: (String) -> Unit
 ) {
     val localDensity = LocalDensity.current.density
-    val channelsViewModel: ChannelsViewModel = hiltViewModel()
+    val channelsViewModel: ChannelsViewModel = viewModel()
+    val epgViewModel: EpgViewModel = hiltViewModel()
 
     //val channels by channelsViewModel.playlistChannels.observeAsState()
     val channelsData by channelsViewModel.channelsData.observeAsState()
@@ -75,21 +73,43 @@ fun ChannelList(
     var isListEnd by remember { mutableStateOf(false) }
     var allChannelsAreVisible by remember { mutableStateOf(false) }
 
-    LaunchedEffect(channelsData, isChannelClicked) {
+    LaunchedEffect(channelsData, focusedChannelIndex) {
         val localChannelsData = channelsData
+        val localFocusedChannelIndex = focusedChannelIndex
 
-        if (isChannelClicked == false && localChannelsData != null) {
+        Log.i("channels list channels data and focused index", "$localChannelsData $localFocusedChannelIndex")
+
+        if (localChannelsData != null && localFocusedChannelIndex != null) {
+            if (localChannelsData.isNotEmpty()) {
+                var channelIndex = localFocusedChannelIndex
+                var previousAdded = false
+
+                val epgRequest = mutableListOf<Pair<Int, Int>>()
+                while (epgRequest.size < 10 && channelIndex != null) {
+                    Log.i("channel index channels list", channelIndex.toString())
+                    epgRequest.add(Pair(localChannelsData[channelIndex].channel[0].epgChannelId.toInt(), channelIndex))
+
+                    if (!previousAdded && channelIndex - 1 >= 0 && epgRequest.size < 5) {
+                        channelIndex--
+                    } else {
+                        if (!previousAdded) {
+                            channelIndex = localFocusedChannelIndex
+                            previousAdded = true
+                        }
+
+                        channelIndex++
+                    }
+                }
+
+                epgViewModel.fetchEpg(epgRequest, token)
+            }
+        }
+    }
+
+    LaunchedEffect(isChannelClicked) {
+        if (isChannelClicked == false) {
             val visibleItemsLocal = lazyColumnState.layoutInfo.visibleItemsInfo.size
             visibleItems = visibleItemsLocal
-            Log.i("channels visible", visibleItemsLocal.toString())
-
-            val epgRequest = mutableListOf<Pair<Int, Int>>()
-            for (i in 0..<visibleItemsLocal) {
-                epgRequest.add(Pair(localChannelsData[i].channel[0].epgChannelId.toInt(), i))
-            }
-
-            fetchEpg(epgRequest)
-
             if (visibleItemsLocal == channelsData?.size) allChannelsAreVisible = true
         }
     }
@@ -99,10 +119,6 @@ fun ChannelList(
         val focusedChannelIndexLocal = focusedChannelIndex
 
         if (isChannelClicked == false && focusedChannelIndexLocal != null) {
-            CoroutineScope(Dispatchers.IO).launch {
-                updateCurrentEpgList()
-            }
-
             Log.i("focused stuff", "focused channel $focusedChannelIndex visible ${visibleItems / 2}")
 
             if (allChannelsAreVisible) return@LaunchedEffect
@@ -149,6 +165,12 @@ fun ChannelList(
         }
     }
 
+    LaunchedEffect(channelsData) {
+        channelsData?.let { channels ->
+            epgViewModel.createAllChannelsEpgList(channels.size)
+        }
+    }
+
     LaunchedEffect(token) {
         if (token.isNotEmpty()) {
             channelsViewModel.fetchChannelsData(token)
@@ -169,7 +191,7 @@ fun ChannelList(
                             channelsViewModel.handleChannelOnKeyEvent(
                                 event.key,
                                 setMediaUrl,
-                                setIsEpgListFocused,
+                                epgViewModel::setIsEpgListFocused,
                             )
                         }
 

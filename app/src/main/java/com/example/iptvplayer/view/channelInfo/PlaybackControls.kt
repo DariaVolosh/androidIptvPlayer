@@ -77,8 +77,8 @@ fun PlaybackControls(
                     archiveViewModel.setCurrentTime(prevProgram.startSeconds)
                     archiveViewModel.getArchiveUrl(channelUrl)
                     archiveViewModel.updateIsSeeking(true)
-                    epgViewModel.updateCurrentEpgIndex(focusedEpgIndex - 1)
-                    epgViewModel.updateFocusedEpgIndex(focusedEpgIndex - 1)
+                    epgViewModel.updateEpgIndex(focusedEpgIndex - 1, true)
+                    epgViewModel.updateEpgIndex(focusedEpgIndex - 1, false)
                     archiveViewModel.updateIsSeeking(false)
                     return@let
                 }
@@ -102,8 +102,8 @@ fun PlaybackControls(
                    archiveViewModel.setCurrentTime(nextProgram.startSeconds)
                    archiveViewModel.getArchiveUrl(channelUrl)
                    archiveViewModel.updateIsSeeking(true)
-                   epgViewModel.updateCurrentEpgIndex(focusedEpgIndex + 1)
-                   epgViewModel.updateFocusedEpgIndex(focusedEpgIndex + 1)
+                   epgViewModel.updateEpgIndex(focusedEpgIndex + 1, true)
+                   epgViewModel.updateEpgIndex(focusedEpgIndex + 1, false)
                    archiveViewModel.updateIsSeeking(false)
 
                    return@let
@@ -163,8 +163,10 @@ fun PlaybackControls(
                 archiveViewModel.updateIsSeeking(true)
                 coroutineScope.launch {
                     epgViewModel.liveProgrammeIndex.value?.let { l ->
-                        epgViewModel.updateCurrentEpgIndex(l)
-                        epgViewModel.updateFocusedEpgIndex(l)
+                        if (l != -1) {
+                            epgViewModel.updateEpgIndex(l, true)
+                            epgViewModel.updateEpgIndex(l, false)
+                        }
                     }
                     mediaViewModel.setMediaUrl(channelUrl)
                 }

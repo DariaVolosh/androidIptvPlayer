@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.iptvplayer.view.channels.ArchiveViewModel
 import com.example.iptvplayer.view.channels.ChannelsViewModel
 import kotlinx.coroutines.delay
@@ -28,7 +29,7 @@ import kotlinx.coroutines.delay
 fun CustomToast(
     modifier: Modifier
 ) {
-    val channelsViewModel: ChannelsViewModel = hiltViewModel()
+    val channelsViewModel: ChannelsViewModel = viewModel()
     val archiveViewModel: ArchiveViewModel = hiltViewModel()
 
     val channelError by channelsViewModel.channelError.observeAsState()

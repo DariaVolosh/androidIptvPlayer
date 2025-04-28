@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.iptvplayer.data.Utils
 import com.example.iptvplayer.domain.GetDvrRangeUseCase
+import com.example.iptvplayer.domain.SharedPreferencesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -16,9 +17,13 @@ import kotlinx.coroutines.launch
 import java.util.Calendar
 import javax.inject.Inject
 
+const val CURRENT_TIME_KEY = "current_time"
+const val IS_LIVE_KEY = "is_live"
+
 @HiltViewModel
 class ArchiveViewModel @Inject constructor(
-    private val getDvrRangeUseCase: GetDvrRangeUseCase
+    private val getDvrRangeUseCase: GetDvrRangeUseCase,
+    private val sharedPreferencesUseCase: SharedPreferencesUseCase
 ): ViewModel() {
     private val _archiveSegmentUrl: MutableLiveData<String> = MutableLiveData()
     val archiveSegmentUrl: LiveData<String> = _archiveSegmentUrl
@@ -37,7 +42,7 @@ class ArchiveViewModel @Inject constructor(
     private val _isSeeking: MutableLiveData<Boolean> = MutableLiveData(false)
     val isSeeking: LiveData<Boolean> = _isSeeking
 
-    private val _dvrRange: MutableLiveData<Pair<Long, Long>> = MutableLiveData(Pair(0,0))
+    private val _dvrRange: MutableLiveData<Pair<Long, Long>> = MutableLiveData()
     val dvrRange: LiveData<Pair<Long, Long>> = _dvrRange
 
     // for example 3 march -> 3
@@ -47,13 +52,23 @@ class ArchiveViewModel @Inject constructor(
     private val _dvrFirstAndLastMonth: MutableLiveData<Pair<Int, Int>> = MutableLiveData()
     val dvrFirstAndLastMonth: MutableLiveData<Pair<Int, Int>> = _dvrFirstAndLastMonth
 
-    private val _isLive: MutableLiveData<Boolean> = MutableLiveData(false)
+    private val _isLive: MutableLiveData<Boolean> = MutableLiveData(true)
     val isLive: LiveData<Boolean> = _isLive
 
     private val _rewindError: MutableLiveData<String> = MutableLiveData()
     val rewindError: LiveData<String> = _rewindError
 
     private var dvrCollectionJob: Job? = null
+
+    init {
+        val currentTime = sharedPreferencesUseCase.getLongValue(CURRENT_TIME_KEY)
+        val isLive = sharedPreferencesUseCase.getBooleanValue(IS_LIVE_KEY)
+        val datePattern = "EEEE d MMMM HH:mm:ss"
+        Log.i("PREFS", "current time: ${Utils.formatDate(currentTime, datePattern)}")
+        setCurrentTime(currentTime)
+        updateIsLive(isLive)
+        Log.i("PREFS", "is live: $isLive")
+    }
 
     fun setLiveTime(time: Long) {
         Log.i("LIVE TIME", time.toString())
@@ -153,10 +168,11 @@ class ArchiveViewModel @Inject constructor(
             Log.i("get archive url method", "called")
             val datePattern = "EEEE d MMMM HH:mm:ss"
             Log.i("REALLY", time.toString())
+            Log.i("base url given", url.toString())
             val baseUrl = url.substring(0, url.lastIndexOf("/") + 1)
-            val token = url.substring(url.lastIndexOf("=") + 1, url.length-1)
+            val token = url.substring(url.lastIndexOf("=") + 1, url.length)
 
-            val archiveUrl = baseUrl + "index-$time-now.m3u8?$token"
+            val archiveUrl = baseUrl + "index-$time-now.m3u8?token=$token"
             Log.i("base url", "$baseUrl $token $archiveUrl")
             // checking again, because if the rewind was not continuous, time did not change,
             // therefore still in present, rewinding to current time would result in
@@ -172,6 +188,7 @@ class ArchiveViewModel @Inject constructor(
     fun setCurrentTime(time: Long) {
         if (time != 0L) {
             _currentTime.value = time
+            sharedPreferencesUseCase.saveLongValue(CURRENT_TIME_KEY, time)
             val datePattern = "EEEE d MMMM HH:mm:ss"
             Log.i("current time!", Utils.formatDate(time, datePattern))
         }
@@ -196,15 +213,15 @@ class ArchiveViewModel @Inject constructor(
         } ?: false
 
     fun updateIsLive(isLive: Boolean) {
+        Log.i("update is live", "$isLive")
         _isLive.value = isLive
+        sharedPreferencesUseCase.saveBooleanValue(IS_LIVE_KEY, isLive)
     }
 
     fun startDvrCollectionJob(streamName: String) {
         dvrCollectionJob?.cancel()
 
         dvrCollectionJob = viewModelScope.launch {
-            getDvrRange(streamName)
-
             while (true) {
                 getDvrRange(streamName)
                 delay(5000)

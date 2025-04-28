@@ -7,14 +7,15 @@ import android.view.SurfaceView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.annotation.OptIn
+import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -26,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -33,7 +35,9 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.util.UnstableApi
 import com.example.iptvplayer.data.Utils
 import com.example.iptvplayer.ui.theme.IptvPlayerTheme
@@ -48,31 +52,61 @@ import com.example.iptvplayer.view.epg.EpgViewModel
 import com.example.iptvplayer.view.programDatePicker.ProgramDatePickerModal
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    private lateinit var mediaViewModel: MediaViewModel
+    private val mediaViewModel: MediaViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splashScreen = installSplashScreen()
+        var keepSplashScreen = true
         super.onCreate(savedInstanceState)
+        splashScreen.setKeepOnScreenCondition { keepSplashScreen }
+
+        lifecycleScope.launch {
+            delay(1000)
+            keepSplashScreen = false
+        }
+
+        Log.i("saved instance state", (savedInstanceState == null).toString())
 
         setContent {
-            mediaViewModel = hiltViewModel()
             IptvPlayerTheme {
                 MainScreen()
             }
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        Log.i("activity hashcode", this.hashCode().toString())
+    }
+
+    override fun onResume() {
+        super.onResume()
+    }
+
     override fun onStop() {
         super.onStop()
-        mediaViewModel.release()
+        mediaViewModel.reset()
+    }
+
+    override fun onPause() {
+        super.onPause()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        Log.i("on destroy", "called")
     }
 }
 
 @OptIn(UnstableApi::class)
 @Composable
 fun MainScreen() {
+    val context = LocalContext.current
+
     // think during refactoring about what view models will be left in main screen
     // and maybe some of them will not be necessary to be injected here
     // same for observable live data
@@ -83,8 +117,6 @@ fun MainScreen() {
     val dummyViewModel: DummyViewModel = hiltViewModel()
     val authViewModel: AuthViewModel = hiltViewModel()
 
-    val context = LocalContext.current
-
     val token by authViewModel.token.observeAsState()
 
     val isDataSourceSet by mediaViewModel.isDataSourceSet.observeAsState()
@@ -92,7 +124,7 @@ fun MainScreen() {
 
     val channels by channelsViewModel.channelsData.observeAsState()
     val focusedChannelIndex by channelsViewModel.focusedChannelIndex.observeAsState()
-    val focusedChannel by channelsViewModel.focusedChannel.observeAsState()
+    val focusedChannel by channelsViewModel.currentChannel.observeAsState()
     val channelError by channelsViewModel.channelError.observeAsState()
     val isChannelClicked by channelsViewModel.isChannelClicked.observeAsState()
 
@@ -105,11 +137,11 @@ fun MainScreen() {
     val currentTime by archiveViewModel.currentTime.observeAsState()
     val isSeeking by archiveViewModel.isSeeking.observeAsState()
     val dvrRange by archiveViewModel.dvrRange.observeAsState()
-    val rewindError by archiveViewModel.rewindError.observeAsState()
 
     val mainFocusRequester = remember { FocusRequester() }
     var isChannelInfoShown by remember { mutableStateOf(false) }
     var isProgramDatePickerShown by remember { mutableStateOf(false) }
+    var isInitialStreamSet by remember { mutableStateOf(false) }
 
     val isTrial by dummyViewModel.isTrial.observeAsState()
 
@@ -143,8 +175,8 @@ fun MainScreen() {
                 Log.i("EPG LIST START DATE", currentEpg.epgVideoName)
 
                 if (currentEpg.startSeconds <= currentTime && currentEpg.stopSeconds >= currentTime) {
-                    epgViewModel.updateCurrentEpgIndex(currentIndex)
-                    epgViewModel.updateFocusedEpgIndex(currentIndex)
+                    epgViewModel.updateEpgIndex(currentIndex, true)
+                    epgViewModel.updateEpgIndex(currentIndex, false)
                     break
                 }
             }
@@ -153,8 +185,8 @@ fun MainScreen() {
                 currentEpg = epg[currentIndex]
 
                 if (currentEpg.startSeconds <= currentTime && currentEpg.stopSeconds >= currentTime) {
-                    epgViewModel.updateCurrentEpgIndex(currentIndex)
-                    epgViewModel.updateFocusedEpgIndex(currentIndex)
+                    epgViewModel.updateEpgIndex(currentIndex, true)
+                    epgViewModel.updateEpgIndex(currentIndex, false)
                     break
                 }
             }
@@ -162,8 +194,8 @@ fun MainScreen() {
 
         Log.i("update current epg LAMBDA", "-1")
 
-        //epgViewModel.updateFocusedEpgIndex(0)
-        //epgViewModel.updateCurrentEpgIndex(-1)
+        epgViewModel.updateEpgIndex(0, false)
+        epgViewModel.resetEpgIndex(true)
     }
 
     // think about this during refactoring
@@ -175,7 +207,6 @@ fun MainScreen() {
         Log.i("initialized", "init")
         dummyViewModel.checkIfTrial()
         authViewModel.getBackendToken()
-        archiveViewModel.updateIsLive(true)
         val currentGmtTime = Utils.getGmtTime()
         Log.i("CURRENT GMT TIME", currentGmtTime.toString())
 
@@ -197,16 +228,26 @@ fun MainScreen() {
         epgViewModel.updateCurrentEpg()
     }
 
-    // launch first channel after application boot
     // probably channels list composable
-   LaunchedEffect(channels) {
-        channelsViewModel.updateFocusedChannelIndex(0)
-        channels?.let { channels ->
-            Log.i("channel url 0", channels[0].channel[0].channelUrl.toString())
-            val firstChannel = channels[0].channel[0]
-            mediaViewModel.setMediaUrl(firstChannel.channelUrl)
-            archiveViewModel.getDvrRange(firstChannel.name)
-        }
+   LaunchedEffect(channels, focusedChannel, dvrRange) {
+       channels?.let { _ ->
+           val focusedChannelLocal = focusedChannel
+           Log.i("init focused channel", focusedChannelLocal.toString())
+
+           // initial application boot (set focused channel to first one and play it)
+           // if focused channel is set, application is resuming, just skip and play
+           if (!isInitialStreamSet && focusedChannelLocal != null) {
+               dvrRange?.let { range ->
+                   isInitialStreamSet = true
+
+                   if (range.first > 0 && archiveViewModel.isLive.value == false) {
+                       archiveViewModel.getArchiveUrl(focusedChannelLocal.channelUrl)
+                   } else {
+                       mediaViewModel.setMediaUrl(focusedChannelLocal.channelUrl)
+                   }
+               }
+           }
+       }
     }
 
     // would be nice to create stream window composable and manage this stuff there
@@ -214,14 +255,6 @@ fun MainScreen() {
     LaunchedEffect(archiveSegmentUrl) {
         archiveSegmentUrl?.let { url ->
             mediaViewModel.setMediaUrl(url)
-        }
-    }
-
-    // release all the resources, associated with player
-    DisposableEffect(Unit) {
-        onDispose {
-            Log.i("on dispose called", "called")
-            mediaViewModel.release()
         }
     }
 
@@ -237,6 +270,7 @@ fun MainScreen() {
 
     Box(
         modifier = Modifier
+            .background(Color.Black)
             .fillMaxSize()
             .focusRequester(mainFocusRequester)
             .focusable()
@@ -326,10 +360,8 @@ fun MainScreen() {
                 isChannelClicked ?: true,
                 token ?: "",
                 { url -> mediaViewModel.setMediaUrl(url) },
-                dvrRange ?: Pair(0,0),
-                { isEpgListFocused -> epgViewModel.setIsEpgListFocused(isEpgListFocused) },
-                {epgViewModel.updateCurrentEpgList(focusedChannelIndex ?: -1)},
-            ) { channelsData ->  epgViewModel.fetchEpg(channelsData, token ?: "")}
+                dvrRange ?: Pair(0,0)
+            )
 
             if (isChannelClicked == true) {
                 ChannelInfo(

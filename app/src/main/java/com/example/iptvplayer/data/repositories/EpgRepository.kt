@@ -300,20 +300,25 @@ class EpgRepository @Inject constructor(
         return Pair(startTimeSeconds, stopTimeSeconds)
     }
 
-    fun isProgramLive(
+    fun isProgramWithinTimeRange(
         start: Long,
         stop: Long,
-        currentTime: Long
+        time: Long
     ): Boolean {
-        return currentTime in start..stop
+        return time in start..stop
     }
 
 
     // VERSION NEW (IDK IF IT WILL WORKS NORMALLY LMAO)
-   suspend fun getEpgById(channelId: Int, token: String): EpgDataAndCurrentIndex {
+   suspend fun getEpgById(
+        currentTime: Long,
+        liveTime: Long,
+        channelId: Int,
+        token: String
+   ): EpgDataAndCurrentIndex {
         val epgList = CompletableDeferred<EpgDataAndCurrentIndex>()
-        val currentTime = Utils.getGmtTime()
         var currentEpgIndex = -1
+        var liveEpgIndex = -1
 
         Log.i("GET EPG BY ID REPOSITORY", "$channelId $token")
 
@@ -337,19 +342,27 @@ class EpgRepository @Inject constructor(
                                 epg.stopSeconds = epgTimeRangeInSeconds.second
                                 epg.epgVideoName = epg.epgVideoName.trim()
 
-                                val isProgramLive = isProgramLive(
+                                val isProgramCurrent = isProgramWithinTimeRange(
                                     epgTimeRangeInSeconds.first,
                                     epgTimeRangeInSeconds.second,
                                     currentTime
                                 )
 
-                                if (isProgramLive) currentEpgIndex = i
+                                val isProgramLive = isProgramWithinTimeRange(
+                                    epgTimeRangeInSeconds.first,
+                                    epgTimeRangeInSeconds.second,
+                                    liveTime
+                                )
+
+                                if (isProgramCurrent) currentEpgIndex = i
+                                if (isProgramLive) liveEpgIndex = i
                             }
                             Log.i("response epg data", data.toString())
                             epgList.complete(
                                 EpgDataAndCurrentIndex(
                                     data,
-                                    if (currentEpgIndex == -1) data.size-1 else currentEpgIndex
+                                    currentEpgIndex,
+                                    liveEpgIndex
                                 )
                             )
                             return

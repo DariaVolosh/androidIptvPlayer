@@ -14,10 +14,6 @@ fun ChannelsAndEpgRow(
     token: String,
     setMediaUrl: (String) -> Unit,
     dvrRange: Pair<Long, Long>,
-    // inject epg view model in this composable to not pass those lambdas
-    setIsEpgListFocused: (Boolean) -> Unit,
-    updateCurrentEpgList: () -> Unit,
-    fetchEpg: (List<Pair<Int, Int>>) -> Unit,
 ) {
 
     // here probably we wil inject channels and epg view models to aggregate data
@@ -27,10 +23,7 @@ fun ChannelsAndEpgRow(
         ChannelList(
             Modifier.fillMaxWidth(0.4f),
             token,
-            setMediaUrl,
-            setIsEpgListFocused,
-            updateCurrentEpgList,
-            fetchEpg,
+            setMediaUrl
         )
 
         EpgList(

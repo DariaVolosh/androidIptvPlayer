@@ -23,6 +23,7 @@ import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.request.target.CustomTarget
 import com.bumptech.glide.request.transition.Transition
 import com.example.iptvplayer.R
+import com.example.iptvplayer.data.FLUSSONIC_BASE_URL
 
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
@@ -41,7 +42,7 @@ fun StreamRewindFrame(
 
     Glide.with(localContext)
         .asBitmap()
-        .load("http://193.176.212.58:8080/${streamName}/${imageTimestamp}.jpg")
+        .load("$FLUSSONIC_BASE_URL${streamName}/${imageTimestamp}.jpg")
         .into(object: CustomTarget<Bitmap>() {
             override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
                 imageBitmap = resource.asImageBitmap()

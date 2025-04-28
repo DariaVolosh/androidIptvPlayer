@@ -11,6 +11,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.zip.GZIPInputStream
 import javax.inject.Inject
+import javax.net.ssl.HttpsURLConnection
 
 class FileUtilsRepository @Inject constructor (
 
@@ -21,11 +22,11 @@ class FileUtilsRepository @Inject constructor (
             Log.i("file url read", fileUrl.toString())
             try {
                 val url = URL(fileUrl)
-                val connection = url.openConnection() as HttpURLConnection
+                val connection = url.openConnection() as HttpsURLConnection
                 connection.connect()
                 connection.inputStream
             } catch (e: Exception) {
-                Log.i("get file input stream", e.toString())
+                Log.i("get file input stream", e.toString() + "$fileUrl")
                 null
             }
         }

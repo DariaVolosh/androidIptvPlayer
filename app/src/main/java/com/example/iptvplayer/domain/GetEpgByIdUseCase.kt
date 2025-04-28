@@ -15,5 +15,10 @@ import javax.inject.Inject
 class GetEpgByIdUseCase @Inject constructor(
     private val epgRepository: EpgRepository
 ) {
-        suspend fun getEpgById(channelId: Int, token: String) = epgRepository.getEpgById(channelId, token)
+        suspend fun getEpgById(
+            currentTime: Long,
+            liveTime: Long,
+            channelId: Int,
+            token: String
+        ) = epgRepository.getEpgById(currentTime, liveTime, channelId, token)
 }

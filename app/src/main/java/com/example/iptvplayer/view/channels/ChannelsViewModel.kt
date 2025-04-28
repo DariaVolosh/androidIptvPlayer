@@ -5,25 +5,32 @@ import androidx.compose.ui.input.key.Key
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.asFlow
 import androidx.lifecycle.viewModelScope
 import com.example.iptvplayer.data.PlaylistChannel
 import com.example.iptvplayer.domain.GetChannelsDataUseCase
 import com.example.iptvplayer.domain.GetPlaylistDataUseCase
 import com.example.iptvplayer.domain.GetStreamsUrlTemplatesUseCase
 import com.example.iptvplayer.domain.ReadFileUseCase
+import com.example.iptvplayer.domain.SharedPreferencesUseCase
 import com.example.iptvplayer.retrofit.data.ChannelBackendInfo
 import com.example.iptvplayer.retrofit.data.ChannelData
 import com.example.iptvplayer.retrofit.data.StreamUrlTemplate
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+const val CURRENT_CHANNEL_INDEX_KEY = "current_channel_index_key"
 
 @HiltViewModel
 class ChannelsViewModel @Inject constructor(
     private val readFileUseCase: ReadFileUseCase,
     private val getPlaylistDataUseCase: GetPlaylistDataUseCase,
     private val getChannelsDataUseCase: GetChannelsDataUseCase,
-    private val getStreamsUrlTemplatesUseCase: GetStreamsUrlTemplatesUseCase
+    private val getStreamsUrlTemplatesUseCase: GetStreamsUrlTemplatesUseCase,
+    private val sharedPreferencesUseCase: SharedPreferencesUseCase
 ): ViewModel() {
     private val _playlistChannels: MutableLiveData<List<PlaylistChannel>> = MutableLiveData()
     val playlistChannels: LiveData<List<PlaylistChannel>> = _playlistChannels
@@ -34,8 +41,11 @@ class ChannelsViewModel @Inject constructor(
     private val _focusedChannelIndex: MutableLiveData<Int> = MutableLiveData()
     val focusedChannelIndex: LiveData<Int> = _focusedChannelIndex
 
-    private val _focusedChannel: MutableLiveData<ChannelData> = MutableLiveData()
-    val focusedChannel: LiveData<ChannelData> = _focusedChannel
+    private val _currentChannel: MutableLiveData<ChannelData> = MutableLiveData()
+    val currentChannel: LiveData<ChannelData> = _currentChannel
+
+    private val _currentChannelIndex: MutableLiveData<Int> = MutableLiveData()
+    val currentChannelIndex: LiveData<Int> = _currentChannelIndex
 
     private val _channelError: MutableLiveData<String> = MutableLiveData()
     val channelError: LiveData<String> = _channelError
@@ -43,13 +53,25 @@ class ChannelsViewModel @Inject constructor(
     private val _isChannelsListFocused: MutableLiveData<Boolean> = MutableLiveData(true)
     val isChannelsListFocused: LiveData<Boolean> = _isChannelsListFocused
 
-    private val _isChannelClicked: MutableLiveData<Boolean> = MutableLiveData()
+    private val _isChannelClicked: MutableLiveData<Boolean> = MutableLiveData(true)
     val isChannelClicked: LiveData<Boolean> = _isChannelClicked
 
     private val _streamsUrlTemplates: MutableLiveData<List<StreamUrlTemplate>> = MutableLiveData()
     val streamsUrlTemplates: LiveData<List<StreamUrlTemplate>> = _streamsUrlTemplates
 
     private var archiveViewModel: ArchiveViewModel? = null
+
+    init {
+        val cachedChannelIndex = sharedPreferencesUseCase.getIntValue(CURRENT_CHANNEL_INDEX_KEY)
+        Log.i("PREFS", "current channel index key $cachedChannelIndex")
+        if (cachedChannelIndex == -1) {
+            updateChannelIndex(0, true)
+            updateChannelIndex(0, false)
+        } else {
+            updateChannelIndex(cachedChannelIndex, true)
+            updateChannelIndex(cachedChannelIndex, false)
+        }
+    }
 
     fun setArchiveViewModel(viewModel: ArchiveViewModel) {
         archiveViewModel = viewModel
@@ -59,16 +81,29 @@ class ChannelsViewModel @Inject constructor(
         _channelError.value = error
     }
 
-    private fun updateFocusedChannel() {
-        _focusedChannel.value = channelsData.value?.getOrNull(focusedChannelIndex.value ?: 0)?.channel?.get(0)
+    fun updateCurrentChannel() {
+        val channel = channelsData.value?.getOrNull(_currentChannelIndex.value ?: 0)?.channel?.get(0)
+        channel?.let { channel ->
+            _currentChannel.value = channel
+            Log.i("update focused channel", channel.toString())
+            archiveViewModel?.startDvrCollectionJob(channel.name)
+        }
     }
 
-    fun updateFocusedChannelIndex(focused: Int) {
-        _channelsData.value?.size?.let { channelsSize ->
-            if (focused in 0..<channelsSize) {
-                _focusedChannelIndex.value = focused
-                Log.i("focused channel", focused.toString())
-                updateFocusedChannel()
+    // update current channel index or focused channel index
+    fun updateChannelIndex(index: Int, isCurrent: Boolean) {
+        viewModelScope.launch {
+            channelsData.asFlow().take(1).collectLatest { channels ->
+                if (index in channels.indices) {
+                    if (isCurrent) {
+                        _currentChannelIndex.value = index
+                        updateCurrentChannel()
+                        sharedPreferencesUseCase.saveIntValue(CURRENT_CHANNEL_INDEX_KEY, index)
+                    } else {
+                        Log.i("update channel index called", "$index")
+                        _focusedChannelIndex.value = index
+                    }
+                }
             }
         }
     }
@@ -129,16 +164,12 @@ class ChannelsViewModel @Inject constructor(
             Key.DirectionDown -> {
                 focusedChannelIndex.value?.let { focusedIndex ->
                     Log.i("FIRED", "focused channel down")
-                    updateFocusedChannelIndex(focusedIndex + 1)
-                    val name = focusedChannel.value?.name ?: ""
-                    archiveViewModel?.startDvrCollectionJob(name)
+                    updateChannelIndex(focusedIndex + 1, false)
                 }
             }
             Key.DirectionUp -> {
                 focusedChannelIndex.value?.let { focusedIndex ->
-                    updateFocusedChannelIndex(focusedIndex - 1)
-                    val name = focusedChannel.value?.name ?: ""
-                    archiveViewModel?.startDvrCollectionJob(name)
+                    updateChannelIndex(focusedIndex - 1, false)
                 }
             }
             Key.DirectionRight -> {
@@ -147,13 +178,17 @@ class ChannelsViewModel @Inject constructor(
             }
 
             Key.DirectionCenter -> {
-                archiveViewModel?.updateIsLive(true)
+                _focusedChannelIndex.value?.let { focusedIndex ->
+                    Log.i("focused index in key handler", focusedIndex.toString())
+                    updateChannelIndex(focusedIndex, true)
+                }
 
+                archiveViewModel?.updateIsLive(true)
                 archiveViewModel?.liveTime?.value?.let { liveTime ->
                     archiveViewModel?.setCurrentTime(liveTime)
                 }
 
-                focusedChannel.value?.let { channel ->
+                currentChannel.value?.let { channel ->
                     Log.i("channel url", channel.channelUrl)
                     setMediaUrl(channel.channelUrl)
                 }

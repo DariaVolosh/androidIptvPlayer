@@ -2,7 +2,8 @@ package com.example.iptvplayer.retrofit.data
 
 data class EpgDataAndCurrentIndex(
     val data: List<Epg> = emptyList(),
-    val currentEpgIndex: Int = 0
+    val currentEpgIndex: Int = 0,
+    val liveEpgIndex: Int = 0
 )
 
 data class Epg(

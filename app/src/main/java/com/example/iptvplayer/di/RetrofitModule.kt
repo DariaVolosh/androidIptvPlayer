@@ -1,5 +1,6 @@
 package com.example.iptvplayer.di
 
+import com.example.iptvplayer.data.FLUSSONIC_BASE_URL
 import com.example.iptvplayer.retrofit.services.ChannelsAndEpgService
 import com.example.iptvplayer.retrofit.services.FlussonicService
 import dagger.Module
@@ -30,7 +31,7 @@ class RetrofitModule {
             ***REMOVED***
             ***REMOVED***
             // lasha flussonic
-            .baseUrl("http://185.15.115.246/")
+            .baseUrl(FLUSSONIC_BASE_URL)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 

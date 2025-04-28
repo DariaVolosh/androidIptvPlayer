@@ -22,7 +22,7 @@ import com.example.iptvplayer.retrofit.data.Epg
 
 @Composable
 fun TimeSeekbarWithTimeMarkers(
-    currentEpg: com.example.iptvplayer.retrofit.data.Epg?,
+    currentEpg: Epg?,
     dvrRange: Pair<Long, Long>?,
     focusedChannel: ChannelData,
     updateCurrentDate: (String) -> Unit
