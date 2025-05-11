@@ -14,12 +14,12 @@ import retrofit2.http.Query
 
 interface ChannelsAndEpgService {
     @POST("Client/Login")
-    fun getAuthToken(@Body rawJson: RequestBody): Call<ChannelsAndEpgAuthResponse>
+    suspend fun getAuthToken(@Body rawJson: RequestBody): ChannelsAndEpgAuthResponse
 
     @GET("Client/GetAllChannels")
-    fun getChannelsInfo(
+    suspend fun getChannelsInfo(
         @Header("Authorization") credentials: String
-    ): Call<ChannelsBackendInfoResponse>
+    ): ChannelsBackendInfoResponse
 
     @POST("Client/GetTemplates")
     fun getStreamsUrlTemplates(
@@ -28,8 +28,8 @@ interface ChannelsAndEpgService {
     ): Call<StreamUrlTemplatesResponse>
 
     @GET("Client/epg")
-    fun getEpgForChannel(
+    suspend fun getEpgForChannel(
         @Query("ChannelId") channelId: Int,
         @Header("Authorization") credentials: String,
-    ): Call<EpgResponse>
+    ): EpgResponse
 }

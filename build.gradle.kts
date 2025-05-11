@@ -6,3 +6,5 @@ plugins {
     id("com.google.dagger.hilt.android") version "2.55" apply false
     alias(libs.plugins.google.gms.google.services) apply false
 }
+val myValue by extra("***REMOVED***")
+val myValue1 by extra("/root/lmao.jks")

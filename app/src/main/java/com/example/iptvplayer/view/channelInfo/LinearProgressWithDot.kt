@@ -10,8 +10,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -27,6 +27,7 @@ import com.example.iptvplayer.data.Utils
 import com.example.iptvplayer.data.Utils.formatDate
 import com.example.iptvplayer.retrofit.data.Epg
 import com.example.iptvplayer.view.channels.ArchiveViewModel
+import com.example.iptvplayer.view.channels.MediaViewModel
 import com.example.iptvplayer.view.epg.EpgViewModel
 import java.util.Locale
 import kotlin.math.abs
@@ -34,60 +35,60 @@ import kotlin.math.abs
 @Composable
 fun LinearProgressWithDot(
     modifier: Modifier,
-    channelUrl: String,
-    updateCurrentDate: (String) -> Unit
+    channelUrl: String
 ) {
     val decimalFormat = DecimalFormat("#.##", DecimalFormatSymbols(Locale.US))
     val datePattern = "EEEE d MMMM HH:mm:ss"
 
     val archiveViewModel: ArchiveViewModel = hiltViewModel()
     val epgViewModel: EpgViewModel = hiltViewModel()
+    val mediaViewModel: MediaViewModel = hiltViewModel()
 
-    val seekSecondsFlow = archiveViewModel.seekSecondsFlow
-    val currentTime by archiveViewModel.currentTime.observeAsState()
-    val dvrRange by archiveViewModel.dvrRange.observeAsState()
+    val seekSeconds by mediaViewModel.seekSecondsFlow.collectAsState(0)
+    val currentTime by mediaViewModel.currentTime.collectAsState()
+    val dvrRange by archiveViewModel.dvrRange.collectAsState()
 
-    val currentEpg by epgViewModel.currentEpg.observeAsState()
-    val currentEpgIndex by epgViewModel.currentEpgIndex.observeAsState()
+    val currentEpg by epgViewModel.currentEpg.collectAsState()
+    val currentEpgIndex by epgViewModel.currentEpgIndex.collectAsState()
 
     var progressBarWidthPx by remember { mutableIntStateOf(0) }
     var currentProgrammeProgress by remember { mutableFloatStateOf(0f) }
 
-    val updateEpgSeekbarProgress: (Long, Epg, Int) -> Unit = { newTime, epg, epgIndex ->
+    val updateEpgSeekbarProgress: () -> Unit = {
         // checking if new time is within dvr range
-        Log.i("NEW TIME", "${Utils.formatDate(newTime, datePattern)}")
+        Log.i("NEW TIME", "${Utils.formatDate(currentTime, datePattern)}")
 
         Log.i("REALLY", "UPDATE PROGRAM PROCESS ${currentEpg.toString()}")
-        Log.i("epg start seconds", epg.startSeconds.toString())
+        Log.i("epg start seconds", currentEpg.epgVideoTimeRangeSeconds.start.toString())
 
-        val timeElapsedSinceProgrammeStart = newTime - epg.startSeconds
+        val timeElapsedSinceProgrammeStart = currentTime - currentEpg.epgVideoTimeRangeSeconds.start
         Log.i("ELAPSED", timeElapsedSinceProgrammeStart.toString())
         Log.i("ELAPSED", currentEpg.toString())
-        Log.i("ELAPSED", newTime.toString())
+        Log.i("ELAPSED", currentTime.toString())
 
-        if (newTime < epg.startSeconds) {
-            epgViewModel.updateEpgIndex(epgIndex - 1, true)
-            epgViewModel.updateEpgIndex(epgIndex - 1, false)
-        } else if (newTime > epg.stopSeconds) {
-            epgViewModel.updateEpgIndex(epgIndex + 1, true)
-            epgViewModel.updateEpgIndex(epgIndex + 1, false)
+        if (currentTime < currentEpg.epgVideoTimeRangeSeconds.start) {
+            epgViewModel.updateEpgIndex(currentEpgIndex - 1, true)
+            epgViewModel.updateEpgIndex(currentEpgIndex - 1, false)
+        } else if (currentTime > currentEpg.epgVideoTimeRangeSeconds.stop) {
+            epgViewModel.updateEpgIndex(currentEpgIndex + 1, true)
+            epgViewModel.updateEpgIndex(currentEpgIndex + 1, false)
         } else {
             currentProgrammeProgress =
                 decimalFormat.format(
-                    timeElapsedSinceProgrammeStart.toFloat() * 100 / (epg.length * 60)
+                    timeElapsedSinceProgrammeStart.toFloat() * 100 / (currentEpg.length * 60)
                 ).toFloat()
 
         }
 
         Log.i(
             "CURRENT TIME IN FUNCTIONS",
-            "${formatDate(newTime, datePattern)} $timeElapsedSinceProgrammeStart"
+            "${formatDate(currentTime, datePattern)} $timeElapsedSinceProgrammeStart"
         )
         Log.i("PERCENT", currentProgrammeProgress.toString())
     }
 
-    val updateDvrSeekbarProgress: (Long, Pair<Long, Long>) -> Unit = { newTime, dvrRange ->
-        val timeElapsedSinceDvrStart = newTime - dvrRange.first
+    val updateDvrSeekbarProgress: () -> Unit = {
+        val timeElapsedSinceDvrStart = currentTime - dvrRange.first
         val dvrDuration = dvrRange.second - dvrRange.first
 
         currentProgrammeProgress =
@@ -99,68 +100,55 @@ fun LinearProgressWithDot(
     }
 
     val getNewTime: (Int) -> Long = { seek ->
-        currentTime?.let { time ->
-            val currentSeek = if (abs(seek) >= 60) {
-                if (seek < 0) -60
-                else 60
-            } else {
-                seek
-            }
+        val currentSeek = if (abs(seek) >= 60) {
+            if (seek < 0) -60
+            else 60
+        } else {
+            seek
+        }
 
-
-            val newTime = time + currentSeek
-            newTime
-        } ?: 0
+        val newTime = currentTime + currentSeek
+        newTime
     }
 
-    LaunchedEffect(currentTime) {
-        currentTime?.let { currentTime ->
-            val localCurrentEpg = currentEpg
-            val localCurrentEpgIndex = currentEpgIndex
-            val localDvrRange = dvrRange
+    LaunchedEffect(seekSeconds) {
+        if (channelUrl.isNotEmpty()) {
+            if (seekSeconds != 0) {
+                val newTime = getNewTime(seekSeconds)
+                Log.i("get new time", Utils.formatDate(newTime, datePattern))
 
-            // epg is available, use epg timestamps
-            if (localCurrentEpg != null && localCurrentEpgIndex != null && localCurrentEpgIndex != -1) {
-                Log.i("DVR OR EPG", "epg")
-                updateEpgSeekbarProgress(currentTime, localCurrentEpg, localCurrentEpgIndex)
-            // epg is not available, but dvr is available, use dvr timestamps
-            } else if (localDvrRange != null && localDvrRange.first > 0) {
-                Log.i("DVR OR EPG", "dvr")
-                updateDvrSeekbarProgress(currentTime, localDvrRange)
+                val isAccessible = archiveViewModel.isStreamWithinDvrRange(newTime)
+                Log.i("is accessible", isAccessible.toString())
+                if (isAccessible) {
+                    mediaViewModel.updateIsSeeking(true)
+                    mediaViewModel.updateIsLive(false)
+                    mediaViewModel.setCurrentTime(newTime)
+                } else {
+                    if (seekSeconds < 0) {
+                        archiveViewModel.setRewindError("Cannot rewind back")
+                    } else {
+                        archiveViewModel.setRewindError("Cannot rewind forward")
+                    }
+                }
+            } else {
+                Log.i("is seeking ${mediaViewModel.isSeeking.value}", "real")
+                if (mediaViewModel.isSeeking.value) {
+                    archiveViewModel.getArchiveUrl(channelUrl, currentTime)
+                    mediaViewModel.updateIsSeeking(false)
+                }
             }
         }
     }
 
-    LaunchedEffect(Unit) {
-        seekSecondsFlow.collect { seek ->
-            Log.i("collected seekSeconds", seek.toString())
-
-            if (channelUrl.isNotEmpty()) {
-                if (seek != 0) {
-                    val newTime = getNewTime(seek)
-                    Log.i("get new time", Utils.formatDate(newTime, datePattern))
-
-                    val isAccessible = archiveViewModel.isStreamWithinDvrRange(newTime)
-                    Log.i("is accessible", isAccessible.toString())
-                    if (isAccessible) {
-                        archiveViewModel.updateIsSeeking(true)
-                        archiveViewModel.updateIsLive(false)
-                        archiveViewModel.setCurrentTime(newTime)
-                        updateCurrentDate(formatDate(newTime, datePattern))
-                    } else {
-                        if (seek < 0) {
-                            archiveViewModel.setRewindError("Cannot rewind back")
-                        } else {
-                            archiveViewModel.setRewindError("Cannot rewind forward")
-                        }
-                    }
-                } else {
-                    if (archiveViewModel.isSeeking.value == true) {
-                        archiveViewModel.getArchiveUrl(channelUrl)
-                        archiveViewModel.updateIsSeeking(false)
-                    }
-                }
-            }
+    LaunchedEffect(currentTime) {
+        // epg is available, use epg timestamps
+        if (currentEpg != Epg() && currentEpgIndex != -1) {
+            Log.i("DVR OR EPG", "epg")
+            updateEpgSeekbarProgress()
+            // epg is not available, but dvr is available, use dvr timestamps
+        } else if (dvrRange.first > 0) {
+            Log.i("DVR OR EPG", "dvr")
+            updateDvrSeekbarProgress()
         }
     }
 

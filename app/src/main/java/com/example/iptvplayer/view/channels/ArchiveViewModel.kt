@@ -9,11 +9,15 @@ import com.example.iptvplayer.data.Utils
 import com.example.iptvplayer.domain.GetDvrRangeUseCase
 import com.example.iptvplayer.domain.SharedPreferencesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Calendar
 import javax.inject.Inject
 
@@ -25,25 +29,11 @@ class ArchiveViewModel @Inject constructor(
     private val getDvrRangeUseCase: GetDvrRangeUseCase,
     private val sharedPreferencesUseCase: SharedPreferencesUseCase
 ): ViewModel() {
-    private val _archiveSegmentUrl: MutableLiveData<String> = MutableLiveData()
-    val archiveSegmentUrl: LiveData<String> = _archiveSegmentUrl
+    private val _archiveSegmentUrl: MutableStateFlow<String> = MutableStateFlow("")
+    val archiveSegmentUrl: StateFlow<String> = _archiveSegmentUrl
 
-    private val _seekSecondsFlow: MutableSharedFlow<Int> = MutableSharedFlow()
-    val seekSecondsFlow: Flow<Int> = _seekSecondsFlow
-
-    private var _seekSeconds = 0
-
-    private val _currentTime: MutableLiveData<Long> = MutableLiveData()
-    val currentTime: LiveData<Long> = _currentTime
-
-    private val _liveTime: MutableLiveData<Long> = MutableLiveData()
-    val liveTime: LiveData<Long> = _liveTime
-
-    private val _isSeeking: MutableLiveData<Boolean> = MutableLiveData(false)
-    val isSeeking: LiveData<Boolean> = _isSeeking
-
-    private val _dvrRange: MutableLiveData<Pair<Long, Long>> = MutableLiveData()
-    val dvrRange: LiveData<Pair<Long, Long>> = _dvrRange
+    private val _dvrRange: MutableStateFlow<Pair<Long, Long>> = MutableStateFlow(Pair(0,0))
+    val dvrRange: StateFlow<Pair<Long, Long>> = _dvrRange
 
     // for example 3 march -> 3
     private val _dvrFirstAndLastDay: MutableLiveData<Pair<Int, Int>> = MutableLiveData()
@@ -52,82 +42,13 @@ class ArchiveViewModel @Inject constructor(
     private val _dvrFirstAndLastMonth: MutableLiveData<Pair<Int, Int>> = MutableLiveData()
     val dvrFirstAndLastMonth: MutableLiveData<Pair<Int, Int>> = _dvrFirstAndLastMonth
 
-    private val _isLive: MutableLiveData<Boolean> = MutableLiveData(true)
-    val isLive: LiveData<Boolean> = _isLive
-
     private val _rewindError: MutableLiveData<String> = MutableLiveData()
     val rewindError: LiveData<String> = _rewindError
 
-    private var dvrCollectionJob: Job? = null
-
-    init {
-        val currentTime = sharedPreferencesUseCase.getLongValue(CURRENT_TIME_KEY)
-        val isLive = sharedPreferencesUseCase.getBooleanValue(IS_LIVE_KEY)
-        val datePattern = "EEEE d MMMM HH:mm:ss"
-        Log.i("PREFS", "current time: ${Utils.formatDate(currentTime, datePattern)}")
-        setCurrentTime(currentTime)
-        updateIsLive(isLive)
-        Log.i("PREFS", "is live: $isLive")
-    }
-
-    fun setLiveTime(time: Long) {
-        Log.i("LIVE TIME", time.toString())
-        _liveTime.value = time
-    }
+    var dvrCollectionJob: Job? = null
 
     fun setRewindError(error: String) {
         _rewindError.value = error
-    }
-
-    fun onSeekFinish() {
-        Log.i("on seek finish", 0.toString())
-        viewModelScope.launch {
-            _seekSecondsFlow.emit(0)
-        }
-    }
-
-    fun seekBack(seconds: Int = 0) {
-       viewModelScope.launch {
-           _seekSeconds = if (seconds == 0) {
-               if (_seekSeconds == 0) -20
-               else {
-                   // 60 is a rewind limit (1 minute) to prevent user from rewinding archive
-                   // exponentially. this way user will not rewind archive more then by 1 minute
-                   // at once
-                   if (_seekSeconds <= -60) _seekSeconds - 60
-                   else _seekSeconds * 2
-               }
-           } else {
-               Log.i("archive view model", seconds.toString())
-               -seconds
-           }
-
-           Log.i("seconds passed", _seekSeconds.toString())
-           _seekSecondsFlow.emit(_seekSeconds)
-           Log.i("executed function", "seek back")
-       }
-    }
-
-    fun seekForward(seconds: Int = 0) {
-        viewModelScope.launch {
-            _seekSeconds = if (seconds == 0) {
-                if (_seekSeconds == 0) 20
-                else {
-                    // 64 is a rewind limit (1 minute) to prevent user from rewinding archive
-                    // exponentially. this way user will not rewind archive more then by 1 minute
-                    // at once
-                    if (_seekSeconds >= 60) _seekSeconds + 60
-                    else _seekSeconds * 2
-                }
-            } else {
-                Log.i("archive view model", seconds.toString())
-                seconds
-            }
-
-            Log.i("seconds passed", _seekSeconds.toString())
-            _seekSecondsFlow.emit(_seekSeconds)
-            Log.i("executed function", "seek back")
-        }
     }
 
     private fun getDvrFirstAndLastDays(
@@ -152,79 +73,65 @@ class ArchiveViewModel @Inject constructor(
 
     suspend fun getDvrRange(streamName: String) {
         val dvrRange = getDvrRangeUseCase.getDvrRange(streamName)
-        _dvrRange.value = dvrRange
+        withContext(Dispatchers.Main) {
+            _dvrRange.value = dvrRange
 
-        val dvrRangeStartCalendar = Utils.getCalendar(dvrRange.first)
-        val dvrRangeEndCalendar = Utils.getCalendar(dvrRange.second)
+            val dvrRangeStartCalendar = Utils.getCalendar(dvrRange.first)
+            val dvrRangeEndCalendar = Utils.getCalendar(dvrRange.second)
 
-        getDvrFirstAndLastDays(dvrRangeStartCalendar, dvrRangeEndCalendar)
-        getDvrFirstAndLastMonths(dvrRangeStartCalendar, dvrRangeEndCalendar)
+            getDvrFirstAndLastDays(dvrRangeStartCalendar, dvrRangeEndCalendar)
+            getDvrFirstAndLastMonths(dvrRangeStartCalendar, dvrRangeEndCalendar)
+        }
     }
 
-    fun getArchiveUrl(url: String) {
-        Log.i("GET ARCHIVE URL", "GET ARCHIVE URL ${_seekSeconds}")
+    fun getArchiveUrl(url: String, currentTime: Long) {
         if (url == "") return
-        currentTime.value?.let { time ->
-            Log.i("get archive url method", "called")
-            val datePattern = "EEEE d MMMM HH:mm:ss"
-            Log.i("REALLY", time.toString())
-            Log.i("base url given", url.toString())
-            val baseUrl = url.substring(0, url.lastIndexOf("/") + 1)
-            val token = url.substring(url.lastIndexOf("=") + 1, url.length)
+        Log.i("get archive url method", "called")
+        val datePattern = "EEEE d MMMM HH:mm:ss"
+        Log.i("REALLY", currentTime.toString())
+        Log.i("base url given", url.toString())
+        val baseUrl = url.substring(0, url.lastIndexOf("/") + 1)
+        val token = url.substring(url.lastIndexOf("=") + 1, url.length)
 
-            val archiveUrl = baseUrl + "index-$time-now.m3u8?token=$token"
-            Log.i("base url", "$baseUrl $token $archiveUrl")
-            // checking again, because if the rewind was not continuous, time did not change,
-            // therefore still in present, rewinding to current time would result in
-            // file not found exception
-            if (isStreamWithinDvrRange(time)) {
+        val archiveUrl = baseUrl + "index-$currentTime-now.m3u8?token=$token"
+        Log.i("base url", "$baseUrl $token $archiveUrl")
+        // checking again, because if the rewind was not continuous, time did not change,
+        // therefore still in present, rewinding to current time would result in
+        // file not found exception
+        viewModelScope.launch {
+            if (isStreamWithinDvrRange(currentTime)) {
                 _archiveSegmentUrl.value = archiveUrl
             }
-            _isSeeking.value = false
-            _seekSeconds = 0
         }
     }
 
-    fun setCurrentTime(time: Long) {
-        if (time != 0L) {
-            _currentTime.value = time
-            sharedPreferencesUseCase.saveLongValue(CURRENT_TIME_KEY, time)
+    suspend fun isStreamWithinDvrRange(newTime: Long): Boolean =
+        withContext(Dispatchers.IO) {
+            val dvrRange = dvrRange
+                .filter { it.first != 0L }
+                .first()
+            Log.i("dvr range collected", dvrRange.toString())
             val datePattern = "EEEE d MMMM HH:mm:ss"
-            Log.i("current time!", Utils.formatDate(time, datePattern))
-        }
-    }
-
-    fun updateIsSeeking(isSeeking: Boolean) {
-        _isSeeking.value = isSeeking
-    }
-
-    fun isStreamWithinDvrRange(newTime: Long): Boolean =
-        dvrRange.value?.let { dvrRange ->
-            val datePattern = "EEEE d MMMM HH:mm:ss"
-            Log.i("dvr range compare","${Utils.formatDate(dvrRange.first, datePattern)}")
-            Log.i("dvr range compare","${Utils.formatDate(newTime, datePattern)}")
-            Log.i("dvr range compare","${Utils.formatDate(dvrRange.second, datePattern)}")
+            Log.i("dvr range compare", "${Utils.formatDate(dvrRange.first, datePattern)}")
+            Log.i("dvr range compare", "${Utils.formatDate(newTime, datePattern)}")
+            Log.i("dvr range compare", "${Utils.formatDate(dvrRange.second, datePattern)}")
 
             val isMoreThanFirstBound = newTime >= dvrRange.first
             val isLessThanSecondBound = newTime <= dvrRange.second
 
             val isWithinDvrRange = isMoreThanFirstBound && isLessThanSecondBound
             isWithinDvrRange
-        } ?: false
-
-    fun updateIsLive(isLive: Boolean) {
-        Log.i("update is live", "$isLive")
-        _isLive.value = isLive
-        sharedPreferencesUseCase.saveBooleanValue(IS_LIVE_KEY, isLive)
-    }
+        }
 
     fun startDvrCollectionJob(streamName: String) {
         dvrCollectionJob?.cancel()
 
         dvrCollectionJob = viewModelScope.launch {
-            while (true) {
-                getDvrRange(streamName)
-                delay(5000)
+            withContext(Dispatchers.IO) {
+                while (true) {
+                    getDvrRange(streamName)
+                    delay(500)
+                }
             }
         }
     }

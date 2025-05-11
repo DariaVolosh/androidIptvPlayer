@@ -2,7 +2,6 @@ package com.example.iptvplayer.view.epg
 
 import android.util.Log
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -11,7 +10,6 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -19,27 +17,25 @@ import androidx.compose.ui.unit.sp
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun EpgItem(
-    modifier: Modifier,
+    index: Int,
     videoTimeRange: String,
     title: String,
-    isFocused: Boolean,
     isDvrAvailable: Boolean,
     onGloballyPositioned: (Int) -> Unit
 ) {
     val localDensity = LocalDensity.current.density
 
     Row(
-        modifier = modifier
+        modifier = Modifier
             .onGloballyPositioned { cords ->
-                if (isFocused) {
-                    Log.i("LAUNCHED COROUTINE", title)
-                    Log.i("LAUNCHED COROUTINE", cords.positionInParent().y.toString())
+                if (index == 1) {
                     val height = cords.size.height
-                    onGloballyPositioned((height / localDensity).toInt())
+                    Log.i("epg item height", height.toString())
+                    onGloballyPositioned(height)
                 }
             }
-            .padding(7.dp)
-            .fillMaxWidth()
+            //.border(1.dp, Color.Red)
+            .padding(3.dp)
     ) {
         Text(
             modifier = Modifier.alpha(if (isDvrAvailable) 1f else 0.45f),

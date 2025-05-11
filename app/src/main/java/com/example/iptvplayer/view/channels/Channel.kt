@@ -12,7 +12,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -28,13 +27,14 @@ fun Channel(
     index: Int,
     onGloballyPositioned: (Int) -> Unit,
 ) {
-    val localDensity = LocalDensity.current.density
 
     Row(
         modifier = Modifier
             .onGloballyPositioned { coordinates ->
-                val height = coordinates.size.height
-                onGloballyPositioned((height / localDensity).toInt())
+                if (index == 0) {
+                    val height = coordinates.size.height
+                    onGloballyPositioned(height)
+                }
             }
             .padding(7.dp)
             .fillMaxWidth(),

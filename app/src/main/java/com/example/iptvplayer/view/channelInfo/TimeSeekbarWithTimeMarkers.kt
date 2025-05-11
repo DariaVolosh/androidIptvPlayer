@@ -22,10 +22,9 @@ import com.example.iptvplayer.retrofit.data.Epg
 
 @Composable
 fun TimeSeekbarWithTimeMarkers(
-    currentEpg: Epg?,
-    dvrRange: Pair<Long, Long>?,
-    focusedChannel: ChannelData,
-    updateCurrentDate: (String) -> Unit
+    currentEpg: Epg,
+    dvrRange: Pair<Long, Long>,
+    focusedChannel: ChannelData
 ) {
     val timePattern = "HH:mm"
     val datePattern = "dd MMMM HH:mm:ss"
@@ -34,10 +33,10 @@ fun TimeSeekbarWithTimeMarkers(
     var stopTime by remember { mutableStateOf("") }
 
     LaunchedEffect(currentEpg, dvrRange) {
-        if (currentEpg != null && currentEpg != Epg()) {
-            startTime = formatDate(currentEpg.startSeconds, timePattern)
-            stopTime = formatDate(currentEpg.stopSeconds, timePattern)
-        } else if (dvrRange != null && dvrRange.first != 0L) {
+        if (currentEpg != Epg()) {
+            startTime = formatDate(currentEpg.epgVideoTimeRangeSeconds.start, timePattern)
+            stopTime = formatDate(currentEpg.epgVideoTimeRangeSeconds.stop, timePattern)
+        } else if (dvrRange.first != 0L) {
             startTime = formatDate(dvrRange.first, datePattern)
             stopTime = formatDate(dvrRange.second, datePattern)
         }
@@ -58,8 +57,7 @@ fun TimeSeekbarWithTimeMarkers(
 
         LinearProgressWithDot(
             Modifier.weight(1f),
-            focusedChannel.channelUrl,
-            updateCurrentDate
+            focusedChannel.channelUrl
         )
 
         Text(

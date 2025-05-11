@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 fun EpgDate(
-    modifier: Modifier,
+    index: Int,
     date: String,
     onGloballyPositioned: (Int) -> Unit
 ) {
@@ -25,12 +25,15 @@ fun EpgDate(
     val localDensity = LocalDensity.current.density
 
     Row(
-        modifier = modifier
+        modifier = Modifier
             .onGloballyPositioned { cords ->
-                val height = cords.size.height
-                Log.i("epg date height", "${height / localDensity}")
-                onGloballyPositioned((height / localDensity).toInt())
+                if (index == 0) {
+                    val height = cords.size.height
+                    Log.i("epg date height", height.toString())
+                    onGloballyPositioned(height)
+                }
             }
+            //.border(1.dp, Color.Green)
             .padding(bottom = 15.dp)
             .fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -42,6 +45,7 @@ fun EpgDate(
         )
 
         HorizontalDivider(
+            modifier = Modifier.padding(start = 10.dp),
             thickness = 1.dp,
             color = MaterialTheme.colorScheme.onSecondary
         )

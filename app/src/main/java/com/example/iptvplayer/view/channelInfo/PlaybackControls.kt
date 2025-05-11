@@ -1,141 +1,141 @@
 package com.example.iptvplayer.view.channelInfo
 
 import android.util.Log
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.R
 import com.example.iptvplayer.view.channels.ArchiveViewModel
 import com.example.iptvplayer.view.channels.MediaViewModel
 import com.example.iptvplayer.view.epg.EpgViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
 fun PlaybackControls(
     channelUrl: String,
     onBack: () -> Unit,
-    isDvrAvailable: Boolean,
     resetSecondsNotInteracted: () -> Unit,
     showProgrammeDatePicker: (Boolean) -> Unit
 ) {
-    var focusedControl by remember { mutableIntStateOf(R.string.pause) }
+    var focusedControl by remember { mutableIntStateOf(3) }
+    var isLongPressed by remember { mutableStateOf(false) }
+    var isKeyPressed by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    val focusRequester = remember { FocusRequester() }
 
     val archiveViewModel: ArchiveViewModel = hiltViewModel()
     val mediaViewModel: MediaViewModel = hiltViewModel()
     val epgViewModel: EpgViewModel = hiltViewModel()
 
-    val focusedEpgIndex by epgViewModel.focusedEpgIndex.observeAsState()
+    val focusedEpgIndex by epgViewModel.focusedEpgIndex.collectAsState()
 
-    val isPaused by mediaViewModel.isPaused.observeAsState()
+    val isPaused by mediaViewModel.isPaused.collectAsState()
+    val isSeeking by mediaViewModel.isSeeking.collectAsState()
 
-    val isSeeking by archiveViewModel.isSeeking.observeAsState()
-    val dvrRange by archiveViewModel.dvrRange.observeAsState()
+    val dvrRange by archiveViewModel.dvrRange.collectAsState()
+
+    LaunchedEffect(Unit) {
+        Log.i("requested focus", "yea")
+        focusRequester.requestFocus()
+    }
 
     LaunchedEffect(isSeeking) {
-        isSeeking?.let { isSeeking ->
-            if (isSeeking) {
-                mediaViewModel.pause()
-            }
+        if (isSeeking) {
+            mediaViewModel.pause()
         }
+    }
+
+    LaunchedEffect(focusedControl) {
+        Log.i("playback controls", "focused control $focusedControl")
+        resetSecondsNotInteracted()
+    }
+
+    val handleOnFingerLiftedUp = {
+        Log.i("on finger lifted up", "true")
+        mediaViewModel.onSeekFinish()
     }
 
     val handleOnControlFocusChanged: (Int) -> Unit = { control ->
         focusedControl = control
     }
 
+    // calendar button
     val handleCalendarOnClick = {
-        if (isDvrAvailable) {
+        if (dvrRange.first > 0) {
             showProgrammeDatePicker(true)
         } else {
             archiveViewModel.setRewindError("Archive is not available")
         }
     }
 
+    // previous program button
     val handlePreviousProgramClick: () -> Unit = {
-        focusedEpgIndex?.let { focusedEpgIndex ->
-            resetSecondsNotInteracted()
-            val prevProgram = epgViewModel.getEpgByIndex(focusedEpgIndex - 1)
-            val localDvrRange = dvrRange
-            Log.i("prev program", prevProgram.toString())
+        resetSecondsNotInteracted()
+        val prevProgram = epgViewModel.getEpgByIndex(focusedEpgIndex - 1)
+        Log.i("prev program", prevProgram.toString())
 
-            if (localDvrRange != null && prevProgram != null) {
-                if (prevProgram.startSeconds in localDvrRange.first..localDvrRange.second) {
-                    archiveViewModel.updateIsLive(false)
-                    archiveViewModel.setCurrentTime(prevProgram.startSeconds)
-                    archiveViewModel.getArchiveUrl(channelUrl)
-                    archiveViewModel.updateIsSeeking(true)
+        if (dvrRange.first > 0 && prevProgram != null) {
+            if (prevProgram.epgVideoTimeRangeSeconds.start in dvrRange.first..dvrRange.second) {
+                coroutineScope.launch {
+                    mediaViewModel.updateIsSeeking(true)
+                    mediaViewModel.updateIsLive(false)
+                    mediaViewModel.setCurrentTime(prevProgram.epgVideoTimeRangeSeconds.start)
+                    archiveViewModel.getArchiveUrl(channelUrl, mediaViewModel.currentTime.value)
                     epgViewModel.updateEpgIndex(focusedEpgIndex - 1, true)
                     epgViewModel.updateEpgIndex(focusedEpgIndex - 1, false)
-                    archiveViewModel.updateIsSeeking(false)
-                    return@let
+                    mediaViewModel.updateIsSeeking(false)
                 }
             }
-
+        } else {
             archiveViewModel.setRewindError("Previous program is not available")
         }
     }
 
-    val handleNextProgramClick: () -> Unit = {
-        focusedEpgIndex?.let { focusedEpgIndex ->
-            Log.i("FOCUSED", focusedEpgIndex.toString())
-            resetSecondsNotInteracted()
-            val nextProgram = epgViewModel.getEpgByIndex(focusedEpgIndex + 1)
-            val localDvrRange = dvrRange
-
-            // CHECK IF DVR IS AVAILABLE
-            if (localDvrRange != null && nextProgram != null) {
-               if (nextProgram.startSeconds in localDvrRange.first..localDvrRange.second) {
-                   archiveViewModel.updateIsLive(false)
-                   archiveViewModel.setCurrentTime(nextProgram.startSeconds)
-                   archiveViewModel.getArchiveUrl(channelUrl)
-                   archiveViewModel.updateIsSeeking(true)
-                   epgViewModel.updateEpgIndex(focusedEpgIndex + 1, true)
-                   epgViewModel.updateEpgIndex(focusedEpgIndex + 1, false)
-                   archiveViewModel.updateIsSeeking(false)
-
-                   return@let
-               }
-            }
-
-            archiveViewModel.setRewindError("Next program is not available")
-        }
-    }
-
+    // seek back button long press
     val handleBackOnLongPressed = {
         resetSecondsNotInteracted()
-        archiveViewModel.seekBack()
+        mediaViewModel.seekBack()
     }
 
+    // seek back button
     val handleBackClicked = {
         resetSecondsNotInteracted()
-        archiveViewModel.seekBack(20)
+        mediaViewModel.seekBack(20)
     }
 
-    val handleNextClicked = {
+    // play button
+    val handlePlayOnClick = {
         resetSecondsNotInteracted()
-        archiveViewModel.seekForward(20)
+        mediaViewModel.play()
     }
 
-    val handleOnFingerLiftedUp = {
-        archiveViewModel.onSeekFinish()
-    }
-
+    // pause button
     val handlePauseOnClick = {
-        if (isDvrAvailable) {
-            focusedControl = R.string.play
+        if (dvrRange.first > 0) {
+            Log.i("playback controls", "pause handled")
             resetSecondsNotInteracted()
             mediaViewModel.pause()
         } else {
@@ -143,112 +143,178 @@ fun PlaybackControls(
         }
     }
 
-    val handlePlayOnClick = {
-        focusedControl = R.string.pause
-        resetSecondsNotInteracted()
-        mediaViewModel.play()
-    }
-
+    // seek forward button long press
     val handleNextOnLongPressed = {
         resetSecondsNotInteracted()
-        archiveViewModel.seekForward()
+        mediaViewModel.seekForward()
     }
 
+    // seek forward button
+    val handleNextClicked = {
+        resetSecondsNotInteracted()
+        mediaViewModel.seekForward(20)
+    }
+
+    // next program button
+    val handleNextProgramClick: () -> Unit = {
+        Log.i("FOCUSED", focusedEpgIndex.toString())
+        resetSecondsNotInteracted()
+        val nextProgram = epgViewModel.getEpgByIndex(focusedEpgIndex + 1)
+
+        // CHECK IF DVR IS AVAILABLE
+        if (dvrRange.first > 0 && nextProgram != null) {
+            if (nextProgram.epgVideoTimeRangeSeconds.start in dvrRange.first..dvrRange.second) {
+                coroutineScope.launch {
+                    mediaViewModel.updateIsSeeking(true)
+                    mediaViewModel.updateIsLive(false)
+                    mediaViewModel.setCurrentTime(nextProgram.epgVideoTimeRangeSeconds.start)
+                    archiveViewModel.getArchiveUrl(channelUrl, mediaViewModel.currentTime.value)
+                    epgViewModel.updateEpgIndex(focusedEpgIndex + 1, true)
+                    epgViewModel.updateEpgIndex(focusedEpgIndex + 1, false)
+                    mediaViewModel.updateIsSeeking(false)
+                }
+            }
+        } else {
+            archiveViewModel.setRewindError("Next program is not available")
+        }
+    }
+
+    // go live button
     val handleGoLiveOnClick: () -> Unit = {
         if (channelUrl.isNotEmpty()) {
             resetSecondsNotInteracted()
 
-            if (archiveViewModel.isLive.value == false) {
-                archiveViewModel.updateIsLive(true)
-                archiveViewModel.updateIsSeeking(true)
+            if (mediaViewModel.isLive.value == false) {
                 coroutineScope.launch {
-                    epgViewModel.liveProgrammeIndex.value?.let { l ->
-                        if (l != -1) {
-                            epgViewModel.updateEpgIndex(l, true)
-                            epgViewModel.updateEpgIndex(l, false)
-                        }
-                    }
+                    mediaViewModel.updateIsSeeking(true)
+                    mediaViewModel.updateIsLive(true)
+                    mediaViewModel.setCurrentTime(mediaViewModel.liveTime.value)
+                    val liveProgramIndex = epgViewModel.liveProgrammeIndex.value
+                    epgViewModel.updateEpgIndex(liveProgramIndex, true)
+                    epgViewModel.updateEpgIndex(liveProgramIndex, false)
                     mediaViewModel.setMediaUrl(channelUrl)
+                    mediaViewModel.updateIsSeeking(false)
                 }
-                archiveViewModel.updateIsSeeking(false)
             } else {
                 archiveViewModel.setRewindError("Already in live")
             }
         }
     }
 
-    val playbackControls = listOf(
-        PlaybackControl(
-            R.drawable.calendar, R.string.calendar,
-            focusedControl == R.string.calendar,
-            {control -> handleOnControlFocusChanged(control)},
-            handleCalendarOnClick, {}, {}
-        ),
-
-        PlaybackControl(
-            R.drawable.previous_program, R.string.previous_program,
-            focusedControl == R.string.previous_program,
-            {control -> handleOnControlFocusChanged(control)},
-            handlePreviousProgramClick, {}, {}
-        ),
-
-        PlaybackControl(
-            R.drawable.back, R.string.back,
-            focusedControl == R.string.back,
-            {control -> handleOnControlFocusChanged(control)},
-            handleBackClicked, handleBackOnLongPressed, handleOnFingerLiftedUp
-        ),
-
-        if (isPaused == true) {
+    val playbackControls = remember(isPaused, focusedControl) {
+        listOf(
             PlaybackControl(
-                R.drawable.play, R.string.play,
-                focusedControl == R.string.play,
-                {control -> handleOnControlFocusChanged(control)},
-                handlePlayOnClick, {}, {}
-            )
-        } else {
+                R.drawable.calendar, R.string.calendar,
+                focusedControl == 0,
+                { control -> handleOnControlFocusChanged(control) },
+                handleCalendarOnClick, {}, {}
+            ),
+
             PlaybackControl(
-                R.drawable.pause, R.string.pause,
-                focusedControl == R.string.pause,
-                {control -> handleOnControlFocusChanged(control)},
-                handlePauseOnClick, {}, {}
+                R.drawable.previous_program, R.string.previous_program,
+                focusedControl == 1,
+                { control -> handleOnControlFocusChanged(control) },
+                handlePreviousProgramClick, {}, {}
+            ),
+
+            PlaybackControl(
+                R.drawable.back, R.string.back,
+                focusedControl == 2,
+                { control -> handleOnControlFocusChanged(control) },
+                handleBackClicked, handleBackOnLongPressed, handleOnFingerLiftedUp
+            ),
+
+            PlaybackControl(
+                if (isPaused) R.drawable.play else R.drawable.pause,
+                if (isPaused) R.string.play else R.string.pause,
+                focusedControl == 3,
+                { control -> handleOnControlFocusChanged(control)},
+                if (isPaused) handlePlayOnClick else handlePauseOnClick,
+                {}, {}
+            ),
+
+            PlaybackControl(
+                R.drawable.forward, R.string.forward,
+                focusedControl == 4,
+                { control -> handleOnControlFocusChanged(control) },
+                handleNextClicked, handleNextOnLongPressed, handleOnFingerLiftedUp
+            ),
+
+            PlaybackControl(
+                R.drawable.next_program, R.string.next_program,
+                focusedControl == 5,
+                { control -> handleOnControlFocusChanged(control) },
+                handleNextProgramClick, {}, {}
+            ),
+
+            PlaybackControl(
+                R.drawable.go_live, R.string.go_live,
+                focusedControl == 6,
+                { control -> handleOnControlFocusChanged(control) },
+                handleGoLiveOnClick, {}, {}
             )
-        },
-
-        PlaybackControl(
-            R.drawable.forward, R.string.forward,
-            focusedControl == R.string.forward,
-            {control -> handleOnControlFocusChanged(control)},
-            handleNextClicked, handleNextOnLongPressed, handleOnFingerLiftedUp
-        ),
-
-        PlaybackControl(
-            R.drawable.next_program, R.string.next_program,
-            focusedControl == R.string.next_program,
-            {control -> handleOnControlFocusChanged(control)},
-            handleNextProgramClick, {}, {}
-        ),
-
-        PlaybackControl(
-            R.drawable.go_live, R.string.go_live,
-            focusedControl == R.string.go_live,
-            {control -> handleOnControlFocusChanged(control)},
-            handleGoLiveOnClick, {}, {}
         )
-    )
+    }
 
-    LaunchedEffect(focusedControl) {
-        resetSecondsNotInteracted()
+    LaunchedEffect(isLongPressed) {
+        while (isLongPressed) {
+            playbackControls[focusedControl].onLongPressed()
+            delay(400)
+        }
     }
 
     Row(
         modifier = Modifier
+            .focusRequester(focusRequester)
+            .focusable()
+            .onFocusChanged {
+                Log.i("focus", it.isFocused.toString())
+            }
+            .onKeyEvent { event ->
+                Log.i("playback controls", "${event.key}")
+                if (event.key == Key.DirectionCenter) {
+                    Log.i("playback controls", "${event.key}")
+
+                    if (event.type == KeyEventType.KeyDown) {
+                        if (!isKeyPressed) {
+                            isKeyPressed = true
+                            coroutineScope.launch {
+                                delay(500)
+                                if (isKeyPressed) isLongPressed = true
+                            }
+                        }
+                    } else {
+                        if (!isLongPressed) {
+                            playbackControls[focusedControl].onPressed()
+                        } else {
+                            isLongPressed = false
+                            playbackControls[focusedControl].onFingerLiftedUp()
+                        }
+
+                        isKeyPressed = false
+                    }
+                } else if (event.key == Key.DirectionLeft) {
+                    if (event.type == KeyEventType.KeyDown) {
+                        if (focusedControl == 0) focusedControl = playbackControls.size-1
+                        else focusedControl--
+                    }
+                } else if (event.key == Key.DirectionRight) {
+                    if (event.type == KeyEventType.KeyDown) {
+                        if (focusedControl == playbackControls.size-1) focusedControl = 0
+                        else focusedControl++
+                    }
+                } else if (event.key == Key.Back) {
+                    onBack()
+                }
+
+                true
+            }
             .padding(top = 15.dp, bottom = 17.dp)
             .fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         playbackControls.map { control ->
-            PlaybackControl(control, isPaused ?: false, onBack)
+            PlaybackControl(control)
         }
     }
 }

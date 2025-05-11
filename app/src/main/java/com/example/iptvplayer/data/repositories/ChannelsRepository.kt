@@ -1,13 +1,15 @@
 package com.example.iptvplayer.data.repositories
 
+import android.os.Looper
 import android.util.Log
 import com.example.iptvplayer.data.BACKEND_BASE_URL
-import com.example.iptvplayer.retrofit.data.ChannelBackendInfo
-import com.example.iptvplayer.retrofit.data.ChannelsBackendInfoResponse
+import com.example.iptvplayer.retrofit.data.ChannelData
 import com.example.iptvplayer.retrofit.data.StreamUrlTemplate
 import com.example.iptvplayer.retrofit.data.StreamUrlTemplatesResponse
 import com.example.iptvplayer.retrofit.services.ChannelsAndEpgService
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.parse
 import okhttp3.RequestBody.create
 import retrofit2.Call
@@ -21,80 +23,66 @@ class ChannelsRepository @Inject constructor(
     suspend fun parseChannelsData(
         token: String,
         streamUrlTemplate: String
-    ): List<ChannelBackendInfo> {
-        val channelsData = CompletableDeferred<List<ChannelBackendInfo>>()
+    ): List<ChannelData> =
+        withContext(Dispatchers.IO) {
+            val startTime = System.currentTimeMillis()
+            val channelsData = mutableListOf<ChannelData>()
 
-        channelsAndEpgService.getChannelsInfo(token)
-            .enqueue(object: Callback<ChannelsBackendInfoResponse> {
-                override fun onResponse(
-                    call: Call<ChannelsBackendInfoResponse>,
-                    response: Response<ChannelsBackendInfoResponse>
-                ) {
-                    Log.i("channels data", response.code().toString())
-                    if (response.isSuccessful && response.code() == 200) {
-                        response.body()?.data?.let { data ->
-                            for (channelData in data) {
-                                val channel = channelData.channel[0]
-                                val replacedSlashesUrl = channelData.channel[0].logo.replace('\\', '/')
-                                val constructedLogoUrl = BACKEND_BASE_URL + replacedSlashesUrl
-                                channel.logo = constructedLogoUrl
+            val isOnMainThread = Looper.getMainLooper() == Looper.myLooper()
+            Log.i("is on main thread channels list", "parse channels data $isOnMainThread")
+            val response = channelsAndEpgService.getChannelsInfo(token)
+            Log.i("channels response", response.toString())
 
-                                val channelUrl = streamUrlTemplate.replace("[channelname]", channel.name)
-                                channel.channelUrl = channelUrl
-                            }
-                            channelsData.complete(data)
-                            return
+            response.data.let { data ->
+                for (channelData in data) {
+                    Log.i("is on main thread channels list", "parse channels data response $isOnMainThread")
+                    val channel = channelData.channel[0]
+                    val replacedSlashesUrl = channelData.channel[0].logo.replace('\\', '/')
+                    val constructedLogoUrl = BACKEND_BASE_URL + replacedSlashesUrl
+                    channel.logo = constructedLogoUrl
+
+                    val channelUrl = streamUrlTemplate.replace("[channelname]", channel.name)
+                    channel.channelUrl = channelUrl
+                    channelsData.add(channel)
+                    Log.i("channels repository", "parse channels data $channel")
+                }
+            }
+
+            val stopTime = System.currentTimeMillis()
+            Log.i("parsing time","${(stopTime-startTime)} channels repository parse channels data")
+
+            channelsData
+    }
+
+    suspend fun getStreamsUrlTemplates(token: String): List<StreamUrlTemplate> =
+        withContext(Dispatchers.IO) {
+            var streamsUrlTemplates = CompletableDeferred<List<StreamUrlTemplate>>()
+            Log.i("get templates token", token.split(" ")[1])
+            val startTime = System.currentTimeMillis()
+
+            val mediaType = parse("application/json")
+            val requestBody = create(mediaType, "{}")
+
+            channelsAndEpgService.getStreamsUrlTemplates(requestBody, token)
+                .enqueue(object: Callback<StreamUrlTemplatesResponse> {
+                    override fun onResponse(
+                        p0: Call<StreamUrlTemplatesResponse>,
+                        p1: Response<StreamUrlTemplatesResponse>
+                    ) {
+                        p1.body()?.data?.let { data ->
+                            Log.i("template", "$data")
+                            streamsUrlTemplates.complete(data.templates)
                         }
                     }
 
-                    channelsData.complete(emptyList())
-                }
-
-                override fun onFailure(
-                    call: Call<ChannelsBackendInfoResponse>,
-                    throwable: Throwable
-                ) {
-                    channelsData.complete(emptyList())
-                }
-            })
-
-        return channelsData.await()
-    }
-
-    suspend fun getStreamsUrlTemplates(token: String): List<StreamUrlTemplate> {
-        val streamsUrlTemplates = CompletableDeferred<List<StreamUrlTemplate>>()
-        Log.i("get templates token", token.toString())
-
-        val mediaType = parse("application/json")
-        val requestBody = create(mediaType, "{}")
-
-        channelsAndEpgService.getStreamsUrlTemplates(requestBody, token)
-            .enqueue(object: Callback<StreamUrlTemplatesResponse> {
-                override fun onResponse(
-                    call: Call<StreamUrlTemplatesResponse>,
-                    response: Response<StreamUrlTemplatesResponse>
-                ) {
-                    Log.i("response code templ", response.code().toString())
-                    if (response.code() == 200) {
-                        response.body()?.data?.templates?.let { templates ->
-                            streamsUrlTemplates.complete(templates)
-                            Log.i("templates res", templates.toString())
-                            return
-                        }
+                    override fun onFailure(p0: Call<StreamUrlTemplatesResponse>, p1: Throwable) {
+                        Log.i("on failure", "${p1.localizedMessage}")
                     }
+                })
 
-                    streamsUrlTemplates.complete(emptyList())
-                }
+            val stopTime = System.currentTimeMillis()
+            Log.i("parsing time", "${stopTime - startTime} channels repository get streams url templates")
 
-                override fun onFailure(
-                    cal: Call<StreamUrlTemplatesResponse>,
-                    throwable: Throwable
-                ) {
-                    Log.i("on failure", throwable.localizedMessage)
-                    streamsUrlTemplates.complete(emptyList())
-                }
-            })
-
-        return streamsUrlTemplates.await()
-    }
+            streamsUrlTemplates.await()
+        }
 }

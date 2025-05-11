@@ -1,5 +1,6 @@
 package com.example.iptvplayer.data.repositories
 
+import android.os.Looper
 import android.util.Log
 import com.example.iptvplayer.data.PlaylistChannel
 import kotlinx.coroutines.delay
@@ -45,8 +46,11 @@ class M3U8PlaylistRepository @Inject constructor(): PlaylistRepository {
     override fun extractTsSegments(
         rootUrl: String,
         readFile: suspend (String) -> List<String>
-    ) = flow {
+    ) = flow<String> {
         val emittedSegments = mutableSetOf<String>()
+
+        val isOnMainThread = Looper.getMainLooper() == Looper.myLooper()
+        Log.i("is on main thread channels list", "extract ts segments $isOnMainThread")
 
         suspend fun recursiveExtractTsSegments(rootUrl: String) {
             val fileContent = readFile(rootUrl)
