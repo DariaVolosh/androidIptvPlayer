@@ -26,7 +26,10 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
+import com.example.iptvplayer.view.channelsAndEpgRow.ItemBorder
 import com.example.iptvplayer.view.epg.EpgViewModel
+import com.example.iptvplayer.view.player.MediaViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
@@ -89,7 +92,11 @@ fun ChannelsListAndBorder(
                     mediaViewModel.setCurrentTime(mediaViewModel.liveTime.value)
                     mediaViewModel.updateIsLive(true)
                     channelsViewModel.updateChannelIndex(focusedChannelIndex, true)
-                    mediaViewModel.setMediaUrl(currentChannel.channelUrl)
+
+                    val focusedChannel = channelsViewModel.getChannelByIndex(focusedChannelIndex)
+                    focusedChannel?.let { channel ->
+                        mediaViewModel.setMediaUrl(channel.channelUrl)
+                    }
                 }
             }
 
@@ -112,7 +119,6 @@ fun ChannelsListAndBorder(
         if (channelHeight != 0 && channelsListHeight != 0) {
             Log.i("focused stuff", "focused channel $focusedChannelIndex channel height $channelHeight")
             visibleChannelsAmount = channelsListHeight / (channelHeight + 17 * localDensity).toInt()
-            val localChannelsData = channelsData
 
             if (focusedChannelIndex < visibleChannelsAmount / 2) {
                 borderYOffset = (15 * localDensity + focusedChannelIndex * channelHeight + focusedChannelIndex * 17 * localDensity).toInt()
@@ -120,8 +126,8 @@ fun ChannelsListAndBorder(
                 listScrollJob = coroutineScope.launch {
                     channelsListState.animateScrollToItem(0)
                 }
-            } else if (localChannelsData != null && focusedChannelIndex >= localChannelsData.size - visibleChannelsAmount / 2) {
-                val itemsFromBottom = localChannelsData.size - focusedChannelIndex
+            } else if (focusedChannelIndex >= channelsData.size - visibleChannelsAmount / 2) {
+                val itemsFromBottom = channelsData.size - focusedChannelIndex
                 Log.i("channels list and border", "items from bottom $itemsFromBottom")
 
                 borderYOffset = (channelsListHeight - (15 * localDensity + itemsFromBottom * channelHeight + (itemsFromBottom - 1) * 17 * localDensity)).toInt()
@@ -129,7 +135,7 @@ fun ChannelsListAndBorder(
                 Log.i("channels list and border", "channels list height $channelsListHeight")
 
                 listScrollJob = coroutineScope.launch {
-                    channelsListState.animateScrollToItem(localChannelsData.size-1)
+                    channelsListState.animateScrollToItem(channelsData.size-1)
                 }
             } else {
                 borderYOffset = (channelsListHeight / 2 - channelHeight / 2)

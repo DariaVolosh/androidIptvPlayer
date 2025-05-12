@@ -28,17 +28,17 @@ import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.iptvplayer.data.Utils.formatDate
-import com.example.iptvplayer.retrofit.data.Epg
-import com.example.iptvplayer.view.channels.ArchiveViewModel
 import com.example.iptvplayer.view.channels.ChannelsViewModel
-import com.example.iptvplayer.view.channels.MediaViewModel
+import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
 import com.example.iptvplayer.view.epg.EpgViewModel
+import com.example.iptvplayer.view.player.MediaViewModel
 import com.example.iptvplayer.view.toast.CustomToast
 import kotlinx.coroutines.delay
 
 @Composable
 fun ChannelInfo(
     showProgrammeDatePicker: (Boolean) -> Unit,
+    switchChannel: (Boolean) -> Unit,
     showChannelInfo: (Boolean) -> Unit
 ) {
     val archiveViewModel: ArchiveViewModel = hiltViewModel()
@@ -55,6 +55,7 @@ fun ChannelInfo(
     val isLiveProgram by mediaViewModel.isLive.collectAsState()
     val dvrRange by archiveViewModel.dvrRange.collectAsState()
 
+    val currentEpgIndex by epgViewModel.currentEpgIndex.collectAsState()
     val currentEpg by epgViewModel.currentEpg.collectAsState()
 
     val currentChannel by channelsViewModel.currentChannel.collectAsState()
@@ -79,7 +80,7 @@ fun ChannelInfo(
 
     Box(
         modifier = Modifier
-            .zIndex(99f)
+            .zIndex(100f)
     ) {
         Column (
             modifier = Modifier
@@ -90,6 +91,7 @@ fun ChannelInfo(
         ) {
             TimeSeekbarWithTimeMarkers(
                 currentEpg,
+                currentEpgIndex,
                 dvrRange,
                 currentChannel
             )
@@ -122,7 +124,7 @@ fun ChannelInfo(
                     Text(
                         modifier = Modifier.padding(top = 10.dp),
                         fontSize = 18.sp,
-                        text = if (currentEpg != Epg()) currentEpg.epgVideoName else "No epg",
+                        text = if (currentEpgIndex != -1) currentEpg.epgVideoName else "No epg",
                         color = MaterialTheme.colorScheme.onSecondary
                     )
 
@@ -132,6 +134,7 @@ fun ChannelInfo(
                         currentChannel.channelUrl,
                         { showChannelInfo(false) },
                         { secondsNotInteracted = 0 },
+                        switchChannel,
                     ) { showDatePicker -> showProgrammeDatePicker(showDatePicker) }
 
                     CustomToast(

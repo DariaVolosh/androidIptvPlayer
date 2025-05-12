@@ -17,6 +17,7 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,19 +25,27 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.data.Utils
-import com.example.iptvplayer.view.channels.ArchiveViewModel
+import com.example.iptvplayer.retrofit.data.ChannelData
+import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
+import com.example.iptvplayer.view.epg.EpgViewModel
+import com.example.iptvplayer.view.player.MediaViewModel
+import com.example.iptvplayer.view.programDatePicker.datePicker.DayPicker
+import com.example.iptvplayer.view.programDatePicker.timePicker.TimePicker
+import kotlinx.coroutines.launch
 
-// passing live time from the parent composable only one time
-// to avoid unnecessary recompositions of this composable
 @Composable
 fun ProgramDatePickerModal(
     modifier: Modifier,
-    currentTime: Long,
-    onArchiveSearch: (Long) -> Unit
+    currentChannel: ChannelData,
+    hideProgramDatePicker: () -> Unit,
+    showChannelInfo: () -> Unit
 ) {
     val archiveViewModel: ArchiveViewModel = hiltViewModel()
+    val mediaViewModel: MediaViewModel = hiltViewModel()
+    val epgViewModel: EpgViewModel = hiltViewModel()
 
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
     val dvrRange by archiveViewModel.dvrRange.collectAsState()
     val dvrFirstAndLastDays by archiveViewModel.dvrFirstAndLastDay.observeAsState()
@@ -53,17 +62,26 @@ fun ProgramDatePickerModal(
         Log.i("chosen time since epoch", Utils.formatDate(totalDateSinceEpoch, "EEEE d MMMM HH:mm:ss"))
     }
 
-
     val onArchiveSearchLocal: () -> Unit = {
         val newTotalDate = chosenDateSinceEpoch + chosenTimeSinceEpoch
-        dvrRange?.let { dvrRange ->
-            if (newTotalDate >= dvrRange.first && newTotalDate <= dvrRange.second) {
-                onArchiveSearch(newTotalDate)
-            } else {
-                Toast.makeText(context, "Chosen date archive is not available", Toast.LENGTH_LONG)
-                    .show()
+        if (newTotalDate >= dvrRange.first && newTotalDate <= dvrRange.second) {
+            coroutineScope.launch {
+                mediaViewModel.setCurrentTime(newTotalDate)
+                mediaViewModel.updateIsLive(false)
+                epgViewModel.searchEpgByTime(newTotalDate)
+                mediaViewModel.reset()
+                archiveViewModel.getArchiveUrl(currentChannel.channelUrl, newTotalDate)
+                hideProgramDatePicker()
+                showChannelInfo()
             }
+        } else {
+            Toast.makeText(context, "Chosen date archive is not available", Toast.LENGTH_LONG)
+                .show()
         }
+    }
+
+    val requestCurrentTime: () -> Long = {
+        mediaViewModel.currentTime.value
     }
 
     Column(
@@ -91,7 +109,7 @@ fun ProgramDatePickerModal(
 
             TimePicker(
                 Modifier.fillMaxWidth(0.7f),
-                currentTime,
+                requestCurrentTime,
                 !isDatePickerFocused,
                 chosenDateSinceEpoch,
                 onArchiveSearchLocal,

@@ -1,4 +1,4 @@
-package com.example.iptvplayer.view.channels
+package com.example.iptvplayer.view.channelsAndEpgRow
 
 import android.util.Log
 import androidx.lifecycle.LiveData
@@ -130,7 +130,7 @@ class ArchiveViewModel @Inject constructor(
             withContext(Dispatchers.IO) {
                 while (true) {
                     getDvrRange(streamName)
-                    delay(500)
+                    delay(5000)
                 }
             }
         }

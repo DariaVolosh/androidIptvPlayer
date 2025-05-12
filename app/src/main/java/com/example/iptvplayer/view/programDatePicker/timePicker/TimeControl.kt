@@ -1,4 +1,4 @@
-package com.example.iptvplayer.view.programDatePicker
+package com.example.iptvplayer.view.programDatePicker.timePicker
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border

@@ -8,9 +8,9 @@ class GetTsSegmentsUseCase @Inject constructor(
     private val playlistRepository: M3U8PlaylistRepository,
     private val fileUtilsRepository: FileUtilsRepository
 ) {
-   fun extractTsSegments(url: String) =
+   fun extractTsSegments(url: String, isLive: Boolean) =
         playlistRepository.extractTsSegments(
             url,
-            {url -> fileUtilsRepository.readFile(url)}
-        )
+            isLive
+        ) {url -> fileUtilsRepository.readFile(url)}
 }

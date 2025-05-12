@@ -25,10 +25,9 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.data.Utils
 import com.example.iptvplayer.data.Utils.formatDate
-import com.example.iptvplayer.retrofit.data.Epg
-import com.example.iptvplayer.view.channels.ArchiveViewModel
-import com.example.iptvplayer.view.channels.MediaViewModel
+import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
 import com.example.iptvplayer.view.epg.EpgViewModel
+import com.example.iptvplayer.view.player.MediaViewModel
 import java.util.Locale
 import kotlin.math.abs
 
@@ -62,7 +61,6 @@ fun LinearProgressWithDot(
         Log.i("epg start seconds", currentEpg.epgVideoTimeRangeSeconds.start.toString())
 
         val timeElapsedSinceProgrammeStart = currentTime - currentEpg.epgVideoTimeRangeSeconds.start
-        Log.i("ELAPSED", timeElapsedSinceProgrammeStart.toString())
         Log.i("ELAPSED", currentEpg.toString())
         Log.i("ELAPSED", currentTime.toString())
 
@@ -133,6 +131,7 @@ fun LinearProgressWithDot(
             } else {
                 Log.i("is seeking ${mediaViewModel.isSeeking.value}", "real")
                 if (mediaViewModel.isSeeking.value) {
+                    mediaViewModel.reset()
                     archiveViewModel.getArchiveUrl(channelUrl, currentTime)
                     mediaViewModel.updateIsSeeking(false)
                 }
@@ -142,7 +141,7 @@ fun LinearProgressWithDot(
 
     LaunchedEffect(currentTime) {
         // epg is available, use epg timestamps
-        if (currentEpg != Epg() && currentEpgIndex != -1) {
+        if (currentEpgIndex != -1) {
             Log.i("DVR OR EPG", "epg")
             updateEpgSeekbarProgress()
             // epg is not available, but dvr is available, use dvr timestamps

@@ -1,4 +1,4 @@
-package com.example.iptvplayer.view.mainScreen
+package com.example.iptvplayer.view.channelsAndEpgRow
 
 import android.util.Log
 import androidx.compose.animation.core.animateFloatAsState
@@ -21,12 +21,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.view.AuthViewModel
-import com.example.iptvplayer.view.channels.ArchiveViewModel
 import com.example.iptvplayer.view.channels.ChannelsListAndBorder
 import com.example.iptvplayer.view.channels.ChannelsViewModel
-import com.example.iptvplayer.view.channels.MediaViewModel
 import com.example.iptvplayer.view.epg.EpgListAndBorder
 import com.example.iptvplayer.view.epg.EpgViewModel
+import com.example.iptvplayer.view.player.MediaViewModel
 import kotlinx.coroutines.launch
 
 @Composable

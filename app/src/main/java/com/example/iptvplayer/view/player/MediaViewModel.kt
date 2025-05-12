@@ -1,9 +1,7 @@
-package com.example.iptvplayer.view.channels
+package com.example.iptvplayer.view.player
 
 import android.os.Looper
 import android.util.Log
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.iptvplayer.data.Utils
@@ -13,6 +11,8 @@ import com.example.iptvplayer.domain.GetTsSegmentsUseCase
 import com.example.iptvplayer.domain.HandleNextSegmentRequestedUseCase
 import com.example.iptvplayer.domain.SetMediaUrlUseCase
 import com.example.iptvplayer.domain.SharedPreferencesUseCase
+import com.example.iptvplayer.view.channelsAndEpgRow.CURRENT_TIME_KEY
+import com.example.iptvplayer.view.channelsAndEpgRow.IS_LIVE_KEY
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -35,8 +35,8 @@ class MediaViewModel @Inject constructor(
 ): ViewModel() {
     var ijkPlayer: IjkMediaPlayer? = null
 
-    private val _isDataSourceSet: MutableLiveData<Boolean> = MutableLiveData(false)
-    val isDataSourceSet: LiveData<Boolean> = _isDataSourceSet
+    private val _isDataSourceSet: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    val isDataSourceSet: StateFlow<Boolean> = _isDataSourceSet
 
     private val _isPaused: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val isPaused: StateFlow<Boolean> = _isPaused
@@ -47,8 +47,8 @@ class MediaViewModel @Inject constructor(
     private val _isLive: MutableStateFlow<Boolean> = MutableStateFlow(true)
     val isLive: StateFlow<Boolean> = _isLive
 
-    private val _isPlaybackStarted: MutableLiveData<Boolean> = MutableLiveData(false)
-    val isPlaybackStarted: LiveData<Boolean> = _isPlaybackStarted
+    private val _isPlaybackStarted: MutableStateFlow<Boolean> = MutableStateFlow(false)
+    val isPlaybackStarted: StateFlow<Boolean> = _isPlaybackStarted
 
     private val _currentTime: MutableStateFlow<Long> = MutableStateFlow(0L)
     val currentTime: StateFlow<Long> = _currentTime
@@ -105,12 +105,6 @@ class MediaViewModel @Inject constructor(
         }
 
         Log.i("PREFS", "is live: $isLive")
-    }
-
-    private suspend fun setNextUrl(url: String) {
-        setMediaUrlUseCase.setMediaUrl(url) { mediaSource ->
-            if (!firstSegmentRead) startPlayback(mediaSource)
-        }
     }
 
     suspend fun setLiveTime(time: Long) {
@@ -186,6 +180,11 @@ class MediaViewModel @Inject constructor(
         }
     }
 
+    private suspend fun setNextUrl(url: String) {
+        setMediaUrlUseCase.setMediaUrl(url) { mediaSource ->
+            if (!firstSegmentRead) startPlayback(mediaSource)
+        }
+    }
 
     private fun startPlayback(mediaSource: MediaDataSource) {
         try {
@@ -222,44 +221,7 @@ class MediaViewModel @Inject constructor(
             reset()
         }
 
-        tsJob = viewModelScope.launch {
-            withContext(Dispatchers.IO) {
-                val isOnMainThread = Looper.getMainLooper() == Looper.myLooper()
-                Log.i("is on main thread channels list", "set media url $isOnMainThread")
-                getTsSegmentsUseCase.extractTsSegments(url).collect { u ->
-                    Log.i("emission", "collected $u")
-                    if (ijkPlayer == null || isPlayerReset) {
-                        ijkPlayer = IjkMediaPlayer()
-
-                        ijkPlayer?.setOnPreparedListener {
-                            Log.i("on prepared", "yea")
-                            play()
-                            _isDataSourceSet.postValue(true)
-                        }
-
-                        ijkPlayer?.setOnInfoListener { mp, what, extra ->
-                            when (what) {
-                                IjkMediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START -> {
-                                    _isPlaybackStarted.value = true
-                                    true
-                                }
-                                else -> false
-                            }
-                        }
-
-                        ijkPlayer?.setDataSource(getMediaDataSourceUseCase.getMediaDataSource())
-                        IjkMediaPlayer.native_setLogLevel(IjkMediaPlayer.IJK_LOG_DEBUG)
-
-                        setOnSegmentRequestCallback()
-                        setNextUrl(u)
-                        isPlayerReset = false
-
-                    } else {
-                        urlQueue.add(u)
-                    }
-                }
-            }
-        }
+        startTsCollectingJob(url)
     }
 
     fun pause() {
@@ -279,9 +241,49 @@ class MediaViewModel @Inject constructor(
         ijkPlayer?.reset()
         tsJob?.cancel()
         urlQueue.clear()
-        isPlayerReset = true
         firstSegmentRead = false
-        _isDataSourceSet.postValue(false)
+        _isDataSourceSet.value = false
         _isPlaybackStarted.value = false
+        isPlayerReset = true
+    }
+
+    fun startTsCollectingJob(url: String) {
+        tsJob = viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                val isOnMainThread = Looper.getMainLooper() == Looper.myLooper()
+                Log.i("is on main thread channels list", "set media url $isOnMainThread")
+                getTsSegmentsUseCase.extractTsSegments(url, isLive.value).collect { u ->
+                    Log.i("collected", "collected $u")
+                    if (ijkPlayer == null || isPlayerReset) {
+                        ijkPlayer = IjkMediaPlayer()
+
+                        ijkPlayer?.setOnPreparedListener {
+                            Log.i("on prepared", "yea")
+                            play()
+                            _isDataSourceSet.value = true
+                        }
+
+                        ijkPlayer?.setOnInfoListener { mp, what, extra ->
+                            when (what) {
+                                IjkMediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START -> {
+                                    _isPlaybackStarted.value = true
+                                    true
+                                }
+                                else -> false
+                            }
+                        }
+
+                        ijkPlayer?.setDataSource(getMediaDataSourceUseCase.getMediaDataSource())
+                        IjkMediaPlayer.native_setLogLevel(IjkMediaPlayer.IJK_LOG_DEBUG)
+
+                        setOnSegmentRequestCallback()
+                        setNextUrl(u)
+                        isPlayerReset = false
+                    } else {
+                        urlQueue.add(u)
+                    }
+                }
+            }
+        }
     }
 }

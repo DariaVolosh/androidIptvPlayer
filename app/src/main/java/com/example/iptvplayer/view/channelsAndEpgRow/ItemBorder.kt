@@ -1,8 +1,6 @@
-package com.example.iptvplayer.view.channels
+package com.example.iptvplayer.view.channelsAndEpgRow
 
 import android.util.Log
-import androidx.compose.animation.core.animateIntOffsetAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,7 +8,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
@@ -24,14 +21,14 @@ fun ItemBorder(
 ) {
     val density = LocalDensity.current.density
 
-    // offset stay in pixels
-    val borderYOffsetAnim by animateIntOffsetAsState(IntOffset(0, borderYOffset), animationSpec = tween(200))
+    /*// offset stay in pixels
+    val borderYOffsetAnim by animateIntOffsetAsState(IntOffset(0, borderYOffset), animationSpec = tween(200)) */
 
     Log.i("border y offset", borderYOffset.toString())
 
     Box(
         modifier = Modifier
-            .offset { borderYOffsetAnim }
+            .offset { IntOffset(0, borderYOffset) }
             .fillMaxWidth()
             .padding(horizontal = 7.dp)
             // conversion to dp for height display

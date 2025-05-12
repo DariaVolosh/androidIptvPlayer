@@ -1,8 +1,9 @@
-package com.example.iptvplayer.view
+package com.example.iptvplayer.view.player
 
 import android.util.Log
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
@@ -10,72 +11,84 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.iptvplayer.retrofit.data.ChannelData
-import com.example.iptvplayer.view.channels.ArchiveViewModel
+import com.example.iptvplayer.view.ExitConfirmationDialog
 import com.example.iptvplayer.view.channels.ChannelsViewModel
-import com.example.iptvplayer.view.channels.MediaViewModel
+import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
 
 @Composable
-fun PlayerView() {
+fun PlayerView(
+    isBackPressed: Boolean,
+    stayInsideApp: () -> Unit,
+    exitApp: () -> Unit
+) {
     val mediaViewModel: MediaViewModel = hiltViewModel()
-    val channelsViewModel: ChannelsViewModel = hiltViewModel()
     val archiveViewModel: ArchiveViewModel = hiltViewModel()
+    val channelsViewModel: ChannelsViewModel = hiltViewModel()
 
-    val currentChannel by channelsViewModel.currentChannel.collectAsState()
-
-    val isDataSourceSet by mediaViewModel.isDataSourceSet.observeAsState()
-    val isPlaybackStarted by mediaViewModel.isPlaybackStarted.observeAsState()
+    val isDataSourceSet by mediaViewModel.isDataSourceSet.collectAsState()
+    val isPlaybackStarted by mediaViewModel.isPlaybackStarted.collectAsState()
+    val isSeeking by mediaViewModel.isSeeking.collectAsState()
 
     val archiveSegmentUrl by archiveViewModel.archiveSegmentUrl.collectAsState()
 
-    var surfaceView by remember { mutableStateOf<SurfaceView?>(null) }
-    var isInitialStreamStarted by remember { mutableStateOf(false) }
+    val currentChannel by channelsViewModel.currentChannel.collectAsState()
+    val currentTime by mediaViewModel.currentTime.collectAsState()
 
-    LaunchedEffect(currentChannel, isInitialStreamStarted) {
-        if (currentChannel != ChannelData() && !isInitialStreamStarted) {
-            if (mediaViewModel.isLive.value) {
-                mediaViewModel.setMediaUrl(currentChannel.channelUrl)
-            } else {
-                archiveViewModel.getArchiveUrl(currentChannel.channelUrl, mediaViewModel.currentTime.value)
-            }
-
-            isInitialStreamStarted = true
-        }
-    }
+    var surfaceHolder by remember { mutableStateOf<SurfaceHolder?>(null) }
 
     LaunchedEffect(archiveSegmentUrl) {
-        mediaViewModel.setMediaUrl(archiveSegmentUrl)
+        mediaViewModel.startTsCollectingJob(archiveSegmentUrl)
     }
 
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
 
-        if (isPlaybackStarted == false) {
+        if (!isPlaybackStarted) {
             CircularProgressIndicator(
                 modifier = Modifier
                     .zIndex(99f)
                     .align(Alignment.Center)
             )
+
+            Box(
+                modifier =  Modifier.fillMaxSize()
+                    .background(Color.Black)
+                    .zIndex(98f)
+            )
         }
+
+        if (isSeeking) {
+            StreamRewindFrame(
+                currentChannel.name,
+                currentTime
+            )
+        }
+
+        if (isBackPressed) {
+            ExitConfirmationDialog(
+                stayInsideApp,
+                exitApp,
+            )
+        }
+
+        Log.i("player recomposed", "is data source set ${isDataSourceSet} surface holder ${surfaceHolder}")
 
         AndroidView(
             factory = { context ->
                 SurfaceView(context).apply {
-                    surfaceView = this
-
                     holder.addCallback(object : SurfaceHolder.Callback {
                         override fun surfaceCreated(holder: SurfaceHolder) {
-
+                            surfaceHolder = holder
                         }
 
                         override fun surfaceChanged(
@@ -85,14 +98,18 @@ fun PlayerView() {
                             Log.i("SURFACE SIZE", "$format $width $height")
                         }
 
-                        override fun surfaceDestroyed(holder: SurfaceHolder) {}
+                        override fun surfaceDestroyed(holder: SurfaceHolder) {
+                            surfaceHolder = null
+                            Log.i("is surface destroyed", "yes")
+                        }
                     })
                 }
             },
             modifier = Modifier.fillMaxSize(),
             update = {
-                if (isDataSourceSet == true && surfaceView?.holder != null) {
-                    mediaViewModel.ijkPlayer?.setDisplay(surfaceView?.holder)
+                if (isDataSourceSet && surfaceHolder != null) {
+                    Log.i("set display?", "set")
+                    mediaViewModel.ijkPlayer?.setDisplay(surfaceHolder)
                 }
             }
         )

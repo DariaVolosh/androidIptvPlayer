@@ -27,9 +27,9 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.R
-import com.example.iptvplayer.view.channels.ArchiveViewModel
-import com.example.iptvplayer.view.channels.MediaViewModel
+import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
 import com.example.iptvplayer.view.epg.EpgViewModel
+import com.example.iptvplayer.view.player.MediaViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -38,6 +38,7 @@ fun PlaybackControls(
     channelUrl: String,
     onBack: () -> Unit,
     resetSecondsNotInteracted: () -> Unit,
+    switchChannel: (Boolean) -> Unit,
     showProgrammeDatePicker: (Boolean) -> Unit
 ) {
     var focusedControl by remember { mutableIntStateOf(3) }
@@ -102,6 +103,7 @@ fun PlaybackControls(
                 coroutineScope.launch {
                     mediaViewModel.updateIsSeeking(true)
                     mediaViewModel.updateIsLive(false)
+                    mediaViewModel.reset()
                     mediaViewModel.setCurrentTime(prevProgram.epgVideoTimeRangeSeconds.start)
                     archiveViewModel.getArchiveUrl(channelUrl, mediaViewModel.currentTime.value)
                     epgViewModel.updateEpgIndex(focusedEpgIndex - 1, true)
@@ -168,6 +170,7 @@ fun PlaybackControls(
                     mediaViewModel.updateIsSeeking(true)
                     mediaViewModel.updateIsLive(false)
                     mediaViewModel.setCurrentTime(nextProgram.epgVideoTimeRangeSeconds.start)
+                    mediaViewModel.reset()
                     archiveViewModel.getArchiveUrl(channelUrl, mediaViewModel.currentTime.value)
                     epgViewModel.updateEpgIndex(focusedEpgIndex + 1, true)
                     epgViewModel.updateEpgIndex(focusedEpgIndex + 1, false)
@@ -184,7 +187,7 @@ fun PlaybackControls(
         if (channelUrl.isNotEmpty()) {
             resetSecondsNotInteracted()
 
-            if (mediaViewModel.isLive.value == false) {
+            if (!mediaViewModel.isLive.value) {
                 coroutineScope.launch {
                     mediaViewModel.updateIsSeeking(true)
                     mediaViewModel.updateIsLive(true)
@@ -272,41 +275,60 @@ fun PlaybackControls(
             }
             .onKeyEvent { event ->
                 Log.i("playback controls", "${event.key}")
-                if (event.key == Key.DirectionCenter) {
-                    Log.i("playback controls", "${event.key}")
-
-                    if (event.type == KeyEventType.KeyDown) {
-                        if (!isKeyPressed) {
-                            isKeyPressed = true
-                            coroutineScope.launch {
-                                delay(500)
-                                if (isKeyPressed) isLongPressed = true
+                when (event.key) {
+                    Key.DirectionCenter -> {
+                        if (event.type == KeyEventType.KeyDown) {
+                            if (!isKeyPressed) {
+                                isKeyPressed = true
+                                coroutineScope.launch {
+                                    delay(500)
+                                    if (isKeyPressed) isLongPressed = true
+                                }
                             }
-                        }
-                    } else {
-                        if (!isLongPressed) {
-                            playbackControls[focusedControl].onPressed()
                         } else {
-                            isLongPressed = false
-                            playbackControls[focusedControl].onFingerLiftedUp()
+                            if (!isLongPressed) {
+                                playbackControls[focusedControl].onPressed()
+                            } else {
+                                isLongPressed = false
+                                playbackControls[focusedControl].onFingerLiftedUp()
+                            }
+
+                            isKeyPressed = false
                         }
+                    }
 
-                        isKeyPressed = false
+                    Key.DirectionLeft -> {
+                        if (event.type == KeyEventType.KeyDown) {
+                            if (focusedControl == 0) focusedControl = playbackControls.size - 1
+                            else focusedControl--
+                        }
                     }
-                } else if (event.key == Key.DirectionLeft) {
-                    if (event.type == KeyEventType.KeyDown) {
-                        if (focusedControl == 0) focusedControl = playbackControls.size-1
-                        else focusedControl--
+
+                    Key.DirectionRight -> {
+                        if (event.type == KeyEventType.KeyDown) {
+                            if (focusedControl == playbackControls.size - 1) focusedControl = 0
+                            else focusedControl++
+                        }
                     }
-                } else if (event.key == Key.DirectionRight) {
-                    if (event.type == KeyEventType.KeyDown) {
-                        if (focusedControl == playbackControls.size-1) focusedControl = 0
-                        else focusedControl++
+
+                    Key.Back -> {
+                        if (event.type == KeyEventType.KeyDown) {
+                            onBack()
+                        }
                     }
-                } else if (event.key == Key.Back) {
-                    onBack()
+
+                    Key.DirectionUp -> {
+                        if (event.type == KeyEventType.KeyDown) {
+                            switchChannel(true)
+                        }
+                    }
+
+                    Key.DirectionDown -> {
+                        if (event.type == KeyEventType.KeyDown) {
+                            switchChannel(false)
+                        }
+                    }
                 }
-
                 true
             }
             .padding(top = 15.dp, bottom = 17.dp)

@@ -1,4 +1,4 @@
-package com.example.iptvplayer.view.programDatePicker
+package com.example.iptvplayer.view.programDatePicker.datePicker
 
 import android.util.Log
 import androidx.compose.foundation.border
@@ -94,67 +94,3 @@ fun DayPicker(
         }
     }
 }
-
-/*@Composable
-fun DatePicker(
-    modifier: Modifier,
-    currentTime: Long,
-    isFocused: Boolean,
-    onDateChanged: (Long) -> Unit,
-    onTimePickerFocus: () -> Unit
-) {
-    val archiveViewModel: ArchiveViewModel = hiltViewModel()
-
-    var daysOfWeek by remember { mutableStateOf<List<String>>(mutableListOf())}
-
-    val dvrMonth by archiveViewModel.dvrMonth.observeAsState()
-    val dvrFirstAndLastDay by archiveViewModel.dvrFirstAndLastDay.observeAsState()
-
-    LaunchedEffect(Unit) {
-        daysOfWeek = Utils.getAllWeekdays()
-    }
-
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-
-        dvrMonth?.let { dvrMonth ->
-            Text(
-                modifier = Modifier
-                    .padding(bottom = 11.dp),
-                text = "${Utils.getFullMonthName(dvrMonth)} 2025",
-                color = MaterialTheme.colorScheme.onSecondary,
-                fontSize = 16.sp
-            )
-        }
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .border(1.dp, MaterialTheme.colorScheme.onSecondary)
-                .padding(vertical = 6.dp)
-        ) {
-            daysOfWeek.map { dayOfWeek ->
-                Text(
-                    modifier = Modifier
-                        .weight(1f),
-                    text = dayOfWeek,
-                    color = MaterialTheme.colorScheme.onSecondary,
-                    fontSize = 16.sp,
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
-
-        EpgAvailableDays(
-            dvrMonth ?: -1,
-            dvrFirstAndLastDay ?: Pair(0,0),
-            daysOfWeek,
-            isFocused,
-            currentTime,
-            onDateChanged,
-            onTimePickerFocus
-        )
-    }
-} */

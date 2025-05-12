@@ -13,6 +13,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -28,10 +29,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.retrofit.data.ChannelData
 import com.example.iptvplayer.retrofit.data.Epg
-import com.example.iptvplayer.view.channels.ArchiveViewModel
 import com.example.iptvplayer.view.channels.ChannelsViewModel
-import com.example.iptvplayer.view.channels.ItemBorder
-import com.example.iptvplayer.view.channels.MediaViewModel
+import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
+import com.example.iptvplayer.view.channelsAndEpgRow.ItemBorder
+import com.example.iptvplayer.view.player.MediaViewModel
 import kotlinx.coroutines.delay
 
 data class EpgToBeFetched(
@@ -73,6 +74,7 @@ fun EpgListAndBorder(
 
     // hoisted states from EpgList
     var epgItemHeight by remember { mutableIntStateOf(0) }
+    var isListMiddle by remember { mutableStateOf(false) }
 
     // hoisted states from ItemBorder
     var borderYOffset by remember { mutableIntStateOf(15) }
@@ -107,7 +109,9 @@ fun EpgListAndBorder(
                     epgViewModel.updateEpgIndex(focusedEpgIndex, true)
 
                     channelsViewModel.updateChannelIndex(channelsViewModel.focusedChannelIndex.value, true)
-                    val currentChannel = channelsViewModel.currentChannel.value
+
+                    mediaViewModel.reset()
+                    mediaViewModel.updateIsLive(false)
 
                     setCurrentTime(focusedEpg.epgVideoTimeRangeSeconds.start)
                     archiveViewModel.getArchiveUrl(
@@ -232,10 +236,12 @@ fun EpgListAndBorder(
                 Modifier.fillMaxWidth(),
                 dvrRange,
                 epgItemHeight,
+                isListMiddle,
+                {isMiddle -> isListMiddle = isMiddle},
                 {height -> epgItemHeight = height},
             ) { borderOffset -> borderYOffset = borderOffset }
 
-            if (isEpgListFocused) {
+            if (isEpgListFocused && isListMiddle) {
                 ItemBorder(
                     borderYOffset,
                     epgItemHeight

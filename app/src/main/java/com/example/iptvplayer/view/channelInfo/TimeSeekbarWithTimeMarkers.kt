@@ -1,5 +1,6 @@
 package com.example.iptvplayer.view.channelInfo
 
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,6 +24,7 @@ import com.example.iptvplayer.retrofit.data.Epg
 @Composable
 fun TimeSeekbarWithTimeMarkers(
     currentEpg: Epg,
+    currentEpgIndex: Int,
     dvrRange: Pair<Long, Long>,
     focusedChannel: ChannelData
 ) {
@@ -33,10 +35,12 @@ fun TimeSeekbarWithTimeMarkers(
     var stopTime by remember { mutableStateOf("") }
 
     LaunchedEffect(currentEpg, dvrRange) {
-        if (currentEpg != Epg()) {
+        Log.i("time seekbar", "$currentEpg $dvrRange")
+        if (currentEpgIndex != -1) {
             startTime = formatDate(currentEpg.epgVideoTimeRangeSeconds.start, timePattern)
             stopTime = formatDate(currentEpg.epgVideoTimeRangeSeconds.stop, timePattern)
         } else if (dvrRange.first != 0L) {
+            Log.i("dvr is not 0", "true")
             startTime = formatDate(dvrRange.first, datePattern)
             stopTime = formatDate(dvrRange.second, datePattern)
         }

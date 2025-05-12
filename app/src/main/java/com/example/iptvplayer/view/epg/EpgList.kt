@@ -10,12 +10,12 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -28,6 +28,8 @@ fun EpgList(
     modifier: Modifier,
     dvrRange: Pair<Long, Long>,
     epgItemHeight: Int,
+    isListMiddle: Boolean,
+    setIsListMiddle: (Boolean) -> Unit,
     setEpgItemHeight: (Int) -> Unit,
     setBorderYOffset: (Int) -> Unit,
 ) {
@@ -39,84 +41,84 @@ fun EpgList(
     val epgList by epgViewModel.epgList.collectAsState()
     val dateMap by epgViewModel.dateMap.collectAsState()
     val focusedEpgIndex by epgViewModel.focusedEpgIndex.collectAsState()
+    val isEpgListFocused by epgViewModel.isEpgListFocused.collectAsState()
 
     var isInitScrollPerformed by remember { mutableStateOf(false) }
-    var visibleEpgItems by remember { mutableIntStateOf(0) }
+    var lastVisibleEpgItem by remember { mutableIntStateOf(0) }
     var epgListHeight by remember { mutableIntStateOf(0) }
-    var epgDateHeight by remember { mutableIntStateOf(0) }
-
-    LaunchedEffect(listState) {
-        snapshotFlow { listState.layoutInfo.visibleItemsInfo.size }
-            .collect { size ->
-                if (size != 0) {
-                    visibleEpgItems = size
-                }
-            }
+    val epgListBorderMiddle = remember {
+        derivedStateOf { epgListHeight / 2 - epgItemHeight / 2 }
     }
+    var epgDateHeight by remember { mutableIntStateOf(0) }
+    var isListStart by remember { mutableStateOf(false) }
+    var isListEnd by remember { mutableStateOf(false) }
 
     LaunchedEffect(
         focusedEpgIndex,
         epgList,
         epgItemHeight,
         epgListHeight,
-        epgDateHeight,
-        visibleEpgItems
+        epgDateHeight
     ) {
         if (epgList.isEmpty()) {
             isInitScrollPerformed = false
             return@LaunchedEffect
         }
 
+        Log.i("epg list", "focused index $focusedEpgIndex")
+        Log.i("epg list", "epg item height $epgItemHeight")
+        Log.i("epg list", "epg list border middle ${epgListBorderMiddle.value}")
+
         if (
             focusedEpgIndex != -1 &&
             epgItemHeight != 0 &&
-            epgListHeight != 0 &&
-            epgDateHeight != 0 &&
-            visibleEpgItems != 0
+            epgListBorderMiddle.value != 0
         ) {
-            Log.i("epg list and border", "$visibleEpgItems")
-            Log.i("epg list and border", "condition ${focusedEpgIndex} ${visibleEpgItems / 2}")
 
-            if (focusedEpgIndex < visibleEpgItems / 2) {
-                val isDateDisplayed = dateMap.keys.any { dateIndex ->
-                    dateIndex in 0.. focusedEpgIndex
-                }
-                Log.i("epg list and border", "is date displayed $isDateDisplayed")
-                var borderYOffset = (15 * localDensity + focusedEpgIndex * epgItemHeight + focusedEpgIndex * 7 * localDensity).toInt()
-                if (isDateDisplayed) borderYOffset += (epgDateHeight + 7 * localDensity).toInt()
-                setBorderYOffset(borderYOffset)
-                Log.i("epg list and border", "border y offset $borderYOffset")
+            setBorderYOffset(epgListBorderMiddle.value)
+            // we should be oriented on border y offset, not on visible items, because
+            // visible items vary based on sizes of items, but border y is stable
 
-            } else if (focusedEpgIndex >= epgList.size - visibleEpgItems / 2) {
+            val focusedItemYOffset = (15 * localDensity + focusedEpgIndex * epgItemHeight + focusedEpgIndex * 7 * localDensity).toInt()
+            val lastElementYOffset = (15 * localDensity + (epgList.size - 1) * epgItemHeight + (epgList.size - 1) * 7 * localDensity).toInt()
 
+            Log.i("focused item border y offset", "$focusedItemYOffset")
+            Log.i("last item border y offset", "$lastElementYOffset")
+
+            if (focusedItemYOffset < epgListBorderMiddle.value) {
+                // list start
+                Log.i("list position", "list start")
+                listState.scrollToItem(0)
+                setBorderYOffset(focusedItemYOffset)
+                isListStart = true
+                setIsListMiddle(false)
+            } else if ((lastElementYOffset - focusedItemYOffset) < epgListBorderMiddle.value){
+                // list end
+                Log.i("difference", "${lastElementYOffset - focusedItemYOffset} < ${epgListBorderMiddle.value}")
+                Log.i("focused epg index", "$focusedEpgIndex")
+                Log.i("last visible epg item", "${lastVisibleEpgItem}")
+                listState.scrollToItem(epgList.size - 1)
+                isListEnd = true
+                setIsListMiddle(false)
             } else {
-                val isDateDisplayed = dateMap.keys.any { dateIndex ->
-                    dateIndex in focusedEpgIndex-visibleEpgItems/2..focusedEpgIndex
-                }
-
-                Log.i("epg list", "epg list height $epgListHeight")
-                Log.i("epg list", "epg item height $epgItemHeight")
-                Log.i("epg list", "epg date height $epgDateHeight")
-
-                val borderYOffset = (epgListHeight / 2 - epgItemHeight / 2)
-                var scrollOffset = -borderYOffset + 15 * localDensity
-                if (isDateDisplayed) scrollOffset += epgDateHeight
-
-                setBorderYOffset(borderYOffset)
-
-                if (!isInitScrollPerformed) {
-                    listState.scrollToItem(focusedEpgIndex, scrollOffset.toInt())
-                    isInitScrollPerformed = true
-                } else {
-                    listState.animateScrollToItem(focusedEpgIndex, scrollOffset.toInt())
-                }
+                var scrollOffset = -epgListBorderMiddle.value + 15 * localDensity.toInt()
+                if (dateMap.containsKey(focusedEpgIndex)) scrollOffset += epgDateHeight
+                listState.scrollToItem(focusedEpgIndex, scrollOffset)
+                setIsListMiddle(true)
+                isListEnd = false
+                isListStart = false
             }
+
+            isInitScrollPerformed = true
         }
     }
     Log.i("vertical distance between items", (7 * localDensity).toString())
     Log.i("top padding", (15 * localDensity).toString())
 
-    Log.i("epg list recomposed", "${epgList.toString()}")
+    Log.i("epg list", "epg list height $epgListHeight")
+    Log.i("epg list", "epg item height $epgItemHeight")
+    Log.i("epg list", "epg date height $epgDateHeight")
+    Log.i("epg list", "$epgList")
 
     Box(
         modifier = modifier
@@ -149,10 +151,14 @@ fun EpgList(
                     }
 
                     EpgItem(
-                        index,
                         item.epgVideoTimeRange,
                         item.epgVideoName,
                         isDvrAvailable,
+                        index == focusedEpgIndex || epgItemHeight == 0,
+                        isEpgListFocused,
+                        epgListBorderMiddle.value,
+                        isListStart,
+                        isListEnd,
                         setEpgItemHeight
                     )
                 }

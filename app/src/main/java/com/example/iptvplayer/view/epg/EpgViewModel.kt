@@ -115,14 +115,12 @@ class EpgViewModel @Inject constructor(
     }
 
     fun resetEpgIndex(isCurrent: Boolean) {
-        viewModelScope.launch {
-            if (isCurrent) {
-                _currentEpgIndex.value = -1
-                resetCurrentEpg()
-                sharedPreferencesUseCase.saveIntValue(CURRENT_EPG_INDEX_KEY, -1)
-            } else {
-                _focusedEpgIndex.value = -1
-            }
+        if (isCurrent) {
+            _currentEpgIndex.value = -1
+            resetCurrentEpg()
+            sharedPreferencesUseCase.saveIntValue(CURRENT_EPG_INDEX_KEY, -1)
+        } else {
+            _focusedEpgIndex.value = -1
         }
     }
 
@@ -204,12 +202,14 @@ class EpgViewModel @Inject constructor(
                 }
             }
 
+            _epgList.value = currentEpgList
+
             if (isCachedEpgDisplayed) {
                 isCachedEpgDisplayed = false
             } else {
-                Log.i("epg view model", "update epg list, focused: ${_focusedEpgIndex.value}, live: ${_liveProgrammeIndex.value}")
-
                 if (_focusedEpgIndex.value == -1) {
+                    Log.i("is first", "${Utils.formatDate(currentEpgList[0].epgVideoTimeRangeSeconds.start, datePattern)}")
+                    Log.i("is first", "${Utils.formatDate(currentTime, datePattern)}")
                     if (currentEpgList[0].epgVideoTimeRangeSeconds.start > currentTime) {
                         updateEpgIndex(0, false)
                     } else {
@@ -218,9 +218,10 @@ class EpgViewModel @Inject constructor(
                 }
             }
 
+            Log.i("epg view model", "update epg list, focused: ${_focusedEpgIndex.value}, live: ${_liveProgrammeIndex.value}")
+
             _dateMap.value = newDateMap
             Log.i("epg view model update current epg list", "date map ${_dateMap.value.entries}")
-            _epgList.value = currentEpgList
         }
     }
 
@@ -265,4 +266,23 @@ class EpgViewModel @Inject constructor(
         accessEpgCacheUseCase.saveEpgToCache(epgId, epgList)
     }
     suspend fun getCachedEpg(epgId: Int) = accessEpgCacheUseCase.getCachedEpg(epgId)
+
+    fun searchEpgByTime(time: Long) {
+        val foundEpgIndex = epgList.value.indexOfFirst { epg ->
+            time in epg.epgVideoTimeRangeSeconds.start..epg.epgVideoTimeRangeSeconds.stop
+        }
+
+        if (foundEpgIndex == -1) {
+            resetEpgIndex(true)
+
+            if (epgList.value[0].epgVideoTimeRangeSeconds.start > time) {
+                updateEpgIndex(0, false)
+            } else {
+                updateEpgIndex(epgList.value.size-1, false)
+            }
+        } else {
+            updateEpgIndex(foundEpgIndex, true)
+            updateEpgIndex(foundEpgIndex, false)
+        }
+    }
 }

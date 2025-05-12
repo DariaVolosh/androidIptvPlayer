@@ -10,7 +10,11 @@ import javax.inject.Inject
 
 interface PlaylistRepository {
     fun parsePlaylistData(playlistContent: List<String>): List<PlaylistChannel>
-    fun extractTsSegments(rootUrl: String, readFile: suspend (String) -> List<String>): Flow<String>
+    fun extractTsSegments(
+        rootUrl: String,
+        isLive: Boolean,
+        readFile: suspend (String) -> List<String>
+    ): Flow<String>
 }
 
 class M3U8PlaylistRepository @Inject constructor(): PlaylistRepository {
@@ -45,8 +49,9 @@ class M3U8PlaylistRepository @Inject constructor(): PlaylistRepository {
 
     override fun extractTsSegments(
         rootUrl: String,
+        isLive: Boolean,
         readFile: suspend (String) -> List<String>
-    ) = flow<String> {
+    ) = flow {
         val emittedSegments = mutableSetOf<String>()
 
         val isOnMainThread = Looper.getMainLooper() == Looper.myLooper()
@@ -75,7 +80,9 @@ class M3U8PlaylistRepository @Inject constructor(): PlaylistRepository {
             }
         }
 
-        while (true) {
+        recursiveExtractTsSegments(rootUrl)
+
+        while (isLive) {
             recursiveExtractTsSegments(rootUrl)
             delay(4000)
         }

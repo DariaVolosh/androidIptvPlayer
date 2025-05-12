@@ -18,4 +18,8 @@
 
     <string name="current_channel_index_key">current_channel_index</string>
     <string name="current_epg_index_key">current_epg_index</string>
+
+    <string name="app_exit_confirmation">Are you sure you want to exit?</string>
+    <string name="app_stay_label">Stay</string>
+    <string name="app_exit_label">Exit</string>
 </resources>

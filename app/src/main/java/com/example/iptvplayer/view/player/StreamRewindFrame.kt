@@ -1,7 +1,8 @@
-package com.example.iptvplayer.view
+package com.example.iptvplayer.view.player
 
 import android.graphics.Bitmap
 import android.graphics.drawable.Drawable
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -39,6 +40,8 @@ fun StreamRewindFrame(
     var painter: Painter? by remember {
         mutableStateOf(null)
     }
+
+    Log.i("stream rewind image timestamp", imageTimestamp.toString())
 
     Glide.with(localContext)
         .asBitmap()

@@ -1,4 +1,4 @@
-package com.example.iptvplayer.view.programDatePicker
+package com.example.iptvplayer.view.programDatePicker.timePicker
 
 import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
@@ -23,7 +23,7 @@ import java.util.Calendar
 @Composable
 fun TimePicker(
     modifier: Modifier,
-    currentTime: Long,
+    requestCurrentTime: () -> Long,
     isFocused: Boolean,
     chosenDateSinceEpoch: Long,
     onArchiveSearch: () -> Unit,
@@ -32,13 +32,13 @@ fun TimePicker(
 ) {
     var hours by remember {
         mutableIntStateOf(
-            Utils.getCalendar(currentTime).get(Calendar.HOUR_OF_DAY)
+            Utils.getCalendar(requestCurrentTime()).get(Calendar.HOUR_OF_DAY)
         )
     }
 
     var minutes by remember {
         mutableIntStateOf(
-            Utils.getCalendar(currentTime).get(Calendar.MINUTE)
+            Utils.getCalendar(requestCurrentTime()).get(Calendar.MINUTE)
         )
     }
 
@@ -72,41 +72,6 @@ fun TimePicker(
     LaunchedEffect(isFocused) {
         if (isFocused) hoursFocusRequester.requestFocus()
     }
-
-    /*LaunchedEffect(chosenDateSinceEpoch) {
-        // if after changing focused day the time is not within dvr range
-        // we have to reset the time to the lowest dvr range bound
-        // (if the focused day is dvr first day)
-        // and reset the time to the up dvr range bound
-        // (if the focused day is dvr last day)
-        val newTotalTime = getTotalTime(hours, minutes)
-        val totalDate = newTotalTime + chosenDateSinceEpoch
-        Log.i("hours and mins", "$hours $minutes")
-
-        if (!isNewTimeWithinDvrRange(totalDate)) {
-            Log.i("not within dvr range", "real")
-            val focusedDay = Utils.getCalendarDay(Utils.getCalendar(totalDate))
-
-            val dvrFirstDayCalendar = Utils.getCalendar(dvrRange.first)
-            val dvrLastDayCalendar = Utils.getCalendar(dvrRange.second)
-
-            val dvrFirstDay = Utils.getCalendarDay(dvrFirstDayCalendar)
-
-            if (focusedDay == dvrFirstDay) {
-                val dvrFirstMinute = dvrFirstDayCalendar.get(Calendar.MINUTE)
-                val dvrFirstHour = dvrFirstDayCalendar.get(Calendar.HOUR_OF_DAY)
-
-                hours = dvrFirstHour
-                minutes = dvrFirstMinute
-            } else {
-                val dvrLastMinute = dvrLastDayCalendar.get(Calendar.MINUTE)
-                val dvrLastHour = dvrLastDayCalendar.get(Calendar.HOUR_OF_DAY)
-
-                hours = dvrLastHour
-                minutes = dvrLastMinute
-            }
-        }
-    } */
 
 
     val hoursControlKeyEventHandler: (Key) -> Unit = { key ->
@@ -152,7 +117,6 @@ fun TimePicker(
 
     Row(
         modifier = modifier,
-            //.border(1.dp, Color.Red),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
