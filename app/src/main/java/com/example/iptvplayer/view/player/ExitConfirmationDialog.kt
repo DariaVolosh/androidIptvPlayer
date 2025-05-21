@@ -1,4 +1,4 @@
-package com.example.iptvplayer.view
+package com.example.iptvplayer.view.player
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background

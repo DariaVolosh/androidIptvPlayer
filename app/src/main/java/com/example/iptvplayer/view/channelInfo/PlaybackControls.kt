@@ -36,6 +36,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun PlaybackControls(
     channelUrl: String,
+    isChannelsInfoFullyVisible: Boolean,
     onBack: () -> Unit,
     resetSecondsNotInteracted: () -> Unit,
     switchChannel: (Boolean) -> Unit,
@@ -58,9 +59,11 @@ fun PlaybackControls(
 
     val dvrRange by archiveViewModel.dvrRange.collectAsState()
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(isChannelsInfoFullyVisible) {
         Log.i("requested focus", "yea")
-        focusRequester.requestFocus()
+        if (isChannelsInfoFullyVisible) {
+            focusRequester.requestFocus()
+        }
     }
 
     LaunchedEffect(isSeeking) {

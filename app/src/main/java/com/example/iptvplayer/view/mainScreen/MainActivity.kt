@@ -2,6 +2,7 @@ package com.example.iptvplayer.view.mainScreen
 
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -18,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -32,11 +34,13 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.util.UnstableApi
 import com.example.iptvplayer.retrofit.data.ChannelData
 import com.example.iptvplayer.ui.theme.IptvPlayerTheme
+import com.example.iptvplayer.view.DummyViewModel
 import com.example.iptvplayer.view.channelInfo.ChannelInfo
 import com.example.iptvplayer.view.channels.ChannelsViewModel
 import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
@@ -47,6 +51,7 @@ import com.example.iptvplayer.view.programDatePicker.ProgramDatePickerModal
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -58,11 +63,20 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val splashScreen = installSplashScreen()
+        var keepSplashScreen = true
+        splashScreen.setKeepOnScreenCondition { keepSplashScreen }
+
+        lifecycleScope.launch {
+            delay(1000)
+            keepSplashScreen = false
+        }
+
         setContent {
             IptvPlayerTheme {
                 MainScreen(
-                    onExitApp = {finish()})
-
+                    onExitApp = {finish()}
+                )
             }
         }
     }
@@ -111,24 +125,9 @@ fun MainScreen(
 ) {
     val context = LocalContext.current
 
-    // think about this during refactoring
-    LaunchedEffect(Unit) {
-        //dummyViewModel.checkIfTrial()
-    }
-
-
-    /*// idk? lets see
-    LaunchedEffect(channelError) {
-        channelError?.let { error ->
-            if (error.isNotEmpty()) {
-                Toast.makeText(context, channelError, Toast.LENGTH_LONG).show()
-                archiveViewModel.setRewindError("")
-            }
-        }
-    } */
-
     val mainFocusRequester = remember { FocusRequester() }
     var isChannelInfoShown by remember { mutableStateOf(false) }
+    var isChannelInfoFullyVisible by remember { mutableStateOf(false) }
     var isProgramDatePickerShown by remember { mutableStateOf(false) }
     var isBackPressed by remember { mutableStateOf(false) }
 
@@ -136,7 +135,11 @@ fun MainScreen(
 
     val channelsViewModel: ChannelsViewModel = hiltViewModel()
     val mediaViewModel: MediaViewModel = hiltViewModel()
+    val archiveViewModel: ArchiveViewModel = hiltViewModel()
+    val dummyViewModel: DummyViewModel = hiltViewModel()
 
+    val channelError by channelsViewModel.channelError.observeAsState()
+    val isTrial by dummyViewModel.isTrial.observeAsState()
     val currentChannel by channelsViewModel.currentChannel.collectAsState()
 
     val switchChannel: (Boolean) -> Unit = { previous ->
@@ -163,6 +166,30 @@ fun MainScreen(
         if (!isChannelInfoShown && !isProgramDatePickerShown && !isBackPressed) {
             mainFocusRequester.requestFocus()
         }
+    }
+
+    LaunchedEffect(isChannelInfoShown) {
+        if (isChannelInfoShown) {
+            delay(300)
+            isChannelInfoFullyVisible = true
+        } else {
+            isChannelInfoFullyVisible = false
+        }
+    }
+
+    // idk? lets see
+    LaunchedEffect(channelError) {
+        channelError?.let { error ->
+            if (error.isNotEmpty()) {
+                Toast.makeText(context, channelError, Toast.LENGTH_LONG).show()
+                archiveViewModel.setRewindError("")
+            }
+        }
+    }
+
+    // think about this during refactoring
+    LaunchedEffect(Unit) {
+        dummyViewModel.checkIfTrial()
     }
 
 
@@ -200,38 +227,41 @@ fun MainScreen(
                 true
             }
     ) {
-        PlayerView(
-            isBackPressed,
-            { isBackPressed = false },
-            onExitApp
-        )
-        ChannelsAndEpgRow()
+        if (isTrial == true) {
+            PlayerView(
+                isBackPressed,
+                { isBackPressed = false },
+                onExitApp
+            )
+            ChannelsAndEpgRow()
 
-        if (isProgramDatePickerShown) {
-            Log.i("is called program date picker?", "true")
-            isChannelInfoShown = false
+            if (isProgramDatePickerShown) {
+                Log.i("is called program date picker?", "true")
+                isChannelInfoShown = false
 
-            ProgramDatePickerModal(
-                modifier = Modifier
-                    .fillMaxWidth(0.6f)
-                    .align(Alignment.Center),
-                currentChannel = currentChannel,
-                { isProgramDatePickerShown = false}
-            ) { isChannelInfoShown = true }
-        }
+                ProgramDatePickerModal(
+                    modifier = Modifier
+                        .fillMaxWidth(0.6f)
+                        .align(Alignment.Center),
+                    currentChannel = currentChannel,
+                    { isProgramDatePickerShown = false}
+                ) { isChannelInfoShown = true }
+            }
 
-        AnimatedVisibility(
-            visible = isChannelInfoShown,
-            enter = fadeIn(animationSpec = tween(300)),
-            exit = fadeOut(animationSpec = tween(300)),
-            modifier = Modifier.align(Alignment.BottomCenter)
-        ) {
-            ChannelInfo(
-                { showDatePicker -> isProgramDatePickerShown = showDatePicker },
-                switchChannel,
-            ) { showChannelInfo ->
-                isChannelInfoShown = showChannelInfo
-                if (!showChannelInfo) mainFocusRequester.requestFocus()
+            AnimatedVisibility(
+                visible = isChannelInfoShown,
+                enter = fadeIn(animationSpec = tween(300)),
+                exit = fadeOut(animationSpec = tween(300)),
+                modifier = Modifier.align(Alignment.BottomCenter)
+            ) {
+                ChannelInfo(
+                    isChannelInfoFullyVisible,
+                    { showDatePicker -> isProgramDatePickerShown = showDatePicker },
+                    switchChannel,
+                ) { showChannelInfo ->
+                    isChannelInfoShown = showChannelInfo
+                    if (!showChannelInfo) mainFocusRequester.requestFocus()
+                }
             }
         }
     }

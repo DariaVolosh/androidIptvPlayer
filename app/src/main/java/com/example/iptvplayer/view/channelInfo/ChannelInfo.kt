@@ -37,6 +37,7 @@ import kotlinx.coroutines.delay
 
 @Composable
 fun ChannelInfo(
+    isChannelsInfoFullyVisible: Boolean,
     showProgrammeDatePicker: (Boolean) -> Unit,
     switchChannel: (Boolean) -> Unit,
     showChannelInfo: (Boolean) -> Unit
@@ -132,6 +133,7 @@ fun ChannelInfo(
 
                     PlaybackControls(
                         currentChannel.channelUrl,
+                        isChannelsInfoFullyVisible,
                         { showChannelInfo(false) },
                         { secondsNotInteracted = 0 },
                         switchChannel,
