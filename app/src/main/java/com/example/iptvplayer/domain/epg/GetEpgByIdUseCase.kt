@@ -1,4 +1,4 @@
-package com.example.iptvplayer.domain
+package com.example.iptvplayer.domain.epg
 
 import com.example.iptvplayer.data.repositories.EpgRepository
 import javax.inject.Inject

@@ -3,10 +3,8 @@ package com.example.iptvplayer.view.player
 import android.util.Log
 import android.view.SurfaceHolder
 import android.view.SurfaceView
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -14,14 +12,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.view.channels.ChannelsViewModel
 import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
+import com.example.iptvplayer.view.errors.ErrorViewModel
+import com.example.iptvplayer.view.player.playerOverlays.ExitConfirmationData
+import com.example.iptvplayer.view.player.playerOverlays.PlayerOverlay
+import com.example.iptvplayer.view.player.playerOverlays.PlayerOverlayState
+import com.example.iptvplayer.view.player.playerOverlays.StreamRewindData
 
 @Composable
 fun PlayerView(
@@ -32,6 +32,7 @@ fun PlayerView(
     val mediaViewModel: MediaViewModel = hiltViewModel()
     val archiveViewModel: ArchiveViewModel = hiltViewModel()
     val channelsViewModel: ChannelsViewModel = hiltViewModel()
+    val errorViewModel: ErrorViewModel = hiltViewModel()
 
     val isDataSourceSet by mediaViewModel.isDataSourceSet.collectAsState()
     val isPlaybackStarted by mediaViewModel.isPlaybackStarted.collectAsState()
@@ -42,43 +43,63 @@ fun PlayerView(
     val currentChannel by channelsViewModel.currentChannel.collectAsState()
     val currentTime by mediaViewModel.currentTime.collectAsState()
 
+    val currentError by errorViewModel.currentError.collectAsState()
+
     var surfaceHolder by remember { mutableStateOf<SurfaceHolder?>(null) }
+    var playerOverlayState by remember { mutableStateOf(PlayerOverlayState.SHOW_LOADING_PROGRESS_BAR) }
+    var isPlayerOverlayDisplayed by remember { mutableStateOf(true) }
 
     LaunchedEffect(archiveSegmentUrl) {
-        mediaViewModel.startTsCollectingJob(archiveSegmentUrl)
+        if (archiveSegmentUrl.isNotEmpty()) {
+            Log.i("archive segment url", archiveSegmentUrl)
+            val resetEmittedTsSegments = !mediaViewModel.isDataSourceSet.value
+            mediaViewModel.startTsCollectingJob(archiveSegmentUrl, resetEmittedTsSegments)
+        }
     }
+
+    LaunchedEffect(isBackPressed) {
+        isPlayerOverlayDisplayed = isBackPressed
+        if (isBackPressed) playerOverlayState = PlayerOverlayState.SHOW_EXIT_CONFIRMATION
+    }
+
+    LaunchedEffect(isPlaybackStarted, currentError, isSeeking) {
+        Log.i("current error collected", "$currentError")
+        Log.i("is playback started", isPlaybackStarted.toString())
+        Log.i("is seeking", isSeeking.toString())
+
+        if (isPlaybackStarted) {
+            if (!isSeeking) {
+                isPlayerOverlayDisplayed = false
+                errorViewModel.resetError()
+                return@LaunchedEffect
+            }
+        }
+
+        isPlayerOverlayDisplayed = true
+        if (currentError.errorTitle.isEmpty()) {
+            if (isSeeking) {
+                playerOverlayState = PlayerOverlayState.SHOW_STREAM_REWIND_FRAME
+            } else {
+                playerOverlayState = PlayerOverlayState.SHOW_LOADING_PROGRESS_BAR
+            }
+        } else {
+            playerOverlayState = PlayerOverlayState.SHOW_ERROR
+        }
+    }
+
 
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
 
-        if (!isPlaybackStarted) {
-            CircularProgressIndicator(
-                modifier = Modifier
-                    .zIndex(99f)
-                    .align(Alignment.Center)
-            )
-
-            Box(
-                modifier =  Modifier.fillMaxSize()
-                    .background(Color.Black)
-                    .zIndex(98f)
-            )
-        }
-
-        if (isSeeking) {
-            StreamRewindFrame(
-                currentChannel.name,
-                currentTime
-            )
-        }
-
-        if (isBackPressed) {
-            ExitConfirmationDialog(
-                stayInsideApp,
-                exitApp,
-            )
-        }
+       if (isPlayerOverlayDisplayed) {
+           PlayerOverlay(
+               playerOverlayState,
+               ExitConfirmationData(stayInsideApp, exitApp),
+               StreamRewindData(currentChannel.name, currentTime),
+               currentError
+           )
+       }
 
         Log.i("player recomposed", "is data source set ${isDataSourceSet} surface holder ${surfaceHolder}")
 

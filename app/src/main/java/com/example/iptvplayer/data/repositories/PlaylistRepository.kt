@@ -1,6 +1,5 @@
 package com.example.iptvplayer.data.repositories
 
-import android.os.Looper
 import android.util.Log
 import com.example.iptvplayer.data.PlaylistChannel
 import kotlinx.coroutines.delay
@@ -12,12 +11,14 @@ interface PlaylistRepository {
     fun parsePlaylistData(playlistContent: List<String>): List<PlaylistChannel>
     fun extractTsSegments(
         rootUrl: String,
-        isLive: Boolean,
+        resetEmittedTsSegments: Boolean,
         readFile: suspend (String) -> List<String>
     ): Flow<String>
 }
 
 class M3U8PlaylistRepository @Inject constructor(): PlaylistRepository {
+    val emittedSegments = mutableSetOf<String>()
+
     override fun parsePlaylistData(playlistContent: List<String>): List<PlaylistChannel> {
         val channelsData = mutableListOf<PlaylistChannel>()
         var currentChannelData = PlaylistChannel()
@@ -49,13 +50,16 @@ class M3U8PlaylistRepository @Inject constructor(): PlaylistRepository {
 
     override fun extractTsSegments(
         rootUrl: String,
-        isLive: Boolean,
+        resetEmittedTsSegments: Boolean,
         readFile: suspend (String) -> List<String>
     ) = flow {
-        val emittedSegments = mutableSetOf<String>()
+        if (emittedSegments.size != 0) {
+            Log.i("segments", "segments last segment ${emittedSegments.last()}")
+        }
+        Log.i("segments", "reset emitted ts segments: $resetEmittedTsSegments")
+        if (resetEmittedTsSegments) emittedSegments.clear()
 
-        val isOnMainThread = Looper.getMainLooper() == Looper.myLooper()
-        Log.i("is on main thread channels list", "extract ts segments $isOnMainThread")
+        Log.i("segments", "size after reset: ${emittedSegments.size}")
 
         suspend fun recursiveExtractTsSegments(rootUrl: String) {
             val fileContent = readFile(rootUrl)
@@ -68,13 +72,15 @@ class M3U8PlaylistRepository @Inject constructor(): PlaylistRepository {
                     val combinedUrl = baseUrl + line
 
                     recursiveExtractTsSegments(combinedUrl)
-                }
-
-                if (line.indexOf(".ts") != -1) {
-                    if ((baseUrl + line !in emittedSegments)) {
-                        Log.i("emission", "emitted ${baseUrl + line}")
-                        emittedSegments.add(baseUrl + line)
-                        emit(baseUrl + line)
+                } else {
+                    if (line.indexOf(".ts") != -1) {
+                        val noDvrLink = (baseUrl + line).replaceFirst("dvr-", "")
+                        if (noDvrLink !in emittedSegments) {
+                            emittedSegments.add(noDvrLink)
+                            Log.i("segments", "emitted segment ${baseUrl + line}")
+                            Log.i("segments", "segments quantity ${emittedSegments.size}")
+                            emit(baseUrl + line)
+                        }
                     }
                 }
             }
@@ -82,7 +88,7 @@ class M3U8PlaylistRepository @Inject constructor(): PlaylistRepository {
 
         recursiveExtractTsSegments(rootUrl)
 
-        while (isLive) {
+        while (true) {
             recursiveExtractTsSegments(rootUrl)
             delay(4000)
         }

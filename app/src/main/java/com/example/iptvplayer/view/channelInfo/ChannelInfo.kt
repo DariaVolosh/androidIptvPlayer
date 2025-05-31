@@ -28,6 +28,8 @@ import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.iptvplayer.data.Utils.formatDate
+import com.example.iptvplayer.view.channelInfo.playbackControls.PlaybackControls
+import com.example.iptvplayer.view.channelInfo.progressBar.TimeSeekbarWithTimeMarkers
 import com.example.iptvplayer.view.channels.ChannelsViewModel
 import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
 import com.example.iptvplayer.view.epg.EpgViewModel
@@ -54,7 +56,7 @@ fun ChannelInfo(
 
     val currentTime by mediaViewModel.currentTime.collectAsState()
     val isLiveProgram by mediaViewModel.isLive.collectAsState()
-    val dvrRange by archiveViewModel.dvrRange.collectAsState()
+    val dvrRange by archiveViewModel.currentChannelDvrRange.collectAsState()
 
     val currentEpgIndex by epgViewModel.currentEpgIndex.collectAsState()
     val currentEpg by epgViewModel.currentEpg.collectAsState()

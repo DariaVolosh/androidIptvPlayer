@@ -5,12 +5,12 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.iptvplayer.domain.GetChannelsDataUseCase
-import com.example.iptvplayer.domain.GetPlaylistDataUseCase
-import com.example.iptvplayer.domain.GetStreamsUrlTemplatesUseCase
-import com.example.iptvplayer.domain.ReadFileUseCase
-import com.example.iptvplayer.domain.SharedPreferencesUseCase
+import com.example.iptvplayer.R
+import com.example.iptvplayer.domain.channels.GetChannelsDataUseCase
+import com.example.iptvplayer.domain.sharedPrefs.SharedPreferencesUseCase
 import com.example.iptvplayer.retrofit.data.ChannelData
+import com.example.iptvplayer.view.errors.ErrorData
+import com.example.iptvplayer.view.errors.ErrorManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,11 +21,9 @@ const val CURRENT_CHANNEL_INDEX_KEY = "current_channel_index_key"
 
 @HiltViewModel
 class ChannelsViewModel @Inject constructor(
-    private val readFileUseCase: ReadFileUseCase,
-    private val getPlaylistDataUseCase: GetPlaylistDataUseCase,
     private val getChannelsDataUseCase: GetChannelsDataUseCase,
-    private val getStreamsUrlTemplatesUseCase: GetStreamsUrlTemplatesUseCase,
-    private val sharedPreferencesUseCase: SharedPreferencesUseCase
+    private val sharedPreferencesUseCase: SharedPreferencesUseCase,
+    private val errorManager: ErrorManager
 ): ViewModel() {
     private val _channelsData: MutableStateFlow<List<ChannelData>> = MutableStateFlow(emptyList())
     val channelsData: StateFlow<List<ChannelData>> = _channelsData
@@ -95,7 +93,12 @@ class ChannelsViewModel @Inject constructor(
     fun fetchChannelsData(token: String) {
         viewModelScope.launch {
             val startTime = System.currentTimeMillis()
-            val data = getChannelsDataUseCase.getChannelsData(token)
+            val data = getChannelsDataUseCase.getChannelsData(token) {
+                title, description ->
+                    errorManager.publishError(
+                        ErrorData(title, description, R.drawable.error_icon)
+                    )
+            }
             Log.i("channels repository", "parsed data ${data.toString()}")
 
             _channelsData.value = data

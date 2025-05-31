@@ -1,4 +1,4 @@
-package com.example.iptvplayer.view.player
+package com.example.iptvplayer.view.player.playerOverlays
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -53,9 +53,10 @@ fun ExitConfirmationDialog(
     }
 
     Box(
-        modifier =  Modifier.fillMaxSize()
-            .background(Color.Black.copy(0.8f))
-            .zIndex(98f)
+        modifier =  Modifier
+            .background(color = Color.Black.copy(0.8f))
+            .fillMaxSize()
+            .zIndex(99f)
     ) {
         Column(
             modifier = Modifier.align(Alignment.Center),

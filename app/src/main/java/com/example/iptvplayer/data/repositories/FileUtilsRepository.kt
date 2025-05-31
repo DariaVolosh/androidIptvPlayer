@@ -1,39 +1,65 @@
 package com.example.iptvplayer.data.repositories
 
+import android.content.Context
 import android.util.Log
+import com.example.iptvplayer.R
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
+import java.io.FileNotFoundException
 import java.io.InputStream
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.zip.GZIPInputStream
 import javax.inject.Inject
 import javax.net.ssl.HttpsURLConnection
 
 class FileUtilsRepository @Inject constructor (
-
+    @ApplicationContext val context: Context
 ) {
-
-    suspend fun getFileInputStream(fileUrl: String): InputStream? =
+    private suspend fun getFileInputStream(
+        fileUrl: String,
+        onErrorCallback: (String, String) -> Unit
+    ): InputStream? =
         withContext(Dispatchers.IO) {
-            Log.i("file url read", fileUrl.toString())
+            Log.i("file url read", fileUrl)
             try {
                 val url = URL(fileUrl)
                 val connection = url.openConnection() as HttpsURLConnection
                 connection.connect()
                 connection.inputStream
+            } catch (e: FileNotFoundException) {
+                if (isFileDvrStream(fileUrl)) {
+                    onErrorCallback(
+                        context.getString(R.string.no_archive),
+                        context.getString(R.string.no_archive_descr)
+                    )
+                } else {
+                    onErrorCallback(
+                        context.getString(R.string.no_live),
+                        context.getString(R.string.no_live_descr)
+                    )
+                }
+
+                null
             } catch (e: Exception) {
-                Log.i("get file input stream", e.toString() + "$fileUrl")
+                onErrorCallback(
+                    context.getString(R.string.playback_failed),
+                    context.getString(R.string.unknown_error)
+                )
+
                 null
             }
         }
 
-    suspend fun readFile(fileUrl: String): List<String> =
+    suspend fun readFile(
+        fileUrl: String,
+        onErrorCallback: (String, String) -> Unit
+    ): List<String> =
         withContext(Dispatchers.IO) {
-            val inputStream = getFileInputStream(fileUrl)
+            val inputStream = getFileInputStream(fileUrl, onErrorCallback)
             val content = mutableListOf<String>()
 
             inputStream?.let { stream ->
@@ -54,7 +80,7 @@ class FileUtilsRepository @Inject constructor (
 
     suspend fun isLinkAccessible(url: String): Boolean =
         withContext(Dispatchers.IO) {
-            Log.i("accessible called", "$url")
+            Log.i("accessible called", url)
             val isAccessible = CompletableDeferred<Boolean>()
             try {
                 val connection = URL(url).openConnection() as HttpURLConnection
@@ -68,7 +94,6 @@ class FileUtilsRepository @Inject constructor (
             isAccessible.await()
         }
 
-    fun unzipGzip(inputStream: InputStream): GZIPInputStream {
-        return GZIPInputStream(inputStream)
-    }
+    fun isFileDvrStream(url: String): Boolean =
+        url.contains("dvr")
 }

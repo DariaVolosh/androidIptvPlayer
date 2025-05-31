@@ -6,9 +6,10 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.iptvplayer.data.Utils
-import com.example.iptvplayer.domain.GetDvrRangeUseCase
-import com.example.iptvplayer.domain.SharedPreferencesUseCase
+import com.example.iptvplayer.domain.archive.GetDvrRangeUseCase
+import com.example.iptvplayer.domain.sharedPrefs.SharedPreferencesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -32,8 +33,11 @@ class ArchiveViewModel @Inject constructor(
     private val _archiveSegmentUrl: MutableStateFlow<String> = MutableStateFlow("")
     val archiveSegmentUrl: StateFlow<String> = _archiveSegmentUrl
 
-    private val _dvrRange: MutableStateFlow<Pair<Long, Long>> = MutableStateFlow(Pair(0,0))
-    val dvrRange: StateFlow<Pair<Long, Long>> = _dvrRange
+    private val _currentChannelDvrRange: MutableStateFlow<Pair<Long, Long>> = MutableStateFlow(Pair(0,0))
+    val currentChannelDvrRange: StateFlow<Pair<Long, Long>> = _currentChannelDvrRange
+
+    private val _focusedChannelDvrRange: MutableStateFlow<Pair<Long, Long>> = MutableStateFlow(Pair(0,0))
+    val focusedChannelDvrRange: StateFlow<Pair<Long, Long>> = _focusedChannelDvrRange
 
     // for example 3 march -> 3
     private val _dvrFirstAndLastDay: MutableLiveData<Pair<Int, Int>> = MutableLiveData()
@@ -45,7 +49,8 @@ class ArchiveViewModel @Inject constructor(
     private val _rewindError: MutableLiveData<String> = MutableLiveData()
     val rewindError: LiveData<String> = _rewindError
 
-    var dvrCollectionJob: Job? = null
+    var focusedChannelDvrCollectionJob: Job? = null
+    var currentChannelDvrCollectionJob: Job? = null
 
     fun setRewindError(error: String) {
         _rewindError.value = error
@@ -71,16 +76,20 @@ class ArchiveViewModel @Inject constructor(
         _dvrFirstAndLastMonth.value = Pair(dvrFirstMonth, dvrLastMonth)
     }
 
-    suspend fun getDvrRange(streamName: String) {
+    suspend fun getDvrRange(isCurrentChannel: Boolean, streamName: String) {
         val dvrRange = getDvrRangeUseCase.getDvrRange(streamName)
+
         withContext(Dispatchers.Main) {
-            _dvrRange.value = dvrRange
+            if (isCurrentChannel) {
+                _currentChannelDvrRange.value = dvrRange
+                val dvrRangeStartCalendar = Utils.getCalendar(dvrRange.first)
+                val dvrRangeEndCalendar = Utils.getCalendar(dvrRange.second)
 
-            val dvrRangeStartCalendar = Utils.getCalendar(dvrRange.first)
-            val dvrRangeEndCalendar = Utils.getCalendar(dvrRange.second)
-
-            getDvrFirstAndLastDays(dvrRangeStartCalendar, dvrRangeEndCalendar)
-            getDvrFirstAndLastMonths(dvrRangeStartCalendar, dvrRangeEndCalendar)
+                getDvrFirstAndLastDays(dvrRangeStartCalendar, dvrRangeEndCalendar)
+                getDvrFirstAndLastMonths(dvrRangeStartCalendar, dvrRangeEndCalendar)
+            } else {
+                _focusedChannelDvrRange.value = dvrRange
+            }
         }
     }
 
@@ -88,7 +97,7 @@ class ArchiveViewModel @Inject constructor(
         if (url == "") return
         Log.i("get archive url method", "called")
         val datePattern = "EEEE d MMMM HH:mm:ss"
-        Log.i("REALLY", currentTime.toString())
+        Log.i("REALLY", Utils.formatDate(currentTime, datePattern))
         Log.i("base url given", url.toString())
         val baseUrl = url.substring(0, url.lastIndexOf("/") + 1)
         val token = url.substring(url.lastIndexOf("=") + 1, url.length)
@@ -107,7 +116,7 @@ class ArchiveViewModel @Inject constructor(
 
     suspend fun isStreamWithinDvrRange(newTime: Long): Boolean =
         withContext(Dispatchers.IO) {
-            val dvrRange = dvrRange
+            val dvrRange = currentChannelDvrRange
                 .filter { it.first != 0L }
                 .first()
             Log.i("dvr range collected", dvrRange.toString())
@@ -123,16 +132,21 @@ class ArchiveViewModel @Inject constructor(
             isWithinDvrRange
         }
 
-    fun startDvrCollectionJob(streamName: String) {
-        dvrCollectionJob?.cancel()
-
-        dvrCollectionJob = viewModelScope.launch {
+    fun startDvrCollectionJob(isCurrentChannel: Boolean, streamName: String) {
+        val jobBody: suspend CoroutineScope.() -> Unit = {
             withContext(Dispatchers.IO) {
                 while (true) {
-                    getDvrRange(streamName)
+                    getDvrRange(isCurrentChannel, streamName)
                     delay(5000)
                 }
             }
+        }
+        if (isCurrentChannel) {
+            currentChannelDvrCollectionJob?.cancel()
+            currentChannelDvrCollectionJob = viewModelScope.launch(block = jobBody)
+        } else {
+            focusedChannelDvrCollectionJob?.cancel()
+            focusedChannelDvrCollectionJob = viewModelScope.launch(block = jobBody)
         }
     }
 }

@@ -1,12 +1,15 @@
 package com.example.iptvplayer.data.repositories
 
+import android.content.Context
 import android.os.Looper
 import android.util.Log
+import com.example.iptvplayer.R
 import com.example.iptvplayer.data.BACKEND_BASE_URL
 import com.example.iptvplayer.retrofit.data.ChannelData
 import com.example.iptvplayer.retrofit.data.StreamUrlTemplate
 import com.example.iptvplayer.retrofit.data.StreamUrlTemplatesResponse
 import com.example.iptvplayer.retrofit.services.ChannelsAndEpgService
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -18,11 +21,13 @@ import retrofit2.Response
 import javax.inject.Inject
 
 class ChannelsRepository @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val channelsAndEpgService: ChannelsAndEpgService
 ) {
     suspend fun parseChannelsData(
         token: String,
-        streamUrlTemplate: String
+        streamUrlTemplate: String,
+        channelsErrorCallback: (String, String) -> Unit
     ): List<ChannelData> =
         withContext(Dispatchers.IO) {
             val startTime = System.currentTimeMillis()
@@ -33,7 +38,7 @@ class ChannelsRepository @Inject constructor(
             val response = channelsAndEpgService.getChannelsInfo(token)
             Log.i("channels response", response.toString())
 
-            response.data.let { data ->
+            response.data?.let { data ->
                 for (channelData in data) {
                     Log.i("is on main thread channels list", "parse channels data response $isOnMainThread")
                     val channel = channelData.channel[0]
@@ -46,6 +51,13 @@ class ChannelsRepository @Inject constructor(
                     channelsData.add(channel)
                     Log.i("channels repository", "parse channels data $channel")
                 }
+            }
+
+            if (channelsData.isEmpty()) {
+                channelsErrorCallback(
+                    context.getString(R.string.no_channels),
+                    context.getString(R.string.no_channels_descr)
+                )
             }
 
             val stopTime = System.currentTimeMillis()

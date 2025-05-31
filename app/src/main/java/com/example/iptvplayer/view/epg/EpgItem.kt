@@ -1,5 +1,6 @@
 package com.example.iptvplayer.view.epg
 
+import android.util.Log
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -34,13 +36,19 @@ fun EpgItem(
     onGloballyPositioned: (Int) -> Unit
 ) {
     var yOffset by remember { mutableIntStateOf(0) }
+    LaunchedEffect(yOffset) {
+        Log.i("y offset epg", "$yOffset $videoTimeRange $title")
+    }
+
+    Log.i("epg item data", "$videoTimeRange $title $isListStart $isListEnd")
 
     Row(
         modifier = Modifier
-            .fillMaxWidth()
+            .fillMaxWidth(0.97f)
             .onGloballyPositioned { cords ->
                 if (isFocused) {
                     val height = cords.size.height
+                    Log.i("epg item height", height.toString())
                     onGloballyPositioned(height)
                 }
 
@@ -50,12 +58,12 @@ fun EpgItem(
             .border(
                 1.dp,
                 if (
-                    isFocused && isEpgListFocused && (
-                            (yOffset < epgListBorderMiddle && isListStart) || yOffset > epgListBorderMiddle && isListEnd)
+                    isFocused && isEpgListFocused && ((isListStart || isListEnd))
                     ) MaterialTheme.colorScheme.onSecondary
                 else Color.Transparent
             )
-            .padding(3.dp)
+            .padding(vertical = 5.dp)
+            .padding(horizontal = 10.dp)
     ) {
         Text(
             modifier = Modifier.alpha(if (isDvrAvailable) 1f else 0.45f),

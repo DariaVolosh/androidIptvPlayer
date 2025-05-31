@@ -22,4 +22,34 @@
     <string name="app_exit_confirmation">Are you sure you want to exit?</string>
     <string name="app_stay_label">Stay</string>
     <string name="app_exit_label">Exit</string>
+
+    <string name="error_icon">Error icon</string>
+    <string name="playback_failed">Failed to start playback</string>
+    <string name="unknown_error">Unknown error</string>
+
+    <string name="no_epg">Failed to fetch epg</string>
+    <string name="no_epg_descr">Could not get epg for this channel</string>
+
+    <string name="no_live">Failed to start live playback</string>
+    <string name="no_live_descr">Live server is not accessible</string>
+    
+    <string name="no_archive">Failed to start archive playback</string>
+    <string name="no_archive_descr">Archive server is not accessible</string>
+
+    <string name="no_channels">Failed to fetch channels</string>
+    <string name="no_channels_descr">Could not get list of channels</string>
+
+    <string name="auth_failed">Authentication failed</string>
+    <string name="auth_failed_descr">Authentication failed due to incorrect credentials or server inaccessibility</string>
+
+    <string name="preview_not_available">Preview is not available</string>
+    <string name="preview_not_available_descr">Could not fetch current stream frame</string>
+
+    <string name="archive_is_not_available">Archive is not available</string>
+    <string name="no_previous_program">Previous program is not available</string>
+    <string name="cannot_rewind_back">Cannot rewind back</string>
+    <string name="cannot_rewind_forward">"Cannot rewind forward"</string>
+    <string name="no_next_program">Next program is not available</string>
+    <string name="already_in_live">Already in live</string>
+    <string name="date_is_not_available">Chosen date is not available</string>
 </resources>

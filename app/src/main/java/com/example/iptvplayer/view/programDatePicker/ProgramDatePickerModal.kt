@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.iptvplayer.R
 import com.example.iptvplayer.data.Utils
 import com.example.iptvplayer.retrofit.data.ChannelData
 import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
@@ -47,7 +48,7 @@ fun ProgramDatePickerModal(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    val dvrRange by archiveViewModel.dvrRange.collectAsState()
+    val dvrRange by archiveViewModel.currentChannelDvrRange.collectAsState()
     val dvrFirstAndLastDays by archiveViewModel.dvrFirstAndLastDay.observeAsState()
     val dvrFirstAndLastMonths by archiveViewModel.dvrFirstAndLastMonth.observeAsState()
 
@@ -69,13 +70,13 @@ fun ProgramDatePickerModal(
                 mediaViewModel.setCurrentTime(newTotalDate)
                 mediaViewModel.updateIsLive(false)
                 epgViewModel.searchEpgByTime(newTotalDate)
-                mediaViewModel.reset()
+                mediaViewModel.resetPlayer()
                 archiveViewModel.getArchiveUrl(currentChannel.channelUrl, newTotalDate)
                 hideProgramDatePicker()
                 showChannelInfo()
             }
         } else {
-            Toast.makeText(context, "Chosen date archive is not available", Toast.LENGTH_LONG)
+            Toast.makeText(context, context.getString(R.string.date_is_not_available), Toast.LENGTH_LONG)
                 .show()
         }
     }

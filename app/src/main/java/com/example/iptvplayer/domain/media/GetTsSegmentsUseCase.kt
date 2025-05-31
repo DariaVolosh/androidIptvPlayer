@@ -1,4 +1,4 @@
-package com.example.iptvplayer.domain
+package com.example.iptvplayer.domain.media
 
 import com.example.iptvplayer.data.repositories.FileUtilsRepository
 import com.example.iptvplayer.data.repositories.M3U8PlaylistRepository
@@ -8,9 +8,15 @@ class GetTsSegmentsUseCase @Inject constructor(
     private val playlistRepository: M3U8PlaylistRepository,
     private val fileUtilsRepository: FileUtilsRepository
 ) {
-   fun extractTsSegments(url: String, isLive: Boolean) =
+   fun extractTsSegments(
+       url: String,
+       resetEmittedTsSegments: Boolean,
+       onErrorCallback: (String, String) -> Unit
+   ) =
         playlistRepository.extractTsSegments(
             url,
-            isLive
-        ) {url -> fileUtilsRepository.readFile(url)}
+            resetEmittedTsSegments
+        ) {u ->
+            fileUtilsRepository.readFile(u, onErrorCallback)
+        }
 }

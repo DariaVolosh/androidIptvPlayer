@@ -1,15 +1,13 @@
 package com.example.iptvplayer.view.epg
 
 import android.util.Log
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.iptvplayer.data.Utils
-import com.example.iptvplayer.domain.AccessEpgCacheUseCase
-import com.example.iptvplayer.domain.GetEpgByIdUseCase
-import com.example.iptvplayer.domain.SharedPreferencesUseCase
-import com.example.iptvplayer.retrofit.data.Epg
+import com.example.iptvplayer.domain.epg.AccessEpgCacheUseCase
+import com.example.iptvplayer.domain.epg.GetEpgByIdUseCase
+import com.example.iptvplayer.domain.sharedPrefs.SharedPreferencesUseCase
+import com.example.iptvplayer.retrofit.data.EpgListItem
 import com.example.iptvplayer.retrofit.data.EpgTimeRangeInSeconds
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -28,49 +26,57 @@ class EpgViewModel @Inject constructor(
     private val sharedPreferencesUseCase: SharedPreferencesUseCase,
     private val accessEpgCacheUseCase: AccessEpgCacheUseCase
 ): ViewModel() {
-    // specific epg list of the channel that the user is focused on
-    private val _epgList: MutableStateFlow<List<Epg>> = MutableStateFlow(emptyList())
-    val epgList: StateFlow<List<Epg>> = _epgList
 
-    // mapping from specific epg index (when the new day begins) to the day-month string
-    // to track where to insert day-month row in a lazy column
-    private val _dateMap: MutableStateFlow<MutableMap<Int, String>> = MutableStateFlow(mutableMapOf())
-    val dateMap: StateFlow<Map<Int, String>> = _dateMap
+    // FOCUSED CHANNEL EPG INFO (used for displaying focused channel epg list)
+    private val _dayToEpgList: MutableStateFlow<MutableMap<EpgListItem.Header, List<EpgListItem.Epg>>> =
+        MutableStateFlow(mutableMapOf())
+    val dayToEpgList: StateFlow<Map<EpgListItem.Header, List<EpgListItem.Epg>>> = _dayToEpgList
 
-    // focused epg index, that changes when the user scrolls epg list
+    private val _focusedChannelEpgItems: MutableStateFlow<List<EpgListItem>> =
+        MutableStateFlow(listOf())
+    val focusedChannelEpgItems: StateFlow<List<EpgListItem>> = _focusedChannelEpgItems
+
     private val _focusedEpgIndex: MutableStateFlow<Int> = MutableStateFlow(-1)
     val focusedEpgIndex: StateFlow<Int> = _focusedEpgIndex
 
-    // currently chosen epg, the program, that should be played
-    private val _currentEpg: MutableStateFlow<Epg> = MutableStateFlow(Epg())
-    val currentEpg: StateFlow<Epg> = _currentEpg
+    private var _focusedEpgLiveProgram: MutableStateFlow<Int> = MutableStateFlow(-1)
+    val focusedEpgLiveProgram: StateFlow<Int> = _focusedEpgLiveProgram
+
+    // CURRENT CHANNEL EPG INFO (for the channel that is currently playing)
+    private val _currentEpg: MutableStateFlow<EpgListItem.Epg> = MutableStateFlow(EpgListItem.Epg())
+    val currentEpg: StateFlow<EpgListItem.Epg> = _currentEpg
 
     private val _currentEpgIndex: MutableStateFlow<Int> = MutableStateFlow(-1)
     val currentEpgIndex: StateFlow<Int> = _currentEpgIndex
 
+    private val _currentChannelEpgItems: MutableStateFlow<List<EpgListItem.Epg>> =
+        MutableStateFlow(listOf())
+    val currentChannelEpgItems: StateFlow<List<EpgListItem.Epg>> = _currentChannelEpgItems
+
+    private var _currentEpgLiveProgram: MutableStateFlow<Int> = MutableStateFlow(-1)
+    val currentEpgLiveProgram: StateFlow<Int> = _currentEpgLiveProgram
+
     // defining live programme as a live data because in main composable inside launched effect
     // the new value will not be captured if it is not specified as a key in launched effect
-    private var _liveProgrammeIndex: MutableStateFlow<Int> = MutableStateFlow(-1)
-    val liveProgrammeIndex: StateFlow<Int> = _liveProgrammeIndex
+
 
     private var _isEpgListFocused: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val isEpgListFocused: StateFlow<Boolean> = _isEpgListFocused
-
-    private var _isCurrentEpgLoaded: MutableLiveData<Boolean> = MutableLiveData(false)
-    var isCurrentEpgLoaded: LiveData<Boolean> = _isCurrentEpgLoaded
 
     val datePattern = "yyyyMMddHHmmss"
     val timezone = TimeZone.getTimeZone("GMT+04:00")
 
     private var isCachedEpgDisplayed = false
 
-    private val _allChannelsEpg: MutableStateFlow<MutableList<List<Epg>?>> =
+    private val _allChannelsEpg: MutableStateFlow<MutableList<List<EpgListItem.Epg>?>> =
         MutableStateFlow(mutableListOf())
 
-    var allChannelsEpg: StateFlow<MutableList<List<Epg>?>> = _allChannelsEpg
+    var allChannelsEpg: StateFlow<MutableList<List<EpgListItem.Epg>?>> = _allChannelsEpg
 
     var epgFetchJob: Job? = null
-    var currentEpgUpdateJob: Job? = null
+
+    var currentEpgListUpdateJob: Job? = null
+    var focusedEpgListUpdateJob: Job? = null
 
     init {
         val cachedEpgIndex = sharedPreferencesUseCase.getIntValue(CURRENT_EPG_INDEX_KEY)
@@ -84,16 +90,16 @@ class EpgViewModel @Inject constructor(
     }
 
     fun updateCurrentEpg() {
-        val epg = _epgList.value?.getOrNull(currentEpgIndex.value)
+        val epg = _focusedChannelEpgItems.value.getOrNull(currentEpgIndex.value)
         Log.i("current epgIndex", "${_currentEpgIndex.value}")
         epg?.let { e ->
-            _currentEpg.value = e
+            _currentEpg.value = e as EpgListItem.Epg
         }
     }
 
     fun updateEpgIndex(index: Int, isCurrent: Boolean) {
-        Log.i("update epg index list size", epgList.value.size.toString())
-        if (index in epgList.value.indices) {
+        Log.i("update epg index list size", _focusedChannelEpgItems.value.size.toString())
+        if (index in _focusedChannelEpgItems.value.indices) {
             if (isCurrent) {
                 Log.i("set current epg index", "$index")
                 _currentEpgIndex.value = index
@@ -106,12 +112,33 @@ class EpgViewModel @Inject constructor(
         }
     }
 
-    fun resetCurrentEpg() {
-        _currentEpg.value = Epg()
+    fun updateLiveEpgIndex(index: Int, isCurrent: Boolean) {
+        if (isCurrent) {
+            _currentEpgLiveProgram.value = index
+        } else {
+            _focusedEpgLiveProgram.value = index
+        }
     }
 
-    fun resetCurrentEpgList() {
-        _epgList.value = emptyList()
+    fun resetCurrentEpg() {
+        _currentEpg.value = EpgListItem.Epg()
+    }
+
+    fun resetEpgList(isCurrent: Boolean) {
+        if (isCurrent) {
+            _currentChannelEpgItems.value = emptyList()
+        } else {
+            _focusedChannelEpgItems.value = emptyList()
+            _dayToEpgList.value = mutableMapOf()
+        }
+    }
+
+    fun resetLiveEpgIndex(isCurrent: Boolean) {
+        if (isCurrent) {
+            _currentEpgLiveProgram.value = -1
+        } else {
+            _focusedEpgLiveProgram.value = -1
+        }
     }
 
     fun resetEpgIndex(isCurrent: Boolean) {
@@ -124,8 +151,29 @@ class EpgViewModel @Inject constructor(
         }
     }
 
-    fun getEpgByIndex(index: Int): Epg? {
-        return epgList.value?.getOrNull(index)
+
+    fun findFirstEpgIndexBackward(startIndex: Int): Int {
+        if (startIndex < 0 || startIndex >= _focusedChannelEpgItems.value.size) return -1
+
+        for (i in startIndex downTo 0) {
+            if (_focusedChannelEpgItems.value[i] is EpgListItem.Epg) return i
+        }
+
+        return -1
+    }
+
+    fun findFirstEpgIndexForward(startIndex: Int): Int {
+        if (startIndex < 0 || startIndex >= _focusedChannelEpgItems.value.size) return -1
+
+        for (i in startIndex..<_focusedChannelEpgItems.value.size) {
+            if (_focusedChannelEpgItems.value[i] is EpgListItem.Epg) return i
+        }
+
+        return -1
+    }
+
+    fun getEpgItemByIndex(index: Int): EpgListItem? {
+        return _focusedChannelEpgItems.value.getOrNull(index)
     }
 
     fun setIsEpgListFocused(isFocused: Boolean) {
@@ -150,29 +198,33 @@ class EpgViewModel @Inject constructor(
     }
 
     fun updateCurrentEpgList(
-        currentEpgList: List<Epg>,
+        currentEpgList: List<EpgListItem.Epg>,
         liveTime: Long,
         currentTime: Long
     ) {
-        currentEpgUpdateJob = viewModelScope.launch(Dispatchers.IO) {
+        currentEpgListUpdateJob = viewModelScope.launch(Dispatchers.IO) {
+            resetLiveEpgIndex(true)
             resetEpgIndex(true)
-            resetEpgIndex(false)
-            resetCurrentEpgList()
+            resetEpgList(true)
+            resetCurrentEpg()
 
             val datePattern = "EEEE d MMMM HH:mm:ss"
 
             Log.i("live time in update current epg", Utils.formatDate(liveTime, datePattern))
             Log.i("current time in update current epg", Utils.formatDate(currentTime, datePattern))
 
-            val dayAndMonthPattern = "dd MMMM"
-            var prevDay = -1
-            val newDateMap = mutableMapOf<Int, String>()
+            val newEpgItemsList = mutableListOf<EpgListItem>()
+            val newEpgList = mutableListOf<EpgListItem.Epg>()
+
+            Log.i("items size", "initial size " + currentEpgList.size.toString())
 
             for (i in currentEpgList.indices) {
                 val epg = currentEpgList[i]
                 val epgTimeRangeInSeconds = getEpgTimeRangeInSeconds(epg.start, epg.stop)
                 epg.epgVideoTimeRangeSeconds = epgTimeRangeInSeconds
                 epg.epgVideoName = epg.epgVideoName.trim()
+
+                Log.i("current epg day","${epg.epgVideoTimeRangeSeconds.start}")
 
                 val isProgramCurrent = isTimeWithinProgramRange(epgTimeRangeInSeconds, currentTime)
                 val isProgramLive = isTimeWithinProgramRange(epgTimeRangeInSeconds, liveTime)
@@ -185,43 +237,104 @@ class EpgViewModel @Inject constructor(
                     Log.i("is program live", "$i $isProgramLive $epg ${Utils.formatDate(epgTimeRangeInSeconds.start, datePattern)}")
                 }
 
+                if (isProgramCurrent) updateEpgIndex(i, true)
+                if (isProgramLive)
+
+                newEpgList.add(epg)
+            }
+
+            Log.i("items size", newEpgItemsList.size.toString())
+            Log.i("focused epg", _focusedEpgIndex.value.toString())
+
+            _currentChannelEpgItems.value = newEpgList
+
+            Log.i("epg view model", "update epg list, focused: ${_currentEpgIndex.value}, live: ${_currentEpgLiveProgram.value}")
+        }
+    }
+
+    fun updateFocusedEpgList(
+        focusedEpgList: List<EpgListItem.Epg>,
+        liveTime: Long,
+        currentTime: Long
+    ) {
+        focusedEpgListUpdateJob = viewModelScope.launch(Dispatchers.IO) {
+            resetLiveEpgIndex(false)
+            resetEpgIndex(false)
+            resetEpgList(false)
+
+            val datePattern = "EEEE d MMMM HH:mm:ss"
+
+            Log.i("live time in update current epg", Utils.formatDate(liveTime, datePattern))
+            Log.i("current time in update current epg", Utils.formatDate(currentTime, datePattern))
+
+            val dayAndMonthPattern = "dd MMMM"
+            var prevDay = -1
+            var headersSeen = 0
+            val newEpgItemsList = mutableListOf<EpgListItem>()
+            var newEpgList = mutableListOf<EpgListItem.Epg>()
+            val newDayToEpgList = mutableMapOf<EpgListItem.Header, List<EpgListItem.Epg>>()
+
+            Log.i("items size", "initial size " + focusedEpgList.size.toString())
+
+            for (i in focusedEpgList.indices) {
+                val epg = focusedEpgList[i]
+                val epgTimeRangeInSeconds = getEpgTimeRangeInSeconds(epg.start, epg.stop)
+                epg.epgVideoTimeRangeSeconds = epgTimeRangeInSeconds
+                epg.epgVideoName = epg.epgVideoName.trim()
+
+                val currentDay = Utils.getCalendarDay(Utils.getCalendar(epg.epgVideoTimeRangeSeconds.start))
+                Log.i("current epg day","${epg.epgVideoTimeRangeSeconds.start}")
+
+                if (i == 0 || currentDay > prevDay) {
+                    headersSeen++
+                    newEpgList = mutableListOf()
+                    val formattedDate = Utils.formatDate(epg.epgVideoTimeRangeSeconds.start, dayAndMonthPattern)
+                    prevDay = currentDay
+                    val header = EpgListItem.Header(formattedDate)
+                    newDayToEpgList[header] = newEpgList
+                    newEpgItemsList.add(header)
+                }
+
+                val isProgramCurrent = isTimeWithinProgramRange(epgTimeRangeInSeconds, currentTime)
+                val isProgramLive = isTimeWithinProgramRange(epgTimeRangeInSeconds, liveTime)
+
                 if (isProgramCurrent) {
-                    _focusedEpgIndex.value = i
-                    _currentEpgIndex.value = i
+                    Log.i("is program current", "$i $isProgramCurrent $epg ${Utils.formatDate(epgTimeRangeInSeconds.start, datePattern)}")
                 }
 
                 if (isProgramLive) {
-                    _liveProgrammeIndex.value = i
+                    Log.i("is program live", "$i $isProgramLive $epg ${Utils.formatDate(epgTimeRangeInSeconds.start, datePattern)}")
                 }
 
-                val currentDay = Utils.getCalendarDay(Utils.getCalendar(epg.epgVideoTimeRangeSeconds.start))
+                if (isProgramCurrent)  _focusedEpgIndex.value = i + headersSeen
+                if (isProgramLive) _focusedEpgLiveProgram.value = i + headersSeen
 
-                if (i == 0 || currentDay > prevDay) {
-                    prevDay = currentDay
-                    newDateMap[i] = Utils.formatDate(epg.epgVideoTimeRangeSeconds.start, dayAndMonthPattern)
-                }
+                newEpgList.add(epg)
+                newEpgItemsList.add(epg)
             }
 
-            _epgList.value = currentEpgList
+            Log.i("items size", newEpgItemsList.size.toString())
+            Log.i("focused epg", _focusedEpgIndex.value.toString())
+
+            _dayToEpgList.value = newDayToEpgList
+            _focusedChannelEpgItems.value = newEpgItemsList
 
             if (isCachedEpgDisplayed) {
                 isCachedEpgDisplayed = false
             } else {
                 if (_focusedEpgIndex.value == -1) {
-                    Log.i("is first", "${Utils.formatDate(currentEpgList[0].epgVideoTimeRangeSeconds.start, datePattern)}")
+                    Log.i("is first", "${Utils.formatDate(focusedEpgList[0].epgVideoTimeRangeSeconds.start, datePattern)}")
                     Log.i("is first", "${Utils.formatDate(currentTime, datePattern)}")
-                    if (currentEpgList[0].epgVideoTimeRangeSeconds.start > currentTime) {
+                    if (focusedEpgList[0].epgVideoTimeRangeSeconds.start > currentTime) {
                         updateEpgIndex(0, false)
                     } else {
-                        updateEpgIndex(currentEpgList.size-1, false)
+                        updateEpgIndex(newEpgItemsList.size - 1, false)
                     }
                 }
             }
 
-            Log.i("epg view model", "update epg list, focused: ${_focusedEpgIndex.value}, live: ${_liveProgrammeIndex.value}")
-
-            _dateMap.value = newDateMap
-            Log.i("epg view model update current epg list", "date map ${_dateMap.value.entries}")
+            Log.i("epg view model", "update epg list, focused: ${_focusedEpgIndex.value}, live: ${_focusedEpgLiveProgram.value}")
+            Log.i("day to epg", newDayToEpgList.keys.toString())
         }
     }
 
@@ -252,7 +365,6 @@ class EpgViewModel @Inject constructor(
         token: String
     ) {
         Log.i("fetch epg debug", "entered fetch epg by id")
-        val channelIndex = requestedEpg.channelIndex
         val epgData = getEpgByIdUseCase.getEpgById(
             requestedEpg.epgId,
             token
@@ -262,23 +374,29 @@ class EpgViewModel @Inject constructor(
     }
 
     suspend fun isEpgCached(epgId: Int) = accessEpgCacheUseCase.isEpgCached(epgId)
-    suspend fun saveEpgToCache(epgId: Int, epgList: List<Epg>) {
+
+    suspend fun saveEpgToCache(epgId: Int, epgList: List<EpgListItem.Epg>) {
         accessEpgCacheUseCase.saveEpgToCache(epgId, epgList)
     }
+
     suspend fun getCachedEpg(epgId: Int) = accessEpgCacheUseCase.getCachedEpg(epgId)
 
     fun searchEpgByTime(time: Long) {
-        val foundEpgIndex = epgList.value.indexOfFirst { epg ->
-            time in epg.epgVideoTimeRangeSeconds.start..epg.epgVideoTimeRangeSeconds.stop
+        val foundEpgIndex = _focusedChannelEpgItems.value.indexOfFirst { epgItem ->
+            if (epgItem is EpgListItem.Epg) {
+                time in epgItem.epgVideoTimeRangeSeconds.start..epgItem.epgVideoTimeRangeSeconds.stop
+            } else {
+                false
+            }
         }
 
         if (foundEpgIndex == -1) {
             resetEpgIndex(true)
 
-            if (epgList.value[0].epgVideoTimeRangeSeconds.start > time) {
+            if ((_focusedChannelEpgItems.value[1] as EpgListItem.Epg).epgVideoTimeRangeSeconds.start > time) {
                 updateEpgIndex(0, false)
             } else {
-                updateEpgIndex(epgList.value.size-1, false)
+                updateEpgIndex(_focusedChannelEpgItems.value.size-1, false)
             }
         } else {
             updateEpgIndex(foundEpgIndex, true)

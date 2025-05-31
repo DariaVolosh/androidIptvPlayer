@@ -92,7 +92,8 @@ fun ChannelsListAndBorder(
 
                         val focusedChannel = channelsViewModel.getChannelByIndex(focusedChannelIndex)
                         focusedChannel?.let { channel ->
-                            mediaViewModel.setMediaUrl(channel.channelUrl)
+                            mediaViewModel.resetPlayer()
+                            mediaViewModel.startTsCollectingJob(channel.channelUrl, true)
                         }
                     }
                 }
@@ -181,6 +182,7 @@ fun ChannelsListAndBorder(
 
             if (isChannelsListFocused) {
                 ItemBorder(
+                    Modifier,
                     borderYOffset,
                     channelHeight
                 )

@@ -1,6 +1,7 @@
 package com.example.iptvplayer.view.epg
 
 import android.util.Log
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -10,31 +11,33 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
 fun EpgDate(
-    index: Int,
     date: String,
     onGloballyPositioned: (Int) -> Unit
 ) {
 
-    val localDensity = LocalDensity.current.density
-
     Row(
         modifier = Modifier
             .onGloballyPositioned { cords ->
-                if (index == 0) {
-                    val height = cords.size.height
-                    Log.i("epg date height", height.toString())
-                    onGloballyPositioned(height)
-                }
+                val height = cords.size.height
+                Log.i("epg date height", height.toString())
+                onGloballyPositioned(height)
             }
-            //.border(1.dp, Color.Green)
-            .padding(bottom = 15.dp)
+            .background(
+                Brush.verticalGradient(
+                    Pair(0.6f, MaterialTheme.colorScheme.secondary),
+                    Pair(1f, Color.Transparent)
+                )
+            )
+            .padding(horizontal = 15.dp)
+            .padding(top = 12.dp, bottom = 10.dp)
             .fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {

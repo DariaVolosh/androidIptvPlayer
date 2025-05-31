@@ -5,7 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import com.example.iptvplayer.retrofit.data.Epg
+import com.example.iptvplayer.retrofit.data.EpgListItem
 import com.example.iptvplayer.retrofit.services.ChannelsAndEpgService
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -19,13 +19,13 @@ class EpgRepository @Inject constructor(
     private val dataStore: DataStore<Preferences>
 ) {
     private val gson = Gson()
-    private object EpgListType : TypeToken<List<Epg>>()
+    private object EpgListType : TypeToken<List<EpgListItem.Epg>>()
 
     // VERSION NEW (IDK IF IT WILL WORKS NORMALLY LMAO)
    suspend fun getEpgById(
         requestedEpgId: Int,
         token: String
-   ): List<Epg> =
+   ): List<EpgListItem.Epg> =
        withContext(Dispatchers.IO) {
            val startTime = System.currentTimeMillis()
            val response = channelsAndEpgService.getEpgForChannel(requestedEpgId, token)
@@ -36,7 +36,7 @@ class EpgRepository @Inject constructor(
 
     suspend fun saveEpgToCache(
         epgId: Int,
-        epgList: List<Epg>
+        epgList: List<EpgListItem.Epg>
     ) {
         dataStore.edit { preferences ->
             val json = gson.toJson(epgList)
@@ -46,9 +46,9 @@ class EpgRepository @Inject constructor(
 
     suspend fun getCachedEpg(
         epgId: Int
-    ): List<Epg> =
+    ): List<EpgListItem.Epg> =
         dataStore.data.first()[stringPreferencesKey("epg_id_$epgId")]?.let { json ->
-            gson.fromJson(json, TypeToken.getParameterized(List::class.java, Epg::class.java).type) ?: emptyList()
+            gson.fromJson(json, TypeToken.getParameterized(List::class.java, EpgListItem.Epg::class.java).type) ?: emptyList()
         } ?: emptyList()
 
     suspend fun isEpgCached(

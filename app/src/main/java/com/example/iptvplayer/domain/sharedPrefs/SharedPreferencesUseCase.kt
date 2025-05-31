@@ -1,4 +1,4 @@
-package com.example.iptvplayer.domain
+package com.example.iptvplayer.domain.sharedPrefs
 
 import com.example.iptvplayer.data.repositories.SharedPreferencesRepository
 import javax.inject.Inject

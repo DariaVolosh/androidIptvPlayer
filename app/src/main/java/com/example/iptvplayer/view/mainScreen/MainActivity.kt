@@ -88,17 +88,16 @@ class MainActivity : ComponentActivity() {
                 channelsViewModel.currentChannel.collect { currentChannel ->
                     if (currentChannel != ChannelData()) {
                         if (mediaViewModel.isLive.value) {
-                            mediaViewModel.startTsCollectingJob(currentChannel.channelUrl)
+                            mediaViewModel.startTsCollectingJob(currentChannel.channelUrl, true)
                         } else {
-                            if (archiveViewModel.archiveSegmentUrl.value.isEmpty()) {
-                                archiveViewModel.getArchiveUrl(
-                                    currentChannel.channelUrl,
-                                    mediaViewModel.currentTime.value
-                                )
-                            } else {
+                            archiveViewModel.getArchiveUrl(
+                                currentChannel.channelUrl,
+                                mediaViewModel.currentTime.value
+                            )
+
+                            if (archiveViewModel.archiveSegmentUrl.value.isNotEmpty()) {
                                 mediaViewModel.play()
                             }
-
                         }
 
                         cancel()
@@ -111,8 +110,10 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         if (mediaViewModel.isLive.value) {
-            mediaViewModel.reset()
+            mediaViewModel.resetPlayer()
         } else {
+            mediaViewModel.updateIsLive(false)
+            mediaViewModel.cancelTsCollectingJob()
             mediaViewModel.pause()
         }
     }
@@ -155,7 +156,9 @@ fun MainScreen(
             val updatedCurrentChannel =
                 channelsViewModel.getChannelByIndex(focusedChannelIndex)
             updatedCurrentChannel?.let { channel ->
-                mediaViewModel.setMediaUrl(channel.channelUrl)
+                delay(500)
+                mediaViewModel.resetPlayer()
+                mediaViewModel.startTsCollectingJob(channel.channelUrl, true)
                 isChannelInfoShown = true
             }
         }
@@ -237,6 +240,7 @@ fun MainScreen(
 
             if (isProgramDatePickerShown) {
                 Log.i("is called program date picker?", "true")
+                archiveViewModel.setRewindError("")
                 isChannelInfoShown = false
 
                 ProgramDatePickerModal(

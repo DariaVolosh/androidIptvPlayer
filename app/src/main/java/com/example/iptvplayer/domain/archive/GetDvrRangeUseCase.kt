@@ -1,4 +1,4 @@
-package com.example.iptvplayer.domain
+package com.example.iptvplayer.domain.archive
 
 import com.example.iptvplayer.data.repositories.FlussonicRepository
 import javax.inject.Inject

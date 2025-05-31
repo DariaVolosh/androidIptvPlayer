@@ -1,4 +1,4 @@
-package com.example.iptvplayer.view.channelInfo
+package com.example.iptvplayer.view.channelInfo.progressBar
 
 import android.icu.text.DecimalFormat
 import android.icu.text.DecimalFormatSymbols
@@ -22,11 +22,14 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.iptvplayer.R
 import com.example.iptvplayer.data.Utils
 import com.example.iptvplayer.data.Utils.formatDate
 import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
 import com.example.iptvplayer.view.epg.EpgViewModel
+import com.example.iptvplayer.view.errors.ErrorViewModel
 import com.example.iptvplayer.view.player.MediaViewModel
 import java.util.Locale
 import kotlin.math.abs
@@ -38,14 +41,16 @@ fun LinearProgressWithDot(
 ) {
     val decimalFormat = DecimalFormat("#.##", DecimalFormatSymbols(Locale.US))
     val datePattern = "EEEE d MMMM HH:mm:ss"
+    val localContext = LocalContext.current
 
     val archiveViewModel: ArchiveViewModel = hiltViewModel()
     val epgViewModel: EpgViewModel = hiltViewModel()
     val mediaViewModel: MediaViewModel = hiltViewModel()
+    val errorViewModel: ErrorViewModel = hiltViewModel()
 
     val seekSeconds by mediaViewModel.seekSecondsFlow.collectAsState(0)
     val currentTime by mediaViewModel.currentTime.collectAsState()
-    val dvrRange by archiveViewModel.dvrRange.collectAsState()
+    val dvrRange by archiveViewModel.currentChannelDvrRange.collectAsState()
 
     val currentEpg by epgViewModel.currentEpg.collectAsState()
     val currentEpgIndex by epgViewModel.currentEpgIndex.collectAsState()
@@ -65,11 +70,13 @@ fun LinearProgressWithDot(
         Log.i("ELAPSED", currentTime.toString())
 
         if (currentTime < currentEpg.epgVideoTimeRangeSeconds.start) {
-            epgViewModel.updateEpgIndex(currentEpgIndex - 1, true)
-            epgViewModel.updateEpgIndex(currentEpgIndex - 1, false)
+            val prevEpgIndex = epgViewModel.findFirstEpgIndexBackward(currentEpgIndex - 1)
+            epgViewModel.updateEpgIndex(prevEpgIndex, true)
+            epgViewModel.updateEpgIndex(prevEpgIndex, false)
         } else if (currentTime > currentEpg.epgVideoTimeRangeSeconds.stop) {
-            epgViewModel.updateEpgIndex(currentEpgIndex + 1, true)
-            epgViewModel.updateEpgIndex(currentEpgIndex + 1, false)
+            val nextEpgIndex = epgViewModel.findFirstEpgIndexForward(currentEpgIndex + 1)
+            epgViewModel.updateEpgIndex(nextEpgIndex, true)
+            epgViewModel.updateEpgIndex(nextEpgIndex, false)
         } else {
             currentProgrammeProgress =
                 decimalFormat.format(
@@ -110,6 +117,7 @@ fun LinearProgressWithDot(
     }
 
     LaunchedEffect(seekSeconds) {
+        Log.i("collected seekSeconds", seekSeconds.toString())
         if (channelUrl.isNotEmpty()) {
             if (seekSeconds != 0) {
                 val newTime = getNewTime(seekSeconds)
@@ -123,15 +131,15 @@ fun LinearProgressWithDot(
                     mediaViewModel.setCurrentTime(newTime)
                 } else {
                     if (seekSeconds < 0) {
-                        archiveViewModel.setRewindError("Cannot rewind back")
+                        archiveViewModel.setRewindError(localContext.getString(R.string.cannot_rewind_back))
                     } else {
-                        archiveViewModel.setRewindError("Cannot rewind forward")
+                        archiveViewModel.setRewindError(localContext.getString(R.string.cannot_rewind_forward))
                     }
                 }
             } else {
                 Log.i("is seeking ${mediaViewModel.isSeeking.value}", "real")
                 if (mediaViewModel.isSeeking.value) {
-                    mediaViewModel.reset()
+                    mediaViewModel.resetPlayer()
                     archiveViewModel.getArchiveUrl(channelUrl, currentTime)
                     mediaViewModel.updateIsSeeking(false)
                 }

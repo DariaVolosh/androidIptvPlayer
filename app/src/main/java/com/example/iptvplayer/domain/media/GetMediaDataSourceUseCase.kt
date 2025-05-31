@@ -1,4 +1,4 @@
-package com.example.iptvplayer.domain
+package com.example.iptvplayer.domain.media
 
 import com.example.iptvplayer.data.repositories.MediaRepository
 import javax.inject.Inject

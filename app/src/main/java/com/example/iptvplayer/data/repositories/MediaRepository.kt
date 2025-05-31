@@ -9,7 +9,6 @@ import java.net.URL
 import javax.inject.Inject
 import javax.inject.Singleton
 
-
 class MediaDataSource @Inject constructor(
 
 ): IMediaDataSource {
@@ -38,6 +37,7 @@ class MediaDataSource @Inject constructor(
         }
 
         if (bytesRead != -1) {
+            Log.i("buffering", "buffering $position: position, $offset: offset, $size: size")
             Log.i("LOL", "bytes read: $bytesRead $inputStream")
         }
         return if (bytesRead == -1) 0 else bytesRead
@@ -57,6 +57,7 @@ class MediaDataSource @Inject constructor(
                 Log.i("emission set media url", "setMediaUrl $url")
                 val connection = URL(url).openConnection()
                 inputStream = connection.getInputStream()
+                Log.i("segments", "segment read $url")
                 Log.i("inputStream", inputStream.toString())
                 onUrlSet(this@MediaDataSource)
                 Log.i("lel", "setMediaUrl $url ${this@MediaDataSource}")

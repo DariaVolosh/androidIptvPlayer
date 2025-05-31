@@ -34,7 +34,7 @@ class DummyViewModel @Inject constructor(
                     }
                 }
                 .addOnSuccessListener { res ->
-                    _isTrial.value = res.getField<Boolean>("is5VersionTrial") ?: false
+                    _isTrial.value = res.getField<Boolean>("is7VersionTrial") ?: false
                 }
         }
     }

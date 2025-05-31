@@ -1,4 +1,4 @@
-package com.example.iptvplayer.view.channelInfo
+package com.example.iptvplayer.view.channelInfo.progressBar
 
 import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
@@ -19,11 +19,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.iptvplayer.data.Utils.formatDate
 import com.example.iptvplayer.retrofit.data.ChannelData
-import com.example.iptvplayer.retrofit.data.Epg
+import com.example.iptvplayer.retrofit.data.EpgListItem
 
 @Composable
 fun TimeSeekbarWithTimeMarkers(
-    currentEpg: Epg,
+    currentEpg: EpgListItem.Epg,
     currentEpgIndex: Int,
     dvrRange: Pair<Long, Long>,
     focusedChannel: ChannelData
@@ -34,15 +34,21 @@ fun TimeSeekbarWithTimeMarkers(
     var startTime by remember { mutableStateOf("") }
     var stopTime by remember { mutableStateOf("") }
 
+    Log.i("04:00", formatDate(0L, timePattern))
+
     LaunchedEffect(currentEpg, dvrRange) {
         Log.i("time seekbar", "$currentEpg $dvrRange")
+        Log.i("time seekbar", "current epg index $currentEpgIndex")
         if (currentEpgIndex != -1) {
             startTime = formatDate(currentEpg.epgVideoTimeRangeSeconds.start, timePattern)
             stopTime = formatDate(currentEpg.epgVideoTimeRangeSeconds.stop, timePattern)
-        } else if (dvrRange.first != 0L) {
+        } else if (dvrRange.first > 0L) {
             Log.i("dvr is not 0", "true")
             startTime = formatDate(dvrRange.first, datePattern)
             stopTime = formatDate(dvrRange.second, datePattern)
+        } else {
+            startTime = "--:--"
+            stopTime = "--:--"
         }
     }
 

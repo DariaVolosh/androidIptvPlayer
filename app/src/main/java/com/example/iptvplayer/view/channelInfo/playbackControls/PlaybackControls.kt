@@ -1,4 +1,4 @@
-package com.example.iptvplayer.view.channelInfo
+package com.example.iptvplayer.view.channelInfo.playbackControls
 
 import android.util.Log
 import androidx.compose.foundation.focusable
@@ -24,9 +24,11 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.R
+import com.example.iptvplayer.retrofit.data.EpgListItem
 import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
 import com.example.iptvplayer.view.epg.EpgViewModel
 import com.example.iptvplayer.view.player.MediaViewModel
@@ -42,6 +44,7 @@ fun PlaybackControls(
     switchChannel: (Boolean) -> Unit,
     showProgrammeDatePicker: (Boolean) -> Unit
 ) {
+    val context = LocalContext.current
     var focusedControl by remember { mutableIntStateOf(3) }
     var isLongPressed by remember { mutableStateOf(false) }
     var isKeyPressed by remember { mutableStateOf(false) }
@@ -53,11 +56,12 @@ fun PlaybackControls(
     val epgViewModel: EpgViewModel = hiltViewModel()
 
     val focusedEpgIndex by epgViewModel.focusedEpgIndex.collectAsState()
+    val currentEpgIndex by epgViewModel.currentEpgIndex.collectAsState()
 
     val isPaused by mediaViewModel.isPaused.collectAsState()
     val isSeeking by mediaViewModel.isSeeking.collectAsState()
 
-    val dvrRange by archiveViewModel.dvrRange.collectAsState()
+    val dvrRange by archiveViewModel.currentChannelDvrRange.collectAsState()
 
     LaunchedEffect(isChannelsInfoFullyVisible) {
         Log.i("requested focus", "yea")
@@ -67,6 +71,7 @@ fun PlaybackControls(
     }
 
     LaunchedEffect(isSeeking) {
+        Log.i("is seeking", isSeeking.toString())
         if (isSeeking) {
             mediaViewModel.pause()
         }
@@ -78,7 +83,7 @@ fun PlaybackControls(
     }
 
     val handleOnFingerLiftedUp = {
-        Log.i("on finger lifted up", "true")
+        Log.i("back key", "handled FINGER UP")
         mediaViewModel.onSeekFinish()
     }
 
@@ -91,31 +96,37 @@ fun PlaybackControls(
         if (dvrRange.first > 0) {
             showProgrammeDatePicker(true)
         } else {
-            archiveViewModel.setRewindError("Archive is not available")
+            archiveViewModel.setRewindError(context.getString(R.string.archive_is_not_available))
         }
     }
 
     // previous program button
     val handlePreviousProgramClick: () -> Unit = {
         resetSecondsNotInteracted()
-        val prevProgram = epgViewModel.getEpgByIndex(focusedEpgIndex - 1)
-        Log.i("prev program", prevProgram.toString())
+        val prevEpgIndex = epgViewModel.findFirstEpgIndexBackward(currentEpgIndex - 1)
+        val prevItem = epgViewModel.getEpgItemByIndex(prevEpgIndex)
+        Log.i("prev program", prevItem.toString())
 
-        if (dvrRange.first > 0 && prevProgram != null) {
-            if (prevProgram.epgVideoTimeRangeSeconds.start in dvrRange.first..dvrRange.second) {
-                coroutineScope.launch {
-                    mediaViewModel.updateIsSeeking(true)
-                    mediaViewModel.updateIsLive(false)
-                    mediaViewModel.reset()
-                    mediaViewModel.setCurrentTime(prevProgram.epgVideoTimeRangeSeconds.start)
-                    archiveViewModel.getArchiveUrl(channelUrl, mediaViewModel.currentTime.value)
-                    epgViewModel.updateEpgIndex(focusedEpgIndex - 1, true)
-                    epgViewModel.updateEpgIndex(focusedEpgIndex - 1, false)
-                    mediaViewModel.updateIsSeeking(false)
-                }
+        if (
+            dvrRange.first > 0 &&
+            currentEpgIndex != -1 &&
+            prevItem != null &&
+            prevItem is EpgListItem.Epg &&
+            prevItem.epgVideoTimeRangeSeconds.start in dvrRange.first..dvrRange.second
+            )
+        {
+            coroutineScope.launch {
+                mediaViewModel.updateIsSeeking(true)
+                mediaViewModel.updateIsLive(false)
+                mediaViewModel.resetPlayer()
+                mediaViewModel.setCurrentTime(prevItem.epgVideoTimeRangeSeconds.start)
+                archiveViewModel.getArchiveUrl(channelUrl, mediaViewModel.currentTime.value)
+                epgViewModel.updateEpgIndex(currentEpgIndex - 1, true)
+                epgViewModel.updateEpgIndex(currentEpgIndex - 1, false)
+                mediaViewModel.updateIsSeeking(false)
             }
         } else {
-            archiveViewModel.setRewindError("Previous program is not available")
+            archiveViewModel.setRewindError(context.getString(R.string.no_previous_program))
         }
     }
 
@@ -127,6 +138,7 @@ fun PlaybackControls(
 
     // seek back button
     val handleBackClicked = {
+        Log.i("back key", "handled back PRESS")
         resetSecondsNotInteracted()
         mediaViewModel.seekBack(20)
     }
@@ -134,6 +146,7 @@ fun PlaybackControls(
     // play button
     val handlePlayOnClick = {
         resetSecondsNotInteracted()
+        archiveViewModel.getArchiveUrl(channelUrl, mediaViewModel.currentTime.value)
         mediaViewModel.play()
     }
 
@@ -142,9 +155,11 @@ fun PlaybackControls(
         if (dvrRange.first > 0) {
             Log.i("playback controls", "pause handled")
             resetSecondsNotInteracted()
+            mediaViewModel.updateIsLive(false)
+            mediaViewModel.cancelTsCollectingJob()
             mediaViewModel.pause()
         } else {
-            archiveViewModel.setRewindError("Archive is not available")
+            archiveViewModel.setRewindError(context.getString(R.string.archive_is_not_available))
         }
     }
 
@@ -164,24 +179,27 @@ fun PlaybackControls(
     val handleNextProgramClick: () -> Unit = {
         Log.i("FOCUSED", focusedEpgIndex.toString())
         resetSecondsNotInteracted()
-        val nextProgram = epgViewModel.getEpgByIndex(focusedEpgIndex + 1)
+        val nextProgram = epgViewModel.getEpgItemByIndex(currentEpgIndex + 1) as EpgListItem.Epg
+        Log.i("next program", nextProgram.toString())
 
         // CHECK IF DVR IS AVAILABLE
-        if (dvrRange.first > 0 && nextProgram != null) {
-            if (nextProgram.epgVideoTimeRangeSeconds.start in dvrRange.first..dvrRange.second) {
-                coroutineScope.launch {
-                    mediaViewModel.updateIsSeeking(true)
-                    mediaViewModel.updateIsLive(false)
-                    mediaViewModel.setCurrentTime(nextProgram.epgVideoTimeRangeSeconds.start)
-                    mediaViewModel.reset()
-                    archiveViewModel.getArchiveUrl(channelUrl, mediaViewModel.currentTime.value)
-                    epgViewModel.updateEpgIndex(focusedEpgIndex + 1, true)
-                    epgViewModel.updateEpgIndex(focusedEpgIndex + 1, false)
-                    mediaViewModel.updateIsSeeking(false)
-                }
+        if (
+            dvrRange.first > 0 && currentEpgIndex != -1 && nextProgram != null &&
+            nextProgram.epgVideoTimeRangeSeconds.start in dvrRange.first..dvrRange.second
+            )
+        {
+            coroutineScope.launch {
+                mediaViewModel.updateIsSeeking(true)
+                mediaViewModel.updateIsLive(false)
+                mediaViewModel.setCurrentTime(nextProgram.epgVideoTimeRangeSeconds.start)
+                mediaViewModel.resetPlayer()
+                archiveViewModel.getArchiveUrl(channelUrl, mediaViewModel.currentTime.value)
+                epgViewModel.updateEpgIndex(currentEpgIndex + 1, true)
+                epgViewModel.updateEpgIndex(currentEpgIndex + 1, false)
+                mediaViewModel.updateIsSeeking(false)
             }
         } else {
-            archiveViewModel.setRewindError("Next program is not available")
+            archiveViewModel.setRewindError(context.getString(R.string.no_next_program))
         }
     }
 
@@ -195,14 +213,20 @@ fun PlaybackControls(
                     mediaViewModel.updateIsSeeking(true)
                     mediaViewModel.updateIsLive(true)
                     mediaViewModel.setCurrentTime(mediaViewModel.liveTime.value)
-                    val liveProgramIndex = epgViewModel.liveProgrammeIndex.value
-                    epgViewModel.updateEpgIndex(liveProgramIndex, true)
-                    epgViewModel.updateEpgIndex(liveProgramIndex, false)
-                    mediaViewModel.setMediaUrl(channelUrl)
+                    val liveProgramIndex = epgViewModel.currentEpgLiveProgram.value
+                    Log.i("live program index", liveProgramIndex.toString())
+                    if (liveProgramIndex == -1) {
+                        epgViewModel.resetEpgIndex(true)
+                    } else {
+                        epgViewModel.updateEpgIndex(liveProgramIndex, true)
+                        epgViewModel.updateEpgIndex(liveProgramIndex, false)
+                    }
+                    mediaViewModel.resetPlayer()
+                    mediaViewModel.startTsCollectingJob(channelUrl, true)
                     mediaViewModel.updateIsSeeking(false)
                 }
             } else {
-                archiveViewModel.setRewindError("Already in live")
+                archiveViewModel.setRewindError(context.getString(R.string.already_in_live))
             }
         }
     }
@@ -265,7 +289,7 @@ fun PlaybackControls(
     LaunchedEffect(isLongPressed) {
         while (isLongPressed) {
             playbackControls[focusedControl].onLongPressed()
-            delay(400)
+            delay(500)
         }
     }
 
@@ -284,19 +308,20 @@ fun PlaybackControls(
                             if (!isKeyPressed) {
                                 isKeyPressed = true
                                 coroutineScope.launch {
-                                    delay(500)
+                                    delay(400)
                                     if (isKeyPressed) isLongPressed = true
                                 }
                             }
                         } else {
+                            Log.i("up long pressed", isLongPressed.toString())
                             if (!isLongPressed) {
+                                Log.i("up long pressed", "on pressed clicked")
                                 playbackControls[focusedControl].onPressed()
-                            } else {
-                                isLongPressed = false
-                                playbackControls[focusedControl].onFingerLiftedUp()
                             }
 
+                            isLongPressed = false
                             isKeyPressed = false
+                            playbackControls[focusedControl].onFingerLiftedUp()
                         }
                     }
 

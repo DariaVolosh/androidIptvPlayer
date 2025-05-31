@@ -21,5 +21,5 @@ data class BackendInfoResponse(
 
 @Keep
 data class ChannelsBackendInfoResponse(
-    val data: List<BackendInfoResponse>
+    val data: List<BackendInfoResponse>?
 )

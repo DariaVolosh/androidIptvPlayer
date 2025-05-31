@@ -6,7 +6,7 @@ import retrofit2.http.Header
 import retrofit2.http.Path
 
 interface FlussonicService {
-    @GET("streamer/api/v3/streams/{name}/dvr/ranges")
+    @GET("https://streamer.airnet.ge/streamer/api/v3/streams/{name}/dvr/ranges")
     suspend fun getDvrRange(
         @Path("name") streamName: String,
         @Header("Authorization") credentials: String

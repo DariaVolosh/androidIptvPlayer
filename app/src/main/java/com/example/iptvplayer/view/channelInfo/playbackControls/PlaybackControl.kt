@@ -1,4 +1,4 @@
-package com.example.iptvplayer.view.channelInfo
+package com.example.iptvplayer.view.channelInfo.playbackControls
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.size

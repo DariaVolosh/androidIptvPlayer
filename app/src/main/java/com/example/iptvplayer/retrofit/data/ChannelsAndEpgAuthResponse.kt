@@ -5,5 +5,5 @@ data class AuthInfo(
 )
 
 data class ChannelsAndEpgAuthResponse(
-    val data: AuthInfo
+    val data: AuthInfo?
 )

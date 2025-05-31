@@ -4,15 +4,18 @@ import android.os.Looper
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.iptvplayer.R
 import com.example.iptvplayer.data.Utils
 import com.example.iptvplayer.data.repositories.MediaDataSource
-import com.example.iptvplayer.domain.GetMediaDataSourceUseCase
-import com.example.iptvplayer.domain.GetTsSegmentsUseCase
-import com.example.iptvplayer.domain.HandleNextSegmentRequestedUseCase
-import com.example.iptvplayer.domain.SetMediaUrlUseCase
-import com.example.iptvplayer.domain.SharedPreferencesUseCase
+import com.example.iptvplayer.domain.media.GetMediaDataSourceUseCase
+import com.example.iptvplayer.domain.media.GetTsSegmentsUseCase
+import com.example.iptvplayer.domain.media.HandleNextSegmentRequestedUseCase
+import com.example.iptvplayer.domain.media.SetMediaUrlUseCase
+import com.example.iptvplayer.domain.sharedPrefs.SharedPreferencesUseCase
 import com.example.iptvplayer.view.channelsAndEpgRow.CURRENT_TIME_KEY
 import com.example.iptvplayer.view.channelsAndEpgRow.IS_LIVE_KEY
+import com.example.iptvplayer.view.errors.ErrorData
+import com.example.iptvplayer.view.errors.ErrorManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -21,6 +24,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import tv.danmaku.ijk.media.player.IMediaPlayer
+import tv.danmaku.ijk.media.player.IMediaPlayer.OnBufferingUpdateListener
 import tv.danmaku.ijk.media.player.IjkMediaPlayer
 import java.util.LinkedList
 import javax.inject.Inject
@@ -31,7 +36,8 @@ class MediaViewModel @Inject constructor(
     private val getMediaDataSourceUseCase: GetMediaDataSourceUseCase,
     private val setMediaUrlUseCase: SetMediaUrlUseCase,
     private val handleNextSegmentRequestedUseCase: HandleNextSegmentRequestedUseCase,
-    private val sharedPreferencesUseCase: SharedPreferencesUseCase
+    private val sharedPreferencesUseCase: SharedPreferencesUseCase,
+    private val errorManager: ErrorManager
 ): ViewModel() {
     var ijkPlayer: IjkMediaPlayer? = null
 
@@ -132,8 +138,12 @@ class MediaViewModel @Inject constructor(
     }
 
     fun onSeekFinish() {
-        Log.i("on seek finish", 0.toString())
-        _seekSecondsFlow.value = 0
+        viewModelScope.launch {
+            Log.i("on seek finish", 0.toString())
+            delay(100)
+            _seekSecondsFlow.value = 0
+            _seekSeconds = 0
+        }
     }
 
     fun seekBack(seconds: Int = 0) {
@@ -203,6 +213,7 @@ class MediaViewModel @Inject constructor(
                 withContext(Dispatchers.IO) {
                     while (true) {
                         urlQueue.poll()?.let { url ->
+                            Log.i("buffering", "pulled to buffer $url")
                             setNextUrl(url)
                             segmentRequestJob?.cancel()
                         }
@@ -214,18 +225,9 @@ class MediaViewModel @Inject constructor(
         }
     }
 
-    fun setMediaUrl(url: String) {
-        if (url.isEmpty()) return
-        Log.i("VIEW MODEL SET MEDIA URL", url)
-        if (ijkPlayer != null && !isPlayerReset) {
-            reset()
-        }
-
-        startTsCollectingJob(url)
-    }
-
     fun pause() {
         if (!_isPaused.value) {
+            Log.i("is paused", "true")
             ijkPlayer?.pause()
             _isPaused.value = true
         }
@@ -237,7 +239,7 @@ class MediaViewModel @Inject constructor(
         Log.i("paused", "false")
     }
 
-    fun reset() {
+    fun resetPlayer() {
         ijkPlayer?.reset()
         tsJob?.cancel()
         urlQueue.clear()
@@ -247,12 +249,19 @@ class MediaViewModel @Inject constructor(
         isPlayerReset = true
     }
 
-    fun startTsCollectingJob(url: String) {
+    fun startTsCollectingJob(url: String, resetEmittedTsSegments: Boolean) {
         tsJob = viewModelScope.launch {
             withContext(Dispatchers.IO) {
                 val isOnMainThread = Looper.getMainLooper() == Looper.myLooper()
                 Log.i("is on main thread channels list", "set media url $isOnMainThread")
-                getTsSegmentsUseCase.extractTsSegments(url, isLive.value).collect { u ->
+                getTsSegmentsUseCase.extractTsSegments(
+                    url,
+                    resetEmittedTsSegments
+                ) { errorTitle, errorDescription ->
+                    errorManager.publishError(
+                        ErrorData(errorTitle, errorDescription, R.drawable.error_icon)
+                    )
+                }.collect { u ->
                     Log.i("collected", "collected $u")
                     if (ijkPlayer == null || isPlayerReset) {
                         ijkPlayer = IjkMediaPlayer()
@@ -273,6 +282,12 @@ class MediaViewModel @Inject constructor(
                             }
                         }
 
+                        ijkPlayer?.setOnBufferingUpdateListener(object: OnBufferingUpdateListener {
+                            override fun onBufferingUpdate(mp: IMediaPlayer?, percent: Int) {
+                                Log.i("segments", "buffering update $percent")
+                            }
+                        })
+
                         ijkPlayer?.setDataSource(getMediaDataSourceUseCase.getMediaDataSource())
                         IjkMediaPlayer.native_setLogLevel(IjkMediaPlayer.IJK_LOG_DEBUG)
 
@@ -285,5 +300,9 @@ class MediaViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun cancelTsCollectingJob() {
+        tsJob?.cancel()
     }
 }

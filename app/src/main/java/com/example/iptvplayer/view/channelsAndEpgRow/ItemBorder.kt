@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun ItemBorder(
+    modifier: Modifier,
     borderYOffset: Int,
     borderHeight: Int
 ) {
@@ -28,11 +29,12 @@ fun ItemBorder(
 
     Box(
         modifier = Modifier
-            .offset { IntOffset(0, borderYOffset) }
-            .fillMaxWidth()
-            .padding(horizontal = 7.dp)
+            .offset {
+                IntOffset(0, borderYOffset)
+            }.fillMaxWidth(0.97f)
+            .border(1.dp, Color.White)
+            .padding(horizontal = 10.dp)
             // conversion to dp for height display
             .height((borderHeight / density).dp)
-            .border(1.dp, Color.White)
     )
 }
