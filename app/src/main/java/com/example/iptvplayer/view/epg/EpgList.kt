@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListItemInfo
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -53,6 +54,13 @@ fun EpgList(
             listState.layoutInfo.visibleItemsInfo
         }
     }
+
+    var firstVisibleDateIndex by remember {
+        mutableIntStateOf(0)
+    }
+    var firstVisibleDateLastEpgOffset by remember {
+        mutableIntStateOf(0)
+    }
     var epgDateHeight by remember { mutableIntStateOf(0) }
     var isListStart by remember { mutableStateOf(false) }
     var isListEnd by remember { mutableStateOf(false) }
@@ -61,13 +69,18 @@ fun EpgList(
     LaunchedEffect(
         focusedEpgIndex,
         dayToEpgMap,
+        epgList,
         epgItemHeight,
         epgListHeight,
         epgDateHeight,
         isEpgListFocused
     ) {
-        if (dayToEpgMap.isEmpty()) {
+        if (dayToEpgMap.isEmpty() || epgList.isEmpty()) {
+            firstVisibleDateIndex = 0
             isInitScrollPerformed = false
+            isListStart = false
+            isListEnd = false
+            setIsListMiddle(false)
             return@LaunchedEffect
         }
 
@@ -80,6 +93,7 @@ fun EpgList(
             epgItemHeight != 0 &&
             epgListBorderMiddle.value != 0
         ) {
+
             setBorderYOffset(epgListBorderMiddle.value)
             val epg = (epgViewModel.getEpgItemByIndex(focusedEpgIndex) as EpgListItem.Epg)
             focusedEpgUID = epg.uniqueId
@@ -125,9 +139,33 @@ fun EpgList(
                 listState.scrollToItem(focusedEpgIndex, scrollOffset)
             }
 
+            val firstVisibleDateItem = visibleItemsInfo.firstOrNull { info ->
+                val item = epgList[info.index]
+                item is EpgListItem.Header
+            }
+
+            var lastEpgForFirstDate: LazyListItemInfo? = null
+
+            firstVisibleDateItem?.let { firstDateItem ->
+                firstVisibleDateIndex = firstDateItem.index
+                val epgListForFirstDate = dayToEpgMap[epgList[firstDateItem.index]]
+                val lastEpgForFirstDateId = epgListForFirstDate?.last()?.uniqueId
+
+                lastEpgForFirstDate = visibleItemsInfo.firstOrNull { info ->
+                    info.key == lastEpgForFirstDateId
+                }
+            }
+
+            lastEpgForFirstDate?.let { lastEpg ->
+                firstVisibleDateLastEpgOffset = lastEpg.offset
+            }
+
+
             isInitScrollPerformed = true
         }
     }
+
+
 
     Box(
         modifier = modifier
@@ -144,11 +182,20 @@ fun EpgList(
             state = listState,
             userScrollEnabled = false
         ) {
-            if (dayToEpgMap.isNotEmpty()) {
+            if (dayToEpgMap.isNotEmpty() && epgList.isNotEmpty()) {
                 dayToEpgMap.forEach { (header, epgsInGroup) ->
                     stickyHeader {
+                        val isFirstVisibleDate = header.title == (epgList[firstVisibleDateIndex] as EpgListItem.Header).title
+                        val headerAlpha = if (isFirstVisibleDate && firstVisibleDateLastEpgOffset < epgDateHeight) {
+                            0f
+                        } else {
+                            1f
+                        }
+
+                        Log.i("offsets", "first visible date last epg offset $firstVisibleDateLastEpgOffset epg date height $epgDateHeight")
                         EpgDate(
-                            header.title
+                            header.title,
+                            headerAlpha
                         ) { height -> epgDateHeight = height}
                     }
 
