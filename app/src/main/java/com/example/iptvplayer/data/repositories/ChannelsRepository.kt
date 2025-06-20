@@ -89,6 +89,7 @@ class ChannelsRepository @Inject constructor(
 
                     override fun onFailure(p0: Call<StreamUrlTemplatesResponse>, p1: Throwable) {
                         Log.i("on failure", "${p1.localizedMessage}")
+                        streamsUrlTemplates.complete(emptyList())
                     }
                 })
 

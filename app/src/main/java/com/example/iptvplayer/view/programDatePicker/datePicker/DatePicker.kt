@@ -13,52 +13,56 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.iptvplayer.data.Utils
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.iptvplayer.view.channelsAndEpgRow.DvrDaysRange
+import com.example.iptvplayer.view.channelsAndEpgRow.DvrMonthsRange
+import com.example.iptvplayer.view.time.DateAndTimeViewModel
 
 @Composable
 fun DayPicker(
     modifier: Modifier,
     isFocused: Boolean,
-    dvrFirstAndLastDays: Pair<Int, Int>,
-    dvrFirstAndLastMonths: Pair<Int, Int>,
+    dvrFirstAndLastDays: DvrDaysRange,
+    dvrFirstAndLastMonths: DvrMonthsRange,
     onArchiveSearch: () -> Unit,
     onDateChanged: (Long) -> Unit,
     onTimePickerFocus: () -> Unit
 ) {
+    val dateAndTimeViewModel: DateAndTimeViewModel = hiltViewModel()
     var availableDays by remember { mutableStateOf<List<ArchiveDate>>(emptyList()) }
     var focusedDay by remember { mutableIntStateOf(-1) }
 
     LaunchedEffect(focusedDay) {
         if (focusedDay != -1) {
             val currentDay = availableDays[focusedDay]
-            val currentDayAndMonthSinceEpoch = Utils.dateToEpochSeconds(currentDay.day, currentDay.month, 2025, 0, 0)
+            val currentDayAndMonthSinceEpoch = dateAndTimeViewModel.dateToEpochSeconds(currentDay.day, currentDay.month, 2025, 0, 0)
             onDateChanged(currentDayAndMonthSinceEpoch)
         }
     }
 
     LaunchedEffect(dvrFirstAndLastDays, dvrFirstAndLastMonths) {
-        if (dvrFirstAndLastDays.first != 0 && dvrFirstAndLastMonths.first != 0) {
+        if (dvrFirstAndLastDays.firstDay != 0 && dvrFirstAndLastMonths.firstMonth != 0) {
             val days = mutableListOf<ArchiveDate>()
 
             // last available day in dvr (current day)
-            var currentDay = dvrFirstAndLastDays.second
+            var currentDay = dvrFirstAndLastDays.lastDay
 
             // last available month in dvr (current month)
-            var currentMonth = dvrFirstAndLastMonths.second
+            var currentMonth = dvrFirstAndLastMonths.lastMonth
 
             days.add(ArchiveDate("Today", currentDay, currentMonth))
 
-            while (currentDay != dvrFirstAndLastDays.first || currentMonth != dvrFirstAndLastMonths.first) {
+            while (currentDay != dvrFirstAndLastDays.firstDay || currentMonth != dvrFirstAndLastMonths.firstMonth) {
                 currentDay -= 1
 
                 if (currentDay == 0) {
                     currentMonth -= 1
-                    currentDay = Utils.getDaysOfMonth(currentMonth)
+                    currentDay = dateAndTimeViewModel.getDaysOfMonth(currentMonth)
                 }
 
                 days.add(
                     ArchiveDate(
-                        if (days.size == 1) "Yesterday" else Utils.getDayOfWeek(currentMonth, currentDay),
+                        if (days.size == 1) "Yesterday" else dateAndTimeViewModel.getDayOfWeek(currentMonth, currentDay),
                         currentDay,
                         currentMonth
                     )

@@ -30,8 +30,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.R
 import com.example.iptvplayer.retrofit.data.EpgListItem
 import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
+import com.example.iptvplayer.view.channelsAndEpgRow.CurrentDvrInfoState
 import com.example.iptvplayer.view.epg.EpgViewModel
 import com.example.iptvplayer.view.player.MediaViewModel
+import com.example.iptvplayer.view.time.DateAndTimeViewModel
+import com.example.iptvplayer.view.time.DateType
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -51,9 +54,13 @@ fun PlaybackControls(
     val coroutineScope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
 
+    val datePattern = "EEEE d MMMM HH:mm:ss"
+
     val archiveViewModel: ArchiveViewModel = hiltViewModel()
     val mediaViewModel: MediaViewModel = hiltViewModel()
     val epgViewModel: EpgViewModel = hiltViewModel()
+    val playbackControlsViewModel: PlaybackControlsViewModel = hiltViewModel()
+    val dateAndTimeViewModel: DateAndTimeViewModel = hiltViewModel()
 
     val focusedEpgIndex by epgViewModel.focusedEpgIndex.collectAsState()
     val currentEpgIndex by epgViewModel.currentEpgIndex.collectAsState()
@@ -61,7 +68,7 @@ fun PlaybackControls(
     val isPaused by mediaViewModel.isPaused.collectAsState()
     val isSeeking by mediaViewModel.isSeeking.collectAsState()
 
-    val dvrRange by archiveViewModel.currentChannelDvrRange.collectAsState()
+    val currentDvrInfoState by archiveViewModel.currentChannelDvrInfoState.collectAsState()
 
     LaunchedEffect(isChannelsInfoFullyVisible) {
         Log.i("requested focus", "yea")
@@ -93,7 +100,10 @@ fun PlaybackControls(
 
     // calendar button
     val handleCalendarOnClick = {
-        if (dvrRange.first > 0) {
+        if (
+            currentDvrInfoState != CurrentDvrInfoState.LOADING &&
+            currentDvrInfoState != CurrentDvrInfoState.NOT_AVAILABLE_GLOBAL
+            ) {
             showProgrammeDatePicker(true)
         } else {
             archiveViewModel.setRewindError(context.getString(R.string.archive_is_not_available))
@@ -108,21 +118,21 @@ fun PlaybackControls(
         Log.i("prev program", prevItem.toString())
 
         if (
-            dvrRange.first > 0 &&
+            (currentDvrInfoState != CurrentDvrInfoState.LOADING &&
+                    currentDvrInfoState != CurrentDvrInfoState.NOT_AVAILABLE_GLOBAL) &&
             currentEpgIndex != -1 &&
             prevItem != null &&
-            prevItem is EpgListItem.Epg &&
-            prevItem.epgVideoTimeRangeSeconds.start in dvrRange.first..dvrRange.second
-            )
+            prevItem is EpgListItem.Epg
+        )
         {
             coroutineScope.launch {
                 mediaViewModel.updateIsSeeking(true)
                 mediaViewModel.updateIsLive(false)
                 mediaViewModel.resetPlayer()
-                mediaViewModel.setCurrentTime(prevItem.epgVideoTimeRangeSeconds.start)
-                archiveViewModel.getArchiveUrl(channelUrl, mediaViewModel.currentTime.value)
-                epgViewModel.updateEpgIndex(currentEpgIndex - 1, true)
-                epgViewModel.updateEpgIndex(currentEpgIndex - 1, false)
+                mediaViewModel.updateCurrentTime(prevItem.epgVideoTimeRangeSeconds.start)
+                archiveViewModel.getArchiveUrl(channelUrl, dateAndTimeViewModel.currentTime.value)
+                epgViewModel.updateEpgIndex(prevEpgIndex, true)
+                epgViewModel.updateEpgIndex(prevEpgIndex, false)
                 mediaViewModel.updateIsSeeking(false)
             }
         } else {
@@ -146,13 +156,15 @@ fun PlaybackControls(
     // play button
     val handlePlayOnClick = {
         resetSecondsNotInteracted()
-        archiveViewModel.getArchiveUrl(channelUrl, mediaViewModel.currentTime.value)
         mediaViewModel.play()
     }
 
     // pause button
     val handlePauseOnClick = {
-        if (dvrRange.first > 0) {
+        if (
+            currentDvrInfoState != CurrentDvrInfoState.LOADING &&
+            currentDvrInfoState != CurrentDvrInfoState.NOT_AVAILABLE_GLOBAL
+            ) {
             Log.i("playback controls", "pause handled")
             resetSecondsNotInteracted()
             mediaViewModel.updateIsLive(false)
@@ -175,34 +187,6 @@ fun PlaybackControls(
         mediaViewModel.seekForward(20)
     }
 
-    // next program button
-    val handleNextProgramClick: () -> Unit = {
-        Log.i("FOCUSED", focusedEpgIndex.toString())
-        resetSecondsNotInteracted()
-        val nextProgram = epgViewModel.getEpgItemByIndex(currentEpgIndex + 1) as EpgListItem.Epg
-        Log.i("next program", nextProgram.toString())
-
-        // CHECK IF DVR IS AVAILABLE
-        if (
-            dvrRange.first > 0 && currentEpgIndex != -1 && nextProgram != null &&
-            nextProgram.epgVideoTimeRangeSeconds.start in dvrRange.first..dvrRange.second
-            )
-        {
-            coroutineScope.launch {
-                mediaViewModel.updateIsSeeking(true)
-                mediaViewModel.updateIsLive(false)
-                mediaViewModel.setCurrentTime(nextProgram.epgVideoTimeRangeSeconds.start)
-                mediaViewModel.resetPlayer()
-                archiveViewModel.getArchiveUrl(channelUrl, mediaViewModel.currentTime.value)
-                epgViewModel.updateEpgIndex(currentEpgIndex + 1, true)
-                epgViewModel.updateEpgIndex(currentEpgIndex + 1, false)
-                mediaViewModel.updateIsSeeking(false)
-            }
-        } else {
-            archiveViewModel.setRewindError(context.getString(R.string.no_next_program))
-        }
-    }
-
     // go live button
     val handleGoLiveOnClick: () -> Unit = {
         if (channelUrl.isNotEmpty()) {
@@ -212,7 +196,8 @@ fun PlaybackControls(
                 coroutineScope.launch {
                     mediaViewModel.updateIsSeeking(true)
                     mediaViewModel.updateIsLive(true)
-                    mediaViewModel.setCurrentTime(mediaViewModel.liveTime.value)
+                    dateAndTimeViewModel.formatDate(dateAndTimeViewModel.liveTime.value, datePattern, DateType.CURRENT_FULL_DATE)
+                    mediaViewModel.updateCurrentTime(dateAndTimeViewModel.liveTime.value)
                     val liveProgramIndex = epgViewModel.currentEpgLiveProgram.value
                     Log.i("live program index", liveProgramIndex.toString())
                     if (liveProgramIndex == -1) {
@@ -222,7 +207,7 @@ fun PlaybackControls(
                         epgViewModel.updateEpgIndex(liveProgramIndex, false)
                     }
                     mediaViewModel.resetPlayer()
-                    mediaViewModel.startTsCollectingJob(channelUrl, true)
+                    mediaViewModel.startTsCollectingJob(channelUrl)
                     mediaViewModel.updateIsSeeking(false)
                 }
             } else {
@@ -274,7 +259,7 @@ fun PlaybackControls(
                 R.drawable.next_program, R.string.next_program,
                 focusedControl == 5,
                 { control -> handleOnControlFocusChanged(control) },
-                handleNextProgramClick, {}, {}
+                playbackControlsViewModel::handleNextProgramClick, {}, {}
             ),
 
             PlaybackControl(

@@ -9,9 +9,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.FileNotFoundException
+import java.io.IOException
 import java.io.InputStream
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
+import java.net.SocketTimeoutException
 import java.net.URL
 import javax.inject.Inject
 import javax.net.ssl.HttpsURLConnection
@@ -27,28 +29,34 @@ class FileUtilsRepository @Inject constructor (
             Log.i("file url read", fileUrl)
             try {
                 val url = URL(fileUrl)
+                Log.i("url created", "true")
                 val connection = url.openConnection() as HttpsURLConnection
+                connection.connectTimeout = 1000
+                Log.i("connection open", "true")
                 connection.connect()
                 connection.inputStream
-            } catch (e: FileNotFoundException) {
-                if (isFileDvrStream(fileUrl)) {
-                    onErrorCallback(
-                        context.getString(R.string.no_archive),
-                        context.getString(R.string.no_archive_descr)
-                    )
-                } else {
-                    onErrorCallback(
-                        context.getString(R.string.no_live),
-                        context.getString(R.string.no_live_descr)
+            } catch (e: IOException) {
+                Log.i("exception?", e.localizedMessage)
+                when (e) {
+                    is FileNotFoundException, is SocketTimeoutException -> {
+                        if (isFileDvrStream(fileUrl)) {
+                            onErrorCallback(
+                                context.getString(R.string.no_archive),
+                                context.getString(R.string.no_archive_descr)
+                            )
+                        } else {
+                            onErrorCallback(
+                                context.getString(R.string.no_live),
+                                context.getString(R.string.no_live_descr)
+                            )
+                        }
+                    }
+
+                    else -> onErrorCallback(
+                        context.getString(R.string.playback_failed),
+                        context.getString(R.string.unknown_error)
                     )
                 }
-
-                null
-            } catch (e: Exception) {
-                onErrorCallback(
-                    context.getString(R.string.playback_failed),
-                    context.getString(R.string.unknown_error)
-                )
 
                 null
             }
@@ -61,6 +69,8 @@ class FileUtilsRepository @Inject constructor (
         withContext(Dispatchers.IO) {
             val inputStream = getFileInputStream(fileUrl, onErrorCallback)
             val content = mutableListOf<String>()
+
+            Log.i("content", "content read?")
 
             inputStream?.let { stream ->
                 val bufferedReader = BufferedReader(InputStreamReader(stream))

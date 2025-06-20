@@ -3,12 +3,13 @@ package com.example.iptvplayer.view.epg
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.iptvplayer.data.Utils
 import com.example.iptvplayer.domain.epg.AccessEpgCacheUseCase
 import com.example.iptvplayer.domain.epg.GetEpgByIdUseCase
 import com.example.iptvplayer.domain.sharedPrefs.SharedPreferencesUseCase
 import com.example.iptvplayer.retrofit.data.EpgListItem
 import com.example.iptvplayer.retrofit.data.EpgTimeRangeInSeconds
+import com.example.iptvplayer.view.time.CalendarManager
+import com.example.iptvplayer.view.time.DateManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -24,7 +25,9 @@ const val CURRENT_EPG_INDEX_KEY = "current_epg_index"
 class EpgViewModel @Inject constructor(
     private val getEpgByIdUseCase: GetEpgByIdUseCase,
     private val sharedPreferencesUseCase: SharedPreferencesUseCase,
-    private val accessEpgCacheUseCase: AccessEpgCacheUseCase
+    private val accessEpgCacheUseCase: AccessEpgCacheUseCase,
+    private val dateManager: DateManager,
+    private val calendarManager: CalendarManager
 ): ViewModel() {
 
     // FOCUSED CHANNEL EPG INFO (used for displaying focused channel epg list)
@@ -98,8 +101,9 @@ class EpgViewModel @Inject constructor(
     }
 
     fun updateEpgIndex(index: Int, isCurrent: Boolean) {
-        Log.i("update epg index list size", _focusedChannelEpgItems.value.size.toString())
-        if (index in _focusedChannelEpgItems.value.indices) {
+        val currentEpgItems = if (isCurrent) _currentChannelEpgItems else _focusedChannelEpgItems
+        Log.i("update epg index list size", currentEpgItems.value.size.toString())
+        if (index in currentEpgItems.value.indices) {
             if (isCurrent) {
                 Log.i("set current epg index", "$index")
                 _currentEpgIndex.value = index
@@ -191,8 +195,8 @@ class EpgViewModel @Inject constructor(
         start: String,
         stop: String
     ): EpgTimeRangeInSeconds {
-        val startTimeSeconds = Utils.parseDate(start, datePattern, timezone)
-        val stopTimeSeconds = Utils.parseDate(stop, datePattern, timezone)
+        val startTimeSeconds = dateManager.parseDate(start, datePattern, timezone)
+        val stopTimeSeconds = dateManager.parseDate(stop, datePattern, timezone)
 
         return EpgTimeRangeInSeconds(startTimeSeconds, stopTimeSeconds)
     }
@@ -210,11 +214,13 @@ class EpgViewModel @Inject constructor(
 
             val datePattern = "EEEE d MMMM HH:mm:ss"
 
-            Log.i("live time in update current epg", Utils.formatDate(liveTime, datePattern))
-            Log.i("current time in update current epg", Utils.formatDate(currentTime, datePattern))
+            Log.i("live time in update current epg", dateManager.formatDate(liveTime, datePattern))
+            Log.i("current time in update current epg", dateManager.formatDate(currentTime, datePattern))
 
             val newEpgItemsList = mutableListOf<EpgListItem>()
             val newEpgList = mutableListOf<EpgListItem.Epg>()
+            var currentEpgIndex = -1
+            var liveEpgIndex = -1
 
             Log.i("items size", "initial size " + currentEpgList.size.toString())
 
@@ -230,15 +236,14 @@ class EpgViewModel @Inject constructor(
                 val isProgramLive = isTimeWithinProgramRange(epgTimeRangeInSeconds, liveTime)
 
                 if (isProgramCurrent) {
-                    Log.i("is program current", "$i $isProgramCurrent $epg ${Utils.formatDate(epgTimeRangeInSeconds.start, datePattern)}")
+                    Log.i("is program current current epg list", "$i $isProgramCurrent $epg ${dateManager.formatDate(epgTimeRangeInSeconds.start, datePattern)}")
+                    currentEpgIndex = i
                 }
 
                 if (isProgramLive) {
-                    Log.i("is program live", "$i $isProgramLive $epg ${Utils.formatDate(epgTimeRangeInSeconds.start, datePattern)}")
+                    Log.i("is program live", "$i $isProgramLive $epg ${dateManager.formatDate(epgTimeRangeInSeconds.start, datePattern)}")
+                    liveEpgIndex = i
                 }
-
-                if (isProgramCurrent) updateEpgIndex(i, true)
-                if (isProgramLive)
 
                 newEpgList.add(epg)
             }
@@ -247,6 +252,8 @@ class EpgViewModel @Inject constructor(
             Log.i("focused epg", _focusedEpgIndex.value.toString())
 
             _currentChannelEpgItems.value = newEpgList
+            updateEpgIndex(currentEpgIndex, true)
+            updateLiveEpgIndex(liveEpgIndex, true)
 
             Log.i("epg view model", "update epg list, focused: ${_currentEpgIndex.value}, live: ${_currentEpgLiveProgram.value}")
         }
@@ -264,8 +271,8 @@ class EpgViewModel @Inject constructor(
 
             val datePattern = "EEEE d MMMM HH:mm:ss"
 
-            Log.i("live time in update current epg", Utils.formatDate(liveTime, datePattern))
-            Log.i("current time in update current epg", Utils.formatDate(currentTime, datePattern))
+            Log.i("live time in update current epg", dateManager.formatDate(liveTime, datePattern))
+            Log.i("current time in update current epg", dateManager.formatDate(currentTime, datePattern))
 
             val dayAndMonthPattern = "dd MMMM"
             var prevDay = -1
@@ -282,13 +289,13 @@ class EpgViewModel @Inject constructor(
                 epg.epgVideoTimeRangeSeconds = epgTimeRangeInSeconds
                 epg.epgVideoName = epg.epgVideoName.trim()
 
-                val currentDay = Utils.getCalendarDay(Utils.getCalendar(epg.epgVideoTimeRangeSeconds.start))
+                val currentDay = calendarManager.getCalendarDay(calendarManager.getCalendar(epg.epgVideoTimeRangeSeconds.start))
                 Log.i("current epg day","${epg.epgVideoTimeRangeSeconds.start}")
 
                 if (i == 0 || currentDay > prevDay) {
                     headersSeen++
                     newEpgList = mutableListOf()
-                    val formattedDate = Utils.formatDate(epg.epgVideoTimeRangeSeconds.start, dayAndMonthPattern)
+                    val formattedDate = dateManager.formatDate(epg.epgVideoTimeRangeSeconds.start, dayAndMonthPattern)
                     prevDay = currentDay
                     val header = EpgListItem.Header(formattedDate)
                     newDayToEpgList[header] = newEpgList
@@ -299,11 +306,11 @@ class EpgViewModel @Inject constructor(
                 val isProgramLive = isTimeWithinProgramRange(epgTimeRangeInSeconds, liveTime)
 
                 if (isProgramCurrent) {
-                    Log.i("is program current", "$i $isProgramCurrent $epg ${Utils.formatDate(epgTimeRangeInSeconds.start, datePattern)}")
+                    Log.i("is program current focused epg list", "$i $isProgramCurrent $epg ${dateManager.formatDate(epgTimeRangeInSeconds.start, datePattern)}")
                 }
 
                 if (isProgramLive) {
-                    Log.i("is program live", "$i $isProgramLive $epg ${Utils.formatDate(epgTimeRangeInSeconds.start, datePattern)}")
+                    Log.i("is program live", "$i $isProgramLive $epg ${dateManager.formatDate(epgTimeRangeInSeconds.start, datePattern)}")
                 }
 
                 if (isProgramCurrent)  _focusedEpgIndex.value = i + headersSeen
@@ -323,8 +330,8 @@ class EpgViewModel @Inject constructor(
                 isCachedEpgDisplayed = false
             } else {
                 if (_focusedEpgIndex.value == -1) {
-                    Log.i("is first", "${Utils.formatDate(focusedEpgList[0].epgVideoTimeRangeSeconds.start, datePattern)}")
-                    Log.i("is first", "${Utils.formatDate(currentTime, datePattern)}")
+                    Log.i("is first", "${dateManager.formatDate(focusedEpgList[0].epgVideoTimeRangeSeconds.start, datePattern)}")
+                    Log.i("is first", "${dateManager.formatDate(currentTime, datePattern)}")
                     if (focusedEpgList[0].epgVideoTimeRangeSeconds.start > currentTime) {
                         updateEpgIndex(0, false)
                     } else {

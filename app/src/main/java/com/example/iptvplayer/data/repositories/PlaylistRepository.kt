@@ -11,13 +11,13 @@ interface PlaylistRepository {
     fun parsePlaylistData(playlistContent: List<String>): List<PlaylistChannel>
     fun extractTsSegments(
         rootUrl: String,
-        resetEmittedTsSegments: Boolean,
+        isLiveStream: Boolean,
         readFile: suspend (String) -> List<String>
     ): Flow<String>
 }
 
 class M3U8PlaylistRepository @Inject constructor(): PlaylistRepository {
-    val emittedSegments = mutableSetOf<String>()
+    var emittedSegments = mutableSetOf<String>()
 
     override fun parsePlaylistData(playlistContent: List<String>): List<PlaylistChannel> {
         val channelsData = mutableListOf<PlaylistChannel>()
@@ -50,18 +50,11 @@ class M3U8PlaylistRepository @Inject constructor(): PlaylistRepository {
 
     override fun extractTsSegments(
         rootUrl: String,
-        resetEmittedTsSegments: Boolean,
+        isLiveStream: Boolean,
         readFile: suspend (String) -> List<String>
     ) = flow {
-        if (emittedSegments.size != 0) {
-            Log.i("segments", "segments last segment ${emittedSegments.last()}")
-        }
-        Log.i("segments", "reset emitted ts segments: $resetEmittedTsSegments")
-        if (resetEmittedTsSegments) emittedSegments.clear()
-
-        Log.i("segments", "size after reset: ${emittedSegments.size}")
-
         suspend fun recursiveExtractTsSegments(rootUrl: String) {
+            Log.i("current url extract segments", rootUrl)
             val fileContent = readFile(rootUrl)
             Log.i("rooturl", rootUrl)
             val baseUrl = rootUrl.substring(0, rootUrl.lastIndexOf("/") + 1)
@@ -70,15 +63,18 @@ class M3U8PlaylistRepository @Inject constructor(): PlaylistRepository {
                 Log.i("loop line", line)
                 if (line.indexOf("m3u8") != -1) {
                     val combinedUrl = baseUrl + line
-
                     recursiveExtractTsSegments(combinedUrl)
                 } else {
                     if (line.indexOf(".ts") != -1) {
                         val noDvrLink = (baseUrl + line).replaceFirst("dvr-", "")
-                        if (noDvrLink !in emittedSegments) {
-                            emittedSegments.add(noDvrLink)
-                            Log.i("segments", "emitted segment ${baseUrl + line}")
-                            Log.i("segments", "segments quantity ${emittedSegments.size}")
+                        if (isLiveStream) {
+                            if (noDvrLink !in emittedSegments) {
+                                emittedSegments.add(noDvrLink)
+                                Log.i("fetched segment", "emitted segment ${baseUrl + line}")
+                                emit(baseUrl + line)
+                            }
+                        } else {
+                            Log.i("fetched segment", "emitted segment ${baseUrl + line}")
                             emit(baseUrl + line)
                         }
                     }
@@ -88,8 +84,21 @@ class M3U8PlaylistRepository @Inject constructor(): PlaylistRepository {
 
         recursiveExtractTsSegments(rootUrl)
 
-        while (true) {
+        while (isLiveStream) {
             recursiveExtractTsSegments(rootUrl)
+            Log.i("emitted segments size", emittedSegments.size.toString())
+            if (emittedSegments.size >= 20) {
+                var removedSegments = 0
+                val newEmittedSegments = mutableSetOf<String>()
+                for (segment in emittedSegments) {
+                    if (removedSegments < 10) {
+                        removedSegments++
+                    } else {
+                        newEmittedSegments.add(segment)
+                    }
+                }
+                emittedSegments = newEmittedSegments
+            }
             delay(4000)
         }
     }

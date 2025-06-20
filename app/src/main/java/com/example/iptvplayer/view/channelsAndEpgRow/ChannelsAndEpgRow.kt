@@ -85,7 +85,7 @@ fun ChannelsAndEpgRow(
             token,
         ) { time ->
             coroutineScope.launch {
-                mediaViewModel.setCurrentTime(time)
+                mediaViewModel.updateCurrentTime(time)
             }
         }
     }

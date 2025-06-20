@@ -11,9 +11,15 @@ import com.example.iptvplayer.domain.sharedPrefs.SharedPreferencesUseCase
 import com.example.iptvplayer.retrofit.data.ChannelData
 import com.example.iptvplayer.view.errors.ErrorData
 import com.example.iptvplayer.view.errors.ErrorManager
+import com.example.iptvplayer.view.player.MediaManager
+import com.example.iptvplayer.view.player.PlaybackOrchestrator
+import com.example.iptvplayer.view.time.TimeOrchestrator
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -23,19 +29,27 @@ const val CURRENT_CHANNEL_INDEX_KEY = "current_channel_index_key"
 class ChannelsViewModel @Inject constructor(
     private val getChannelsDataUseCase: GetChannelsDataUseCase,
     private val sharedPreferencesUseCase: SharedPreferencesUseCase,
+    private val playbackOrchestrator: PlaybackOrchestrator,
+    private val timeOrchestrator: TimeOrchestrator,
+    private val channelsManager: ChannelsManager,
+    private val mediaManager: MediaManager,
     private val errorManager: ErrorManager
 ): ViewModel() {
-    private val _channelsData: MutableStateFlow<List<ChannelData>> = MutableStateFlow(emptyList())
-    val channelsData: StateFlow<List<ChannelData>> = _channelsData
+    val channelsData: StateFlow<List<ChannelData>> = channelsManager.channelsData.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+    )
 
-    private val _focusedChannelIndex: MutableStateFlow<Int> = MutableStateFlow(-1)
-    val focusedChannelIndex: StateFlow<Int> = _focusedChannelIndex
+    val focusedChannelIndex: StateFlow<Int> = channelsManager.focusedChannelIndex.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), -1
+    )
 
-    private val _currentChannel: MutableStateFlow<ChannelData> = MutableStateFlow(ChannelData())
-    val currentChannel: StateFlow<ChannelData> = _currentChannel
+    val currentChannel: StateFlow<ChannelData> = channelsManager.currentChannel.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), ChannelData()
+    )
 
-    private val _currentChannelIndex: MutableStateFlow<Int> = MutableStateFlow(-1)
-    val currentChannelIndex: StateFlow<Int> = _currentChannelIndex
+    val currentChannelIndex: StateFlow<Int> = channelsManager.currentChannelIndex.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), -1
+    )
 
     private val _channelError: MutableLiveData<String> = MutableLiveData()
     val channelError: LiveData<String> = _channelError
@@ -45,6 +59,17 @@ class ChannelsViewModel @Inject constructor(
 
     private val _isChannelClicked: MutableStateFlow<Boolean> = MutableStateFlow(true)
     val isChannelClicked: StateFlow<Boolean> = _isChannelClicked
+
+    val currentTime: StateFlow<Long> = timeOrchestrator.currentTime.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), 0L
+    )
+
+    private val _isChannelInfoShown: MutableStateFlow<Boolean> = MutableStateFlow(true)
+    val isChannelInfoShown: StateFlow<Boolean> = _isChannelInfoShown
+
+    fun updateIsChannelInfoShown(isShown: Boolean) {
+        _isChannelInfoShown.value = isShown
+    }
 
     fun getCachedChannelIndex(): Int {
         val cachedChannelIndex = sharedPreferencesUseCase.getIntValue((CURRENT_CHANNEL_INDEX_KEY))
@@ -56,25 +81,12 @@ class ChannelsViewModel @Inject constructor(
     }
 
     fun updateCurrentChannel() {
-        val channel = channelsData.value.getOrNull(_currentChannelIndex.value)
-        channel?.let { _ ->
-            _currentChannel.value = channel
-            Log.i("update focused channel", channel.toString())
-        }
+        channelsManager.updateCurrentChannel()
     }
 
     // update current channel index or focused channel index
     fun updateChannelIndex(index: Int, isCurrent: Boolean) {
-        if (index in channelsData.value.indices) {
-            if (isCurrent) {
-                _currentChannelIndex.value = index
-                updateCurrentChannel()
-                sharedPreferencesUseCase.saveIntValue(CURRENT_CHANNEL_INDEX_KEY, index)
-            } else {
-                Log.i("update channel index called", "$index")
-                _focusedChannelIndex.value = index
-            }
-        }
+        channelsManager.updateChannelIndex(index, isCurrent)
     }
 
     fun getChannelByIndex(index: Int): ChannelData? {
@@ -101,7 +113,7 @@ class ChannelsViewModel @Inject constructor(
             }
             Log.i("channels repository", "parsed data ${data.toString()}")
 
-            _channelsData.value = data
+            channelsManager.updateChannelsData(data)
             val stopTime = System.currentTimeMillis()
             Log.i("parsing time","${(stopTime-startTime)} channels view model fetch channels data")
         }
@@ -125,4 +137,25 @@ class ChannelsViewModel @Inject constructor(
             }
         }
     } */
+
+    fun switchChannel(isPrevious: Boolean) {
+        viewModelScope.launch {
+            timeOrchestrator.updateCurrentTime(currentTime.value)
+            mediaManager.updateIsLive(true)
+
+            val focusedChannelIndex =
+                currentChannelIndex.value + if (isPrevious) -1 else 1
+            channelsManager.updateChannelIndex(focusedChannelIndex, true)
+            channelsManager.updateChannelIndex(focusedChannelIndex, false)
+
+            val updatedCurrentChannel =
+                channelsManager.getChannelByIndex(focusedChannelIndex)
+            updatedCurrentChannel?.let { channel ->
+                delay(500)
+                mediaManager.resetPlayer()
+                playbackOrchestrator.startTsCollectingJob(channel.channelUrl)
+                updateIsChannelInfoShown(true)
+            }
+        }
+    }
 }

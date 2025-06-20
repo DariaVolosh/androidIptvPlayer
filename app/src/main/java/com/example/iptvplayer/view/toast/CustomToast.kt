@@ -10,6 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
@@ -33,7 +34,7 @@ fun CustomToast(
     val archiveViewModel: ArchiveViewModel = hiltViewModel()
 
     val channelError by channelsViewModel.channelError.observeAsState()
-    val rewindError by archiveViewModel.rewindError.observeAsState()
+    val rewindError by archiveViewModel.rewindError.collectAsState()
 
     var isToastDisplayed by remember { mutableStateOf(false) }
     var displayedError by remember { mutableStateOf("") }

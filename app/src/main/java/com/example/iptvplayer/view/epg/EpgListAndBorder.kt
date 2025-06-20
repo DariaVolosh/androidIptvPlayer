@@ -34,6 +34,7 @@ import com.example.iptvplayer.view.channels.ChannelsViewModel
 import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
 import com.example.iptvplayer.view.channelsAndEpgRow.ItemBorder
 import com.example.iptvplayer.view.player.MediaViewModel
+import com.example.iptvplayer.view.time.DateAndTimeViewModel
 import kotlinx.coroutines.delay
 
 data class EpgToBeFetched(
@@ -52,6 +53,7 @@ fun EpgListAndBorder(
     val archiveViewModel: ArchiveViewModel = hiltViewModel()
     val channelsViewModel: ChannelsViewModel = hiltViewModel()
     val mediaViewModel: MediaViewModel = hiltViewModel()
+    val dateAndTimeViewModel: DateAndTimeViewModel = hiltViewModel()
 
     val isEpgListFocused by epgViewModel.isEpgListFocused.collectAsState()
     val focusedEpgIndex by epgViewModel.focusedEpgIndex.collectAsState()
@@ -62,7 +64,8 @@ fun EpgListAndBorder(
     val focusedChannelIndex by channelsViewModel.focusedChannelIndex.collectAsState()
     val channelsData by channelsViewModel.channelsData.collectAsState()
 
-    val dvrRange by archiveViewModel.focusedChannelDvrRange.collectAsState()
+    val dvrRanges by archiveViewModel.focusedChannelDvrRanges.collectAsState()
+    val currentDvrRange by archiveViewModel.currentChannelDvrRange.collectAsState()
 
     val focusRequester = remember { FocusRequester() }
 
@@ -100,12 +103,13 @@ fun EpgListAndBorder(
             Key.DirectionCenter -> {
                 val focusedEpg = epgViewModel.getEpgItemByIndex(focusedEpgIndex) as EpgListItem.Epg
 
+                archiveViewModel.determineCurrentDvrRange(false, focusedEpg.epgVideoTimeRangeSeconds.start)
+
                 if (
-                    focusedEpg != null &&
-                    focusedEpg.epgVideoTimeRangeSeconds.start in dvrRange.first..dvrRange.second
+                    currentDvrRange != -1 &&
+                    focusedEpg.epgVideoTimeRangeSeconds.start in dvrRanges[currentDvrRange].from..dvrRanges[currentDvrRange].from + dvrRanges[currentDvrRange].duration
                 ) {
                     epgViewModel.updateEpgIndex(focusedEpgIndex, true)
-
                     channelsViewModel.updateChannelIndex(channelsViewModel.focusedChannelIndex.value, true)
 
                     mediaViewModel.resetPlayer()
@@ -143,8 +147,8 @@ fun EpgListAndBorder(
                 delay(100)
             }
 
-            val liveTime = mediaViewModel.liveTime.value
-            val currentTime = mediaViewModel.currentTime.value
+            val liveTime = dateAndTimeViewModel.liveTime.value
+            val currentTime = dateAndTimeViewModel.currentTime.value
 
             if (focusedChannelIndex == currentChannelIndex) {
                 epgViewModel.updateFocusedEpgList(focusedChannelEpg, liveTime, currentTime)
@@ -168,8 +172,8 @@ fun EpgListAndBorder(
                 delay(100)
             }
 
-            val liveTime = mediaViewModel.liveTime.value
-            val currentTime = mediaViewModel.currentTime.value
+            val liveTime = dateAndTimeViewModel.liveTime.value
+            val currentTime = dateAndTimeViewModel.currentTime.value
 
             epgViewModel.updateCurrentEpgList(currentChannelEpg, liveTime, currentTime)
         }
@@ -225,7 +229,7 @@ fun EpgListAndBorder(
         ) {
             EpgList(
                 Modifier.fillMaxWidth(),
-                dvrRange,
+                dvrRanges[currentDvrRange],
                 epgItemHeight,
                 {isMiddle -> isListMiddle = isMiddle},
                 {height -> epgItemHeight = height},

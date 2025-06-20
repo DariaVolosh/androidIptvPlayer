@@ -1,143 +1,191 @@
 package com.example.iptvplayer.view.channelsAndEpgRow
 
 import android.util.Log
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.iptvplayer.data.Utils
-import com.example.iptvplayer.domain.archive.GetDvrRangeUseCase
+import com.example.iptvplayer.domain.archive.GetDvrRangesUseCase
 import com.example.iptvplayer.domain.sharedPrefs.SharedPreferencesUseCase
+import com.example.iptvplayer.retrofit.data.DvrRange
+import com.example.iptvplayer.view.time.CalendarManager
+import com.example.iptvplayer.view.time.DateManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Calendar
 import javax.inject.Inject
 
-const val CURRENT_TIME_KEY = "current_time"
-const val IS_LIVE_KEY = "is_live"
+
+enum class CurrentDvrInfoState {
+    LOADING, // dvr info is loading
+    NOT_AVAILABLE_GLOBAL, // error to load dvr info -> either api is not available or no dvr available
+    AVAILABLE_GLOBAL, // dvr info is available
+    PLAYING_IN_RANGE, // current time range is available
+    GAP_DETECTED_AND_WAITING, // gap, playback stopped
+    END_OF_DVR_REACHED // end of the dvr
+}
+
+data class DvrDaysRange(
+    val firstDay: Int = -1,
+    val lastDay: Int = -1
+)
+
+data class DvrMonthsRange(
+    val firstMonth: Int = -1,
+    val lastMonth: Int = -1
+)
 
 @HiltViewModel
 class ArchiveViewModel @Inject constructor(
-    private val getDvrRangeUseCase: GetDvrRangeUseCase,
+    private val getDvrRangesUseCase: GetDvrRangesUseCase,
+    private val archiveManager: ArchiveManager,
+    private val calendarManager: CalendarManager,
+    private val dateManager: DateManager,
     private val sharedPreferencesUseCase: SharedPreferencesUseCase
 ): ViewModel() {
-    private val _archiveSegmentUrl: MutableStateFlow<String> = MutableStateFlow("")
-    val archiveSegmentUrl: StateFlow<String> = _archiveSegmentUrl
+    val archiveSegmentUrl: StateFlow<String> = archiveManager.archiveSegmentUrl.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), ""
+    )
 
-    private val _currentChannelDvrRange: MutableStateFlow<Pair<Long, Long>> = MutableStateFlow(Pair(0,0))
-    val currentChannelDvrRange: StateFlow<Pair<Long, Long>> = _currentChannelDvrRange
+    val currentChannelDvrRanges: StateFlow<List<DvrRange>> = archiveManager.currentChannelDvrRanges.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+    )
 
-    private val _focusedChannelDvrRange: MutableStateFlow<Pair<Long, Long>> = MutableStateFlow(Pair(0,0))
-    val focusedChannelDvrRange: StateFlow<Pair<Long, Long>> = _focusedChannelDvrRange
+    val focusedChannelDvrRanges: StateFlow<List<DvrRange>> = archiveManager.focusedChannelDvrRanges.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+    )
 
     // for example 3 march -> 3
-    private val _dvrFirstAndLastDay: MutableLiveData<Pair<Int, Int>> = MutableLiveData()
-    val dvrFirstAndLastDay: LiveData<Pair<Int, Int>> = _dvrFirstAndLastDay
+    val dvrFirstAndLastDay: StateFlow<DvrDaysRange> = archiveManager.dvrFirstAndLastDay.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), DvrDaysRange()
+    )
 
-    private val _dvrFirstAndLastMonth: MutableLiveData<Pair<Int, Int>> = MutableLiveData()
-    val dvrFirstAndLastMonth: MutableLiveData<Pair<Int, Int>> = _dvrFirstAndLastMonth
+    val dvrFirstAndLastMonth: StateFlow<DvrMonthsRange> = archiveManager.dvrFirstAndLastMonth.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), DvrMonthsRange()
+    )
 
-    private val _rewindError: MutableLiveData<String> = MutableLiveData()
-    val rewindError: LiveData<String> = _rewindError
+    val rewindError: StateFlow<String> = archiveManager.rewindError.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), ""
+    )
+
+    val currentChannelDvrRange: StateFlow<Int> = archiveManager.currentChannelDvrRange.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), -1
+    )
+
+    val currentChannelDvrInfoState: StateFlow<CurrentDvrInfoState> = archiveManager.currentChannelDvrInfoState.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), CurrentDvrInfoState.LOADING
+    )
+
+    val focusedChannelDvrInfoState: StateFlow<CurrentDvrInfoState> = archiveManager.focusedChannelDvrInfoState.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), CurrentDvrInfoState.LOADING
+    )
+
+    val focusedChannelDvrRange: StateFlow<Int> = archiveManager.focusedChannelDvrRange.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), -1
+    )
 
     var focusedChannelDvrCollectionJob: Job? = null
     var currentChannelDvrCollectionJob: Job? = null
-
-    fun setRewindError(error: String) {
-        _rewindError.value = error
-    }
 
     private fun getDvrFirstAndLastDays(
         firstDayCalendar: Calendar,
         lastDayCalendar: Calendar
     ) {
-        val dvrFirstDay = Utils.getCalendarDay(firstDayCalendar)
-        val dvrLastDay = Utils.getCalendarDay(lastDayCalendar)
+        val dvrFirstDay = calendarManager.getCalendarDay(firstDayCalendar)
+        val dvrLastDay = calendarManager.getCalendarDay(lastDayCalendar)
 
-        _dvrFirstAndLastDay.value = Pair(dvrFirstDay, dvrLastDay)
+        archiveManager.updateDvrFirstAndLastDay(DvrDaysRange(dvrFirstDay, dvrLastDay))
     }
 
     private fun getDvrFirstAndLastMonths(
         firstDayCalendar: Calendar,
         lastDayCalendar: Calendar
     ) {
-        val dvrFirstMonth = Utils.getCalendarMonth(firstDayCalendar) + 1
-        val dvrLastMonth = Utils.getCalendarMonth(lastDayCalendar) + 1
+        val dvrFirstMonth = calendarManager.getCalendarMonth(firstDayCalendar) + 1
+        val dvrLastMonth = calendarManager.getCalendarMonth(lastDayCalendar) + 1
 
-        _dvrFirstAndLastMonth.value = Pair(dvrFirstMonth, dvrLastMonth)
+        archiveManager.updateDvrFirstAndLastMonth(DvrMonthsRange(dvrFirstMonth, dvrLastMonth))
     }
 
-    suspend fun getDvrRange(isCurrentChannel: Boolean, streamName: String) {
-        val dvrRange = getDvrRangeUseCase.getDvrRange(streamName)
+
+    suspend fun getDvrRanges(isCurrentChannel: Boolean, streamName: String) {
+        val dvrRanges = getDvrRangesUseCase.getDvrRanges(streamName)
+        Log.i("got dvr ranges", dvrRanges.toString())
+        val datePattern = "dd MMMM HH:mm:ss"
+        for (dvrRange in dvrRanges) {
+            Log.i("got dvr range: ", "" +
+                    "from: ${dateManager.formatDate(dvrRange.from, datePattern)} " +
+                    "stop: ${dateManager.formatDate(dvrRange.from + dvrRange.duration, datePattern)}" +
+                    "")
+        }
+        archiveManager.setDvrRanges(isCurrentChannel, dvrRanges)
 
         withContext(Dispatchers.Main) {
-            if (isCurrentChannel) {
-                _currentChannelDvrRange.value = dvrRange
-                val dvrRangeStartCalendar = Utils.getCalendar(dvrRange.first)
-                val dvrRangeEndCalendar = Utils.getCalendar(dvrRange.second)
+            if (isCurrentChannel && dvrRanges.isNotEmpty()) {
+                val dvrRangeStartCalendar = calendarManager.getCalendar(dvrRanges[0].from)
+                val dvrRangeEndCalendar = calendarManager.getCalendar(
+                    dvrRanges.last().from + dvrRanges.last().duration
+                )
 
                 getDvrFirstAndLastDays(dvrRangeStartCalendar, dvrRangeEndCalendar)
                 getDvrFirstAndLastMonths(dvrRangeStartCalendar, dvrRangeEndCalendar)
-            } else {
-                _focusedChannelDvrRange.value = dvrRange
             }
         }
     }
 
-    fun getArchiveUrl(url: String, currentTime: Long) {
-        if (url == "") return
-        Log.i("get archive url method", "called")
-        val datePattern = "EEEE d MMMM HH:mm:ss"
-        Log.i("REALLY", Utils.formatDate(currentTime, datePattern))
-        Log.i("base url given", url.toString())
-        val baseUrl = url.substring(0, url.lastIndexOf("/") + 1)
-        val token = url.substring(url.lastIndexOf("=") + 1, url.length)
+    fun setRewindError(error: String) {
+        archiveManager.setRewindError(error)
+    }
 
-        val archiveUrl = baseUrl + "index-$currentTime-now.m3u8?token=$token"
-        Log.i("base url", "$baseUrl $token $archiveUrl")
-        // checking again, because if the rewind was not continuous, time did not change,
-        // therefore still in present, rewinding to current time would result in
-        // file not found exception
-        viewModelScope.launch {
-            if (isStreamWithinDvrRange(currentTime)) {
-                _archiveSegmentUrl.value = archiveUrl
-            }
-        }
+    fun setCurrentDvrInfoState(isCurrentChannel: Boolean, state: CurrentDvrInfoState) {
+        archiveManager.updateDvrInfoState(isCurrentChannel, state)
     }
 
     suspend fun isStreamWithinDvrRange(newTime: Long): Boolean =
         withContext(Dispatchers.IO) {
-            val dvrRange = currentChannelDvrRange
-                .filter { it.first != 0L }
+            val dvrRanges = currentChannelDvrRanges
+                .filter { it.isNotEmpty() }
                 .first()
-            Log.i("dvr range collected", dvrRange.toString())
-            val datePattern = "EEEE d MMMM HH:mm:ss"
-            Log.i("dvr range compare", "${Utils.formatDate(dvrRange.first, datePattern)}")
-            Log.i("dvr range compare", "${Utils.formatDate(newTime, datePattern)}")
-            Log.i("dvr range compare", "${Utils.formatDate(dvrRange.second, datePattern)}")
+            Log.i("dvr range collected", dvrRanges.toString())
+            //Log.i("dvr range compare", "${Utils.formatDate(dvrRange.first, datePattern)}")
+            //Log.i("dvr range compare", "${Utils.formatDate(newTime, datePattern)}")
+            //Log.i("dvr range compare", "${Utils.formatDate(dvrRange.second, datePattern)}")
 
-            val isMoreThanFirstBound = newTime >= dvrRange.first
-            val isLessThanSecondBound = newTime <= dvrRange.second
+            var isWithinDvrRange = false
 
-            val isWithinDvrRange = isMoreThanFirstBound && isLessThanSecondBound
+            for (dvrRange in dvrRanges) {
+                val isMoreThanFirstBound = newTime >= dvrRange.from
+                val isLessThanSecondBound = newTime <= dvrRange.from + dvrRange.duration
+                if (isMoreThanFirstBound && isLessThanSecondBound) {
+                    isWithinDvrRange = true
+                    break
+                }
+            }
+
             isWithinDvrRange
         }
 
-    fun startDvrCollectionJob(isCurrentChannel: Boolean, streamName: String) {
+
+    fun getArchiveUrl(channelUrl: String, currentTime: Long) {
+        viewModelScope.launch {
+            archiveManager.getArchiveUrl(channelUrl, currentTime)
+        }
+    }
+
+    suspend fun startDvrCollectionJob(isCurrentChannel: Boolean, streamName: String) {
         val jobBody: suspend CoroutineScope.() -> Unit = {
             withContext(Dispatchers.IO) {
                 while (true) {
-                    getDvrRange(isCurrentChannel, streamName)
-                    delay(5000)
+                    getDvrRanges(isCurrentChannel, streamName)
+                    delay(60000)
                 }
             }
         }
@@ -148,5 +196,10 @@ class ArchiveViewModel @Inject constructor(
             focusedChannelDvrCollectionJob?.cancel()
             focusedChannelDvrCollectionJob = viewModelScope.launch(block = jobBody)
         }
+    }
+
+    fun determineCurrentDvrRange(isCurrentChannel: Boolean, currentTime: Long) {
+        println("called")
+        archiveManager.determineCurrentDvrRange(isCurrentChannel, currentTime)
     }
 }

@@ -21,7 +21,8 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.iptvplayer.data.Utils
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.iptvplayer.view.time.DateAndTimeViewModel
 
 data class ArchiveDate(
     val dayOfWeek: String,
@@ -41,6 +42,8 @@ fun ArchiveDate(
     onTimePickerFocus: () -> Unit,
     onDateFocusChange: (Int) -> Unit
 ) {
+
+    val dateAndTimeViewModel: DateAndTimeViewModel = hiltViewModel()
 
     val focusRequester = remember { FocusRequester() }
 
@@ -98,7 +101,7 @@ fun ArchiveDate(
         Text(
             modifier = Modifier.weight(1f),
             textAlign = TextAlign.Start,
-            text = "${archiveDateInfo.day} ${Utils.getFullMonthName(archiveDateInfo.month)}",
+            text = "${archiveDateInfo.day} ${dateAndTimeViewModel.getFullMonthName(archiveDateInfo.month)}",
             fontSize = 19.sp,
             color = MaterialTheme.colorScheme.onSecondary
         )

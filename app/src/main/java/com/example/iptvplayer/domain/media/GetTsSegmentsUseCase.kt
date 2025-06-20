@@ -10,12 +10,12 @@ class GetTsSegmentsUseCase @Inject constructor(
 ) {
    fun extractTsSegments(
        url: String,
-       resetEmittedTsSegments: Boolean,
+       isLiveStream: Boolean,
        onErrorCallback: (String, String) -> Unit
    ) =
         playlistRepository.extractTsSegments(
             url,
-            resetEmittedTsSegments
+            isLiveStream
         ) {u ->
             fileUtilsRepository.readFile(u, onErrorCallback)
         }

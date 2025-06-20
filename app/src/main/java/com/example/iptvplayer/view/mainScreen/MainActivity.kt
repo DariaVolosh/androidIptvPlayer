@@ -50,8 +50,10 @@ import com.example.iptvplayer.view.player.PlayerView
 import com.example.iptvplayer.view.programDatePicker.ProgramDatePickerModal
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -83,24 +85,22 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        mediaViewModel.initializePlayer()
         lifecycleScope.launch {
             withContext(Dispatchers.IO) {
-                channelsViewModel.currentChannel.collect { currentChannel ->
-                    if (currentChannel != ChannelData()) {
-                        if (mediaViewModel.isLive.value) {
-                            mediaViewModel.startTsCollectingJob(currentChannel.channelUrl, true)
-                        } else {
-                            archiveViewModel.getArchiveUrl(
-                                currentChannel.channelUrl,
-                                mediaViewModel.currentTime.value
-                            )
-
-                            if (archiveViewModel.archiveSegmentUrl.value.isNotEmpty()) {
-                                mediaViewModel.play()
-                            }
+                combine(
+                    channelsViewModel.currentChannel.filter { channel -> channel != ChannelData() },
+                    mediaViewModel.isSurfaceAttached.filter { isAttached -> isAttached}
+                ) { channel, _ ->
+                    channel
+                }.first().let { currentChannel ->
+                    Log.i("start to collect segments!!!", "START")
+                    if (mediaViewModel.isLive.value) {
+                        mediaViewModel.startTsCollectingJob(currentChannel.channelUrl)
+                    } else {
+                        if (archiveViewModel.archiveSegmentUrl.value.isNotEmpty()) {
+                            mediaViewModel.play()
                         }
-
-                        cancel()
                     }
                 }
             }
@@ -143,27 +143,6 @@ fun MainScreen(
     val isTrial by dummyViewModel.isTrial.observeAsState()
     val currentChannel by channelsViewModel.currentChannel.collectAsState()
 
-    val switchChannel: (Boolean) -> Unit = { previous ->
-        coroutineScope.launch {
-            mediaViewModel.setCurrentTime(mediaViewModel.liveTime.value)
-            mediaViewModel.updateIsLive(true)
-
-            val focusedChannelIndex =
-                channelsViewModel.focusedChannelIndex.value + if (previous) -1 else 1
-            channelsViewModel.updateChannelIndex(focusedChannelIndex, true)
-            channelsViewModel.updateChannelIndex(focusedChannelIndex, false)
-
-            val updatedCurrentChannel =
-                channelsViewModel.getChannelByIndex(focusedChannelIndex)
-            updatedCurrentChannel?.let { channel ->
-                delay(500)
-                mediaViewModel.resetPlayer()
-                mediaViewModel.startTsCollectingJob(channel.channelUrl, true)
-                isChannelInfoShown = true
-            }
-        }
-    }
-
     LaunchedEffect(isChannelInfoShown, isProgramDatePickerShown, isBackPressed) {
         Log.i("is main screen focused", "$isChannelInfoShown $isProgramDatePickerShown")
         if (!isChannelInfoShown && !isProgramDatePickerShown && !isBackPressed) {
@@ -203,7 +182,9 @@ fun MainScreen(
             .focusable()
             .onKeyEvent { event ->
                 if (event.type == KeyEventType.KeyDown) {
-                    Log.i("main activity", "${event.key} captured")
+                    if (event.key == Key.VolumeUp || event.key == Key.VolumeDown) {
+                        return@onKeyEvent false
+                    }
 
                     when (event.key) {
                         Key.DirectionLeft -> {
@@ -212,11 +193,11 @@ fun MainScreen(
                         }
 
                         Key.DirectionUp -> {
-                            switchChannel(true)
+                            channelsViewModel.switchChannel(true)
                         }
 
                         Key.DirectionDown -> {
-                            switchChannel(false)
+                            channelsViewModel.switchChannel(false)
                         }
 
                         Key.DirectionCenter -> isChannelInfoShown = true
@@ -261,7 +242,7 @@ fun MainScreen(
                 ChannelInfo(
                     isChannelInfoFullyVisible,
                     { showDatePicker -> isProgramDatePickerShown = showDatePicker },
-                    switchChannel,
+                    { isPrevious -> channelsViewModel.switchChannel(isPrevious) },
                 ) { showChannelInfo ->
                     isChannelInfoShown = showChannelInfo
                     if (!showChannelInfo) mainFocusRequester.requestFocus()

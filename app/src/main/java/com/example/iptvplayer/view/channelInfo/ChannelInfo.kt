@@ -16,7 +16,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -27,13 +26,13 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.iptvplayer.data.Utils.formatDate
 import com.example.iptvplayer.view.channelInfo.playbackControls.PlaybackControls
 import com.example.iptvplayer.view.channelInfo.progressBar.TimeSeekbarWithTimeMarkers
 import com.example.iptvplayer.view.channels.ChannelsViewModel
 import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
 import com.example.iptvplayer.view.epg.EpgViewModel
 import com.example.iptvplayer.view.player.MediaViewModel
+import com.example.iptvplayer.view.time.DateAndTimeViewModel
 import com.example.iptvplayer.view.toast.CustomToast
 import kotlinx.coroutines.delay
 
@@ -48,21 +47,27 @@ fun ChannelInfo(
     val mediaViewModel: MediaViewModel = hiltViewModel()
     val epgViewModel: EpgViewModel = hiltViewModel()
     val channelsViewModel: ChannelsViewModel = viewModel()
+    val dateAndTimeViewModel: DateAndTimeViewModel = hiltViewModel()
 
     val datePattern = "EEEE d MMMM HH:mm:ss"
 
-    var currentFullDate by remember { mutableStateOf("") }
     var secondsNotInteracted by remember { mutableIntStateOf(0) }
 
-    val currentTime by mediaViewModel.currentTime.collectAsState()
+    val currentTime by dateAndTimeViewModel.currentTime.collectAsState()
     val isLiveProgram by mediaViewModel.isLive.collectAsState()
-    val dvrRange by archiveViewModel.currentChannelDvrRange.collectAsState()
+    val dvrRange by archiveViewModel.currentChannelDvrRanges.collectAsState()
 
     val currentEpgIndex by epgViewModel.currentEpgIndex.collectAsState()
     val currentEpg by epgViewModel.currentEpg.collectAsState()
 
     val currentChannel by channelsViewModel.currentChannel.collectAsState()
     val currentChannelIndex by channelsViewModel.currentChannelIndex.collectAsState()
+
+    val currentFullDate by dateAndTimeViewModel.currentFullDate.collectAsState()
+
+    LaunchedEffect(currentFullDate) {
+        Log.i("Current full date", currentFullDate)
+    }
 
     LaunchedEffect(Unit) {
         Log.i("IS CHANNEL INFO SHOWN", currentEpg.toString())
@@ -75,10 +80,6 @@ fun ChannelInfo(
 
         Log.i("show channel info", "launched effect true")
         showChannelInfo(false)
-    }
-
-    LaunchedEffect(currentTime) {
-        currentFullDate = formatDate(currentTime, datePattern)
     }
 
     Box(
@@ -120,7 +121,7 @@ fun ChannelInfo(
                     Text(
                         //modifier = Modifier.border(1.dp, Color.Blue),
                         fontSize = 18.sp,
-                        text = currentFullDate.ifEmpty { "No current time" },
+                        text = currentFullDate,
                         color = MaterialTheme.colorScheme.onSecondary
                     )
 

@@ -17,6 +17,7 @@ media3Exoplayer = "1.5.1"
 googleGmsGoogleServices = "4.4.2"
 firebaseDatabase = "21.0.0"
 firebaseFirestore = "25.1.2"
+uiTestJunit4Android = "1.8.2"
 
 [libraries]
 androidx-activity-compose-v190alpha01 = { module = "androidx.activity:activity-compose", version.ref = "activityComposeVersion" }
@@ -47,6 +48,7 @@ ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 firebase-database = { group = "com.google.firebase", name = "firebase-database", version.ref = "firebaseDatabase" }
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore", version.ref = "firebaseFirestore" }
+androidx-ui-test-junit4-android = { group = "androidx.compose.ui", name = "ui-test-junit4-android", version.ref = "uiTestJunit4Android" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

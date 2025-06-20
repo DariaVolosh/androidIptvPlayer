@@ -10,7 +10,9 @@ import javax.inject.Singleton
         FirebaseModule::class,
         RetrofitModule::class,
         SharedPreferencesModule::class,
-        MediaBindingModule::class
+        MediaBindingModule::class,
+        NtpModule::class,
+        DispatchersModule::class
     ]
 )
 @Singleton

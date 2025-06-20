@@ -17,7 +17,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.iptvplayer.data.Utils
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.iptvplayer.view.time.DateAndTimeViewModel
 import java.util.Calendar
 
 @Composable
@@ -30,15 +31,17 @@ fun TimePicker(
     onTimeChanged: (Long) -> Unit,
     onDatePickerFocus: () -> Unit
 ) {
+
+    val dateAndTimeViewModel: DateAndTimeViewModel = hiltViewModel()
     var hours by remember {
         mutableIntStateOf(
-            Utils.getCalendar(requestCurrentTime()).get(Calendar.HOUR_OF_DAY)
+            dateAndTimeViewModel.getCalendar(requestCurrentTime()).get(Calendar.HOUR_OF_DAY)
         )
     }
 
     var minutes by remember {
         mutableIntStateOf(
-            Utils.getCalendar(requestCurrentTime()).get(Calendar.MINUTE)
+            dateAndTimeViewModel.getCalendar(requestCurrentTime()).get(Calendar.MINUTE)
         )
     }
 

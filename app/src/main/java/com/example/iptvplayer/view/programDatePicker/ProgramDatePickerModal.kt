@@ -13,7 +13,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,13 +24,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.R
-import com.example.iptvplayer.data.Utils
 import com.example.iptvplayer.retrofit.data.ChannelData
 import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
 import com.example.iptvplayer.view.epg.EpgViewModel
 import com.example.iptvplayer.view.player.MediaViewModel
 import com.example.iptvplayer.view.programDatePicker.datePicker.DayPicker
 import com.example.iptvplayer.view.programDatePicker.timePicker.TimePicker
+import com.example.iptvplayer.view.time.DateAndTimeViewModel
 import kotlinx.coroutines.launch
 
 @Composable
@@ -44,13 +43,14 @@ fun ProgramDatePickerModal(
     val archiveViewModel: ArchiveViewModel = hiltViewModel()
     val mediaViewModel: MediaViewModel = hiltViewModel()
     val epgViewModel: EpgViewModel = hiltViewModel()
+    val dateAndTimeViewModel: DateAndTimeViewModel = hiltViewModel()
 
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    val dvrRange by archiveViewModel.currentChannelDvrRange.collectAsState()
-    val dvrFirstAndLastDays by archiveViewModel.dvrFirstAndLastDay.observeAsState()
-    val dvrFirstAndLastMonths by archiveViewModel.dvrFirstAndLastMonth.observeAsState()
+    val dvrRanges by archiveViewModel.currentChannelDvrRanges.collectAsState()
+    val dvrFirstAndLastDays by archiveViewModel.dvrFirstAndLastDay.collectAsState()
+    val dvrFirstAndLastMonths by archiveViewModel.dvrFirstAndLastMonth.collectAsState()
 
     var isDatePickerFocused by remember { mutableStateOf(true) }
 
@@ -60,14 +60,16 @@ fun ProgramDatePickerModal(
     LaunchedEffect(chosenDateSinceEpoch, chosenTimeSinceEpoch) {
         val totalDateSinceEpoch = chosenDateSinceEpoch + chosenTimeSinceEpoch
         Log.i("chosen time since epoch", "total time: $totalDateSinceEpoch date: $chosenDateSinceEpoch time $chosenTimeSinceEpoch" )
-        Log.i("chosen time since epoch", Utils.formatDate(totalDateSinceEpoch, "EEEE d MMMM HH:mm:ss"))
+        //Log.i("chosen time since epoch", dateAndTimeViewModel.formatDate(totalDateSinceEpoch, "EEEE d MMMM HH:mm:ss"))
     }
 
     val onArchiveSearchLocal: () -> Unit = {
         val newTotalDate = chosenDateSinceEpoch + chosenTimeSinceEpoch
-        if (newTotalDate >= dvrRange.first && newTotalDate <= dvrRange.second) {
+        val firstDvrRange = dvrRanges[0]
+        val lastDvrRange = dvrRanges[dvrRanges.size-1]
+        if (newTotalDate >= firstDvrRange.from && newTotalDate <= lastDvrRange.from + lastDvrRange.duration) {
             coroutineScope.launch {
-                mediaViewModel.setCurrentTime(newTotalDate)
+                mediaViewModel.updateCurrentTime(newTotalDate)
                 mediaViewModel.updateIsLive(false)
                 epgViewModel.searchEpgByTime(newTotalDate)
                 mediaViewModel.resetPlayer()
@@ -82,7 +84,7 @@ fun ProgramDatePickerModal(
     }
 
     val requestCurrentTime: () -> Long = {
-        mediaViewModel.currentTime.value
+        dateAndTimeViewModel.currentTime.value
     }
 
     Column(
@@ -100,8 +102,8 @@ fun ProgramDatePickerModal(
             DayPicker(
                 Modifier.fillMaxWidth(0.5f),
                 isDatePickerFocused,
-                dvrFirstAndLastDays ?: Pair(0,0),
-                dvrFirstAndLastMonths ?: Pair(0,0),
+                dvrFirstAndLastDays,
+                dvrFirstAndLastMonths,
                 onArchiveSearchLocal,
                 { date -> chosenDateSinceEpoch = date}
             ) {

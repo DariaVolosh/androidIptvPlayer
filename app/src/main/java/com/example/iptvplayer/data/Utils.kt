@@ -1,18 +1,16 @@
 package com.example.iptvplayer.data
 
-import android.util.Log
-import com.instacart.library.truetime.TrueTime
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import okio.IOException
 import java.text.DateFormatSymbols
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import javax.inject.Inject
 
-object Utils {
+class Utils @Inject constructor(
+    private val ntpClient: NtpTimeClient
+) {
     fun getCalendar(date: Long, timeZone: TimeZone? = null): Calendar {
         // defaults to current system locale (in tbilisi case - gmt+4), receives utc time as a parameter
         val calendar = Calendar.getInstance()
@@ -105,13 +103,5 @@ object Utils {
     }
 
     suspend fun getGmtTime(): Long =
-        withContext(Dispatchers.IO) {
-            try {
-                TrueTime.build().withNtpHost("pool.ntp.org").initialize()
-                Log.i("I SEE YOU", TrueTime.now().time.toString())
-                TrueTime.now().time / 1000
-            } catch (e: IOException) {
-                0
-            }
-        }
+        ntpClient.getGmtTime()
 }

@@ -29,6 +29,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.view.channelsAndEpgRow.ItemBorder
 import com.example.iptvplayer.view.epg.EpgViewModel
 import com.example.iptvplayer.view.player.MediaViewModel
+import com.example.iptvplayer.view.time.DateAndTimeViewModel
 import kotlinx.coroutines.launch
 
 @Composable
@@ -41,6 +42,7 @@ fun ChannelsListAndBorder(
     val channelsViewModel: ChannelsViewModel = hiltViewModel()
     val mediaViewModel: MediaViewModel = hiltViewModel()
     val epgViewModel: EpgViewModel = hiltViewModel()
+    val dateAndTimeViewModel: DateAndTimeViewModel = hiltViewModel()
 
     val isChannelClicked by channelsViewModel.isChannelClicked.collectAsState()
     val focusedChannelIndex by channelsViewModel.focusedChannelIndex.collectAsState()
@@ -86,14 +88,14 @@ fun ChannelsListAndBorder(
             Key.DirectionCenter -> {
                 coroutineScope.launch {
                     if (currentChannelIndex != focusedChannelIndex || !mediaViewModel.isLive.value) {
-                        mediaViewModel.setCurrentTime(mediaViewModel.liveTime.value)
+                        mediaViewModel.updateCurrentTime(dateAndTimeViewModel.liveTime.value)
                         mediaViewModel.updateIsLive(true)
                         channelsViewModel.updateChannelIndex(focusedChannelIndex, true)
 
                         val focusedChannel = channelsViewModel.getChannelByIndex(focusedChannelIndex)
                         focusedChannel?.let { channel ->
                             mediaViewModel.resetPlayer()
-                            mediaViewModel.startTsCollectingJob(channel.channelUrl, true)
+                            mediaViewModel.startTsCollectingJob(channel.channelUrl)
                         }
                     }
                 }

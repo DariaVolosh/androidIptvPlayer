@@ -9,6 +9,7 @@ import java.net.URL
 import javax.inject.Inject
 import javax.inject.Singleton
 
+@Singleton
 class MediaDataSource @Inject constructor(
 
 ): IMediaDataSource {
@@ -54,6 +55,8 @@ class MediaDataSource @Inject constructor(
     suspend fun setMediaUrl(url: String, onUrlSet: (MediaDataSource) -> Unit) {
         withContext(Dispatchers.IO) {
             try {
+                Log.i("data source!!! instance", this@MediaDataSource.toString())
+
                 Log.i("emission set media url", "setMediaUrl $url")
                 val connection = URL(url).openConnection()
                 inputStream = connection.getInputStream()
@@ -82,7 +85,10 @@ class MediaRepository @Inject constructor(
         mediaDataSource.setOnNextSegmentRequestedCallback(callback)
     }
 
-    fun getMediaDataSource() = mediaDataSource
+    fun getMediaDataSource(): MediaDataSource {
+        Log.i("GET MEDIA DATA SOURCE", mediaDataSource.toString())
+        return mediaDataSource
+    }
 
     suspend fun setMediaUrl(url: String, onUrlSet: (MediaDataSource) -> Unit) {
         mediaDataSource.setMediaUrl(url, onUrlSet)

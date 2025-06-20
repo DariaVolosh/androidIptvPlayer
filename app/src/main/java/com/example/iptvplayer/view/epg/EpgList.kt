@@ -23,13 +23,14 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.iptvplayer.retrofit.data.DvrRange
 import com.example.iptvplayer.retrofit.data.EpgListItem
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun EpgList(
     modifier: Modifier,
-    dvrRange: Pair<Long, Long>,
+    dvrRange: DvrRange,
     epgItemHeight: Int,
     setIsListMiddle: (Boolean) -> Unit,
     setEpgItemHeight: (Int) -> Unit,
@@ -202,7 +203,7 @@ fun EpgList(
                     items(epgsInGroup.size, {i -> epgsInGroup[i].uniqueId}) { index ->
                         val item = epgsInGroup[index]
                         val isDvrAvailable =
-                            item.epgVideoTimeRangeSeconds.start in dvrRange.first..dvrRange.second
+                            item.epgVideoTimeRangeSeconds.start in dvrRange.from..dvrRange.from + dvrRange.duration
 
                         EpgItem(
                             item.epgVideoTimeRange,

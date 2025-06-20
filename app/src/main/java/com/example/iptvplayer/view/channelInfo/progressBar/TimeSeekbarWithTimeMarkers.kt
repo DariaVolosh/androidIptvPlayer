@@ -9,46 +9,47 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.iptvplayer.data.Utils.formatDate
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.retrofit.data.ChannelData
+import com.example.iptvplayer.retrofit.data.DvrRange
 import com.example.iptvplayer.retrofit.data.EpgListItem
+import com.example.iptvplayer.view.time.DateAndTimeViewModel
+import com.example.iptvplayer.view.time.DateType
 
 @Composable
 fun TimeSeekbarWithTimeMarkers(
     currentEpg: EpgListItem.Epg,
     currentEpgIndex: Int,
-    dvrRange: Pair<Long, Long>,
+    dvrRanges: List<DvrRange>,
     focusedChannel: ChannelData
 ) {
     val timePattern = "HH:mm"
     val datePattern = "dd MMMM HH:mm:ss"
 
-    var startTime by remember { mutableStateOf("") }
-    var stopTime by remember { mutableStateOf("") }
+    val dateAndTimeViewModel: DateAndTimeViewModel = hiltViewModel()
 
-    Log.i("04:00", formatDate(0L, timePattern))
+    val startTime by dateAndTimeViewModel.startTime.collectAsState()
+    val stopTime by dateAndTimeViewModel.stopTime.collectAsState()
 
-    LaunchedEffect(currentEpg, dvrRange) {
-        Log.i("time seekbar", "$currentEpg $dvrRange")
+    LaunchedEffect(currentEpg, dvrRanges) {
+        Log.i("time seekbar", "$currentEpg $dvrRanges")
         Log.i("time seekbar", "current epg index $currentEpgIndex")
         if (currentEpgIndex != -1) {
-            startTime = formatDate(currentEpg.epgVideoTimeRangeSeconds.start, timePattern)
-            stopTime = formatDate(currentEpg.epgVideoTimeRangeSeconds.stop, timePattern)
-        } else if (dvrRange.first > 0L) {
+            dateAndTimeViewModel.formatDate(currentEpg.epgVideoTimeRangeSeconds.start, timePattern, DateType.START_TIME)
+            dateAndTimeViewModel.formatDate(currentEpg.epgVideoTimeRangeSeconds.stop, timePattern, DateType.STOP_TIME)
+        } else if (dvrRanges.isNotEmpty()) {
             Log.i("dvr is not 0", "true")
-            startTime = formatDate(dvrRange.first, datePattern)
-            stopTime = formatDate(dvrRange.second, datePattern)
+            dateAndTimeViewModel.formatDate(dvrRanges[0].from, datePattern, DateType.START_TIME)
+            dateAndTimeViewModel.formatDate(dvrRanges[dvrRanges.size-1].from + dvrRanges[dvrRanges.size-1].duration, datePattern, DateType.STOP_TIME)
         } else {
-            startTime = "--:--"
-            stopTime = "--:--"
+            dateAndTimeViewModel.resetDate(DateType.START_TIME)
+            dateAndTimeViewModel.resetDate(DateType.STOP_TIME)
         }
     }
 
