@@ -14,5 +14,5 @@ data class StreamUrlTemplates(
 
 @Keep
 data class StreamUrlTemplatesResponse(
-    val data: StreamUrlTemplates
+    val data: StreamUrlTemplates?
 )

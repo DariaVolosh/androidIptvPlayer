@@ -38,6 +38,7 @@ fun TimeSeekbarWithTimeMarkers(
     val stopTime by dateAndTimeViewModel.stopTime.collectAsState()
 
     LaunchedEffect(currentEpg, dvrRanges) {
+        Log.i("dvr ranges", dvrRanges.toString())
         Log.i("time seekbar", "$currentEpg $dvrRanges")
         Log.i("time seekbar", "current epg index $currentEpgIndex")
         if (currentEpgIndex != -1) {

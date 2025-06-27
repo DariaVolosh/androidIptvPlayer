@@ -1,39 +1,36 @@
 package com.example.iptvplayer.unitTests.time
 
-import android.util.Log
 import app.cash.turbine.turbineScope
 import com.example.iptvplayer.data.NtpTimeClient
-import com.example.iptvplayer.view.time.TimeManager
+import com.example.iptvplayer.domain.time.TimeManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import org.junit.After
-import org.junit.Assert.assertEquals
-import org.junit.Before
-import org.junit.Test
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
-import org.mockito.Mockito
-import org.mockito.MockitoAnnotations
+import org.mockito.junit.jupiter.MockitoExtension
 
 
+@ExtendWith(MockitoExtension::class)
 class TimeManagerTest {
     private var testDispatcher = StandardTestDispatcher()
 
     private lateinit var timeManager: TimeManager
     @Mock lateinit var ntpTimeClient: NtpTimeClient
 
-    @Before
+    @BeforeEach
     fun setup() {
         Dispatchers.setMain(testDispatcher)
-        MockitoAnnotations.openMocks(this)
-        Mockito.mockStatic(Log::class.java)
-
         timeManager = TimeManager(ntpTimeClient)
     }
 
-    @After
+    @AfterEach
     fun finish() {
         Dispatchers.resetMain()
     }

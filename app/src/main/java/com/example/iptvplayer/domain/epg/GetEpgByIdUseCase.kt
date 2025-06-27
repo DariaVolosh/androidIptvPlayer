@@ -15,6 +15,6 @@ import javax.inject.Inject
 class GetEpgByIdUseCase @Inject constructor(
     private val epgRepository: EpgRepository
 ) {
-        suspend fun getEpgById(requestedEpgId: Int, token: String) =
-            epgRepository.getEpgById(requestedEpgId, token)
+        suspend fun getEpgById(requestedEpgId: Int) =
+            epgRepository.getEpgById(requestedEpgId)
 }

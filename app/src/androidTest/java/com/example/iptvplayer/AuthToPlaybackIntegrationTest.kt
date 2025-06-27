@@ -2,13 +2,13 @@ package com.example.iptvplayer
 
 import androidx.compose.ui.test.junit4.createComposeRule
 import com.example.iptvplayer.domain.auth.GetAuthTokenUseCase
+import com.example.iptvplayer.domain.errors.ErrorManager
 import com.example.iptvplayer.domain.media.GetMediaDataSourceUseCase
 import com.example.iptvplayer.domain.media.HandleNextSegmentRequestedUseCase
 import com.example.iptvplayer.domain.media.SetMediaUrlUseCase
 import com.example.iptvplayer.domain.sharedPrefs.SharedPreferencesUseCase
-import com.example.iptvplayer.view.AuthViewModel
+import com.example.iptvplayer.view.auth.AuthViewModel
 import com.example.iptvplayer.view.channelsAndEpgRow.ChannelsAndEpgRow
-import com.example.iptvplayer.view.errors.ErrorManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest

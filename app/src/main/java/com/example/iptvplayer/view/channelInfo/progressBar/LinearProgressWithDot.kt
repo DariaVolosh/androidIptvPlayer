@@ -28,7 +28,7 @@ import com.example.iptvplayer.R
 import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
 import com.example.iptvplayer.view.channelsAndEpgRow.CurrentDvrInfoState
 import com.example.iptvplayer.view.epg.EpgViewModel
-import com.example.iptvplayer.view.player.MediaViewModel
+import com.example.iptvplayer.view.media.MediaViewModel
 import com.example.iptvplayer.view.time.DateAndTimeViewModel
 import java.util.Locale
 import kotlin.math.abs
@@ -93,7 +93,9 @@ fun LinearProgressWithDot(
         val firstDvrRange = dvrRanges[0]
         val lastDvrRange = dvrRanges[dvrRanges.size-1]
         val timeElapsedSinceDvrStart = currentTime - firstDvrRange.from
-        val dvrDuration = lastDvrRange.from + lastDvrRange.duration
+        val dvrDuration = (lastDvrRange.from + lastDvrRange.duration) - firstDvrRange.from
+
+        Log.i("dvr info in update seekbar: ", "$firstDvrRange $lastDvrRange $currentTime $timeElapsedSinceDvrStart $dvrDuration")
 
         currentProgrammeProgress =
             decimalFormat.format(

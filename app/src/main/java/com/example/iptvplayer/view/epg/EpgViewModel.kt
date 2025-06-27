@@ -6,10 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.example.iptvplayer.domain.epg.AccessEpgCacheUseCase
 import com.example.iptvplayer.domain.epg.GetEpgByIdUseCase
 import com.example.iptvplayer.domain.sharedPrefs.SharedPreferencesUseCase
+import com.example.iptvplayer.domain.time.CalendarManager
+import com.example.iptvplayer.domain.time.DateManager
 import com.example.iptvplayer.retrofit.data.EpgListItem
 import com.example.iptvplayer.retrofit.data.EpgTimeRangeInSeconds
-import com.example.iptvplayer.view.time.CalendarManager
-import com.example.iptvplayer.view.time.DateManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -373,8 +373,7 @@ class EpgViewModel @Inject constructor(
     ) {
         Log.i("fetch epg debug", "entered fetch epg by id")
         val epgData = getEpgByIdUseCase.getEpgById(
-            requestedEpg.epgId,
-            token
+            requestedEpg.epgId
         )
 
         saveEpgToCache(requestedEpg.epgId, epgData)

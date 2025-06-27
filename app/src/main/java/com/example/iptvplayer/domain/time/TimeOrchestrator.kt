@@ -1,8 +1,8 @@
-package com.example.iptvplayer.view.time
+package com.example.iptvplayer.domain.time
 
 import com.example.iptvplayer.di.IoDispatcher
+import com.example.iptvplayer.domain.media.MediaManager
 import com.example.iptvplayer.domain.sharedPrefs.SharedPreferencesUseCase
-import com.example.iptvplayer.view.player.MediaManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -32,17 +32,12 @@ class TimeOrchestrator @Inject constructor(
         orchestratorScope, SharingStarted.Eagerly, 0L
     )
 
-    val isPaused: StateFlow<Boolean> = mediaManager.isPaused.stateIn(
-        orchestratorScope, SharingStarted.Eagerly, false
-    )
-
-    val isSeeking: StateFlow<Boolean> = mediaManager.isSeeking.stateIn(
-        orchestratorScope, SharingStarted.Eagerly, false
-    )
-
-    val isLive: StateFlow<Boolean> = mediaManager.isLive.stateIn(
-        orchestratorScope, SharingStarted.Eagerly, true
-    )
+    init {
+        orchestratorScope.launch {
+            val cachedCurrentTime = sharedPreferencesUseCase.getLongValue(CURRENT_TIME_KEY)
+            initialize(cachedCurrentTime)
+        }
+    }
 
     fun startLiveTimeUpdate() {
         orchestratorScope.launch {
@@ -52,29 +47,6 @@ class TimeOrchestrator @Inject constructor(
             while (true) {
                 delay(1000)
                 updateLiveTime(liveTime.value + 1)
-            }
-        }
-    }
-
-    fun startCurrentTimeUpdate(cachedCurrentTime: Long) {
-        orchestratorScope.launch {
-            val currentLiveTime = timeManager.getGmtTime()
-
-            if (cachedCurrentTime == 0L) {
-                // current time was not fetched from cache, set it to live time
-                updateCurrentTime(currentLiveTime)
-            } else {
-                // current time is available from cache, set it
-                updateCurrentTime(cachedCurrentTime)
-            }
-
-
-            while (true) {
-                delay(1000)
-
-                if (!isPaused.value && !isSeeking.value) {
-                    updateCurrentTime(currentTime.value + 1)
-                }
             }
         }
     }
@@ -93,14 +65,26 @@ class TimeOrchestrator @Inject constructor(
         timeManager.updateLiveTime(time)
     }
 
-    fun initialize(cachedCurrentTime: Long) {
-        val datePattern = "EEEE d MMMM HH:mm:ss"
-
+    suspend fun initialize(cachedCurrentTime: Long) {
         startLiveTimeUpdate()
-        startCurrentTimeUpdate(cachedCurrentTime)
+
+        val currentLiveTime = getGmtTime()
+        updateLiveTime(currentLiveTime)
+
+        if (cachedCurrentTime == 0L) {
+            // current time was not fetched from cache, set it to live time
+            updateCurrentTime(currentLiveTime)
+        } else {
+            // current time is available from cache, set it
+            updateCurrentTime(cachedCurrentTime)
+        }
     }
 
     fun cancelTimeUpdate() {
         orchestratorScope.cancel()
+    }
+
+    suspend fun getGmtTime(): Long {
+        return timeManager.getGmtTime()
     }
 }

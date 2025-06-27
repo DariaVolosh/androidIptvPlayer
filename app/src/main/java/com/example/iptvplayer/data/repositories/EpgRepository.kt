@@ -1,6 +1,5 @@
 package com.example.iptvplayer.data.repositories
 
-import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -23,14 +22,10 @@ class EpgRepository @Inject constructor(
 
     // VERSION NEW (IDK IF IT WILL WORKS NORMALLY LMAO)
    suspend fun getEpgById(
-        requestedEpgId: Int,
-        token: String
+        requestedEpgId: Int
    ): List<EpgListItem.Epg> =
        withContext(Dispatchers.IO) {
-           val startTime = System.currentTimeMillis()
-           val response = channelsAndEpgService.getEpgForChannel(requestedEpgId, token)
-           val stopTime = System.currentTimeMillis()
-           Log.i("epg fetch time", "$requestedEpgId ${stopTime - startTime}")
+           val response = channelsAndEpgService.getEpgForChannel(requestedEpgId)
            response.data.data
        }
 

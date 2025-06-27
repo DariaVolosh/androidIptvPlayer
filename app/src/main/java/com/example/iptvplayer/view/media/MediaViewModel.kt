@@ -1,14 +1,13 @@
-package com.example.iptvplayer.view.player
+package com.example.iptvplayer.view.media
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.example.iptvplayer.domain.sharedPrefs.SharedPreferencesUseCase
-import com.example.iptvplayer.view.time.CURRENT_TIME_KEY
-import com.example.iptvplayer.view.time.DateManager
-import com.example.iptvplayer.view.time.IS_LIVE_KEY
-import com.example.iptvplayer.view.time.TimeOrchestrator
+import com.example.iptvplayer.di.IoDispatcher
+import com.example.iptvplayer.domain.media.MediaManager
+import com.example.iptvplayer.domain.media.MediaPlaybackOrchestrator
+import com.example.iptvplayer.domain.time.TimeOrchestrator
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -20,68 +19,53 @@ import javax.inject.Inject
 
 @HiltViewModel
 class MediaViewModel @Inject constructor(
-    private val sharedPreferencesUseCase: SharedPreferencesUseCase,
-    private val playbackOrchestrator: PlaybackOrchestrator,
+    private val mediaPlaybackOrchestrator: MediaPlaybackOrchestrator,
     private val mediaManager: MediaManager,
     private val timeOrchestrator: TimeOrchestrator,
-    private val dateManager: DateManager
+    @IoDispatcher private val viewModelScope: CoroutineScope
 ): ViewModel() {
 
-    val isDataSourceSet: StateFlow<Boolean> = mediaManager.isDataSourceSet.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), false
+    val isDataSourceSet: StateFlow<Boolean> = mediaPlaybackOrchestrator.isDataSourceSet.stateIn(
+        viewModelScope, SharingStarted.Eagerly, false
     )
 
     val ijkPlayer: StateFlow<IjkMediaPlayer?> = mediaManager.ijkPlayer.stateIn(
         viewModelScope, SharingStarted.Eagerly, null
     )
 
-    val isPaused: StateFlow<Boolean> = mediaManager.isPaused.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), false
+    val isPaused: StateFlow<Boolean> = mediaPlaybackOrchestrator.isPaused.stateIn(
+        viewModelScope, SharingStarted.Eagerly, false
     )
 
-    val isSeeking: StateFlow<Boolean> = mediaManager.isSeeking.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), false
+    val isSeeking: StateFlow<Boolean> = mediaPlaybackOrchestrator.isSeeking.stateIn(
+        viewModelScope, SharingStarted.Eagerly, false
     )
 
-    val isLive: StateFlow<Boolean> = mediaManager.isLive.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), true
-    )
+    /*val isLive: StateFlow<StreamTypeState> = mediaPlaybackOrchestrator.streamTypeState.stateIn(
+        viewModelScope, SharingStarted.Eagerly, StreamTypeState.LIVE
+    )*/
 
-    val isPlaybackStarted: StateFlow<Boolean> = mediaManager.isPlaybackStarted.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), true
+    val isLive = MutableStateFlow(true)
+
+    val isPlaybackStarted: StateFlow<Boolean> = mediaPlaybackOrchestrator.isPlaybackStarted.stateIn(
+        viewModelScope, SharingStarted.Eagerly, true
     )
 
     private val _seekSecondsFlow: MutableStateFlow<Int> = MutableStateFlow(0)
     val seekSecondsFlow: StateFlow<Int> = _seekSecondsFlow
 
-    val newSegmentsNeeded: StateFlow<Boolean> = mediaManager.newSegmentsNeeded.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), true
-    )
-
-    val lastSegmentFromQueue: StateFlow<String> = mediaManager.lastSegmentFromQueue.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), ""
+    val newSegmentsNeeded: StateFlow<Boolean> = mediaPlaybackOrchestrator.newSegmentsNeeded.stateIn(
+        viewModelScope, SharingStarted.Eagerly, true
     )
 
     val _isSurfaceAttached: MutableStateFlow<Boolean> = MutableStateFlow(false)
-    val isSurfaceAttached: StateFlow<Boolean> = _isSurfaceAttached
 
 
     private var _seekSeconds = 0
 
-    init {
-        val cachedCurrentTime = sharedPreferencesUseCase.getLongValue(CURRENT_TIME_KEY)
-        val cachedIsLive = sharedPreferencesUseCase.getBooleanValue(IS_LIVE_KEY)
-        val datePattern = "EEEE d MMMM HH:mm:ss"
-        Log.i("PREFS", "current time: ${dateManager.formatDate(cachedCurrentTime, datePattern)}")
-
-        mediaManager.updateIsLive(cachedIsLive)
-        timeOrchestrator.initialize(cachedCurrentTime)
-
-        Log.i("PREFS", "is live: $cachedIsLive")
-    }
-
     fun getLastSegmentFromQueue(): String {
-        return lastSegmentFromQueue.value
+        //return lastSegmentFromQueue.value
+        return ""
     }
 
     fun updateLiveTime(time: Long) {
@@ -93,11 +77,11 @@ class MediaViewModel @Inject constructor(
     }
 
     fun updateIsSeeking(isSeeking: Boolean) {
-        mediaManager.updateIsSeeking(isSeeking)
+        mediaPlaybackOrchestrator.updateIsSeeking(isSeeking)
     }
 
     fun updateIsLive(isLive: Boolean) {
-        mediaManager.updateIsLive(isLive)
+        mediaPlaybackOrchestrator.updateIsLive(isLive)
     }
 
     fun onSeekFinish() {
@@ -154,31 +138,31 @@ class MediaViewModel @Inject constructor(
     }
 
     fun pause() {
-        mediaManager.pause()
+        mediaPlaybackOrchestrator.pausePlayerPlayback()
     }
 
     fun play() {
-        mediaManager.play()
+        mediaPlaybackOrchestrator.startPlayerPlayback()
     }
 
     fun resetPlayer() {
         //cancelTsCollectingJob()
-        mediaManager.resetPlayer()
+        mediaPlaybackOrchestrator.resetPlayer()
     }
 
-    fun startTsCollectingJob(channelUrl: String) {
-        playbackOrchestrator.startTsCollectingJob(channelUrl)
+    fun startCollectingSegments(channelUrl: String) {
+        //mediaOrchestrator.startPlaylistParsing(channelUrl)
     }
 
     fun cancelTsCollectingJob() {
-        playbackOrchestrator.cancelTsCollectingJob()
+        //mediaOrchestrator.cancelTsCollectingJob()
     }
 
     fun updateIsSurfaceAttached(isAttached: Boolean) {
         _isSurfaceAttached.value = isAttached
     }
 
-    fun initializePlayer() {
-        mediaManager.initializePlayer()
+    fun startCurrentChannelPlayback() {
+        //mediaOrchestrator.startCurrentChannelPlayback()
     }
 }

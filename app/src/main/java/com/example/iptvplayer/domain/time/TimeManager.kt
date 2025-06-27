@@ -1,4 +1,4 @@
-package com.example.iptvplayer.view.time
+package com.example.iptvplayer.domain.time
 
 import com.example.iptvplayer.data.NtpTimeClient
 import kotlinx.coroutines.flow.MutableStateFlow

@@ -1,6 +1,5 @@
 package com.example.iptvplayer.data.repositories
 
-import android.util.Log
 import com.example.iptvplayer.data.PlaylistChannel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -48,33 +47,51 @@ class M3U8PlaylistRepository @Inject constructor(): PlaylistRepository {
         return channelsData
     }
 
+    fun extractBaseUrl(rootUrl: String): String {
+        return rootUrl.substring(0, rootUrl.lastIndexOf("/") + 1)
+    }
+
+    fun constructUrl(vararg urlParts: String): String {
+        return urlParts.joinToString("")
+    }
+
+    fun checkEmittedSegmentsBuffer() {
+        if (emittedSegments.size >= 20) {
+            var removedSegments = 0
+            val newEmittedSegments = mutableSetOf<String>()
+
+            for (segment in emittedSegments) {
+                if (removedSegments < 10) {
+                    removedSegments++
+                } else {
+                    newEmittedSegments.add(segment)
+                }
+            }
+            emittedSegments = newEmittedSegments
+        }
+    }
+
     override fun extractTsSegments(
         rootUrl: String,
         isLiveStream: Boolean,
         readFile: suspend (String) -> List<String>
     ) = flow {
         suspend fun recursiveExtractTsSegments(rootUrl: String) {
-            Log.i("current url extract segments", rootUrl)
             val fileContent = readFile(rootUrl)
-            Log.i("rooturl", rootUrl)
-            val baseUrl = rootUrl.substring(0, rootUrl.lastIndexOf("/") + 1)
+            val baseUrl = extractBaseUrl(rootUrl)
 
             for (line in fileContent) {
-                Log.i("loop line", line)
                 if (line.indexOf("m3u8") != -1) {
-                    val combinedUrl = baseUrl + line
-                    recursiveExtractTsSegments(combinedUrl)
+                    recursiveExtractTsSegments(constructUrl(baseUrl, line))
                 } else {
                     if (line.indexOf(".ts") != -1) {
-                        val noDvrLink = (baseUrl + line).replaceFirst("dvr-", "")
                         if (isLiveStream) {
-                            if (noDvrLink !in emittedSegments) {
-                                emittedSegments.add(noDvrLink)
-                                Log.i("fetched segment", "emitted segment ${baseUrl + line}")
-                                emit(baseUrl + line)
+                            val constructedUrl = constructUrl(baseUrl, line)
+                            if (constructedUrl!in emittedSegments) {
+                                emittedSegments.add(constructedUrl)
+                                emit(constructedUrl)
                             }
                         } else {
-                            Log.i("fetched segment", "emitted segment ${baseUrl + line}")
                             emit(baseUrl + line)
                         }
                     }
@@ -85,21 +102,9 @@ class M3U8PlaylistRepository @Inject constructor(): PlaylistRepository {
         recursiveExtractTsSegments(rootUrl)
 
         while (isLiveStream) {
-            recursiveExtractTsSegments(rootUrl)
-            Log.i("emitted segments size", emittedSegments.size.toString())
-            if (emittedSegments.size >= 20) {
-                var removedSegments = 0
-                val newEmittedSegments = mutableSetOf<String>()
-                for (segment in emittedSegments) {
-                    if (removedSegments < 10) {
-                        removedSegments++
-                    } else {
-                        newEmittedSegments.add(segment)
-                    }
-                }
-                emittedSegments = newEmittedSegments
-            }
+            checkEmittedSegmentsBuffer()
             delay(4000)
+            recursiveExtractTsSegments(rootUrl)
         }
     }
 }

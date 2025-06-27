@@ -27,7 +27,7 @@ import com.example.iptvplayer.R
 import com.example.iptvplayer.retrofit.data.ChannelData
 import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
 import com.example.iptvplayer.view.epg.EpgViewModel
-import com.example.iptvplayer.view.player.MediaViewModel
+import com.example.iptvplayer.view.media.MediaViewModel
 import com.example.iptvplayer.view.programDatePicker.datePicker.DayPicker
 import com.example.iptvplayer.view.programDatePicker.timePicker.TimePicker
 import com.example.iptvplayer.view.time.DateAndTimeViewModel

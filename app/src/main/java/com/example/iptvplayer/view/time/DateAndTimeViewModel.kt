@@ -1,16 +1,22 @@
 package com.example.iptvplayer.view.time
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.example.iptvplayer.di.MainDispatcher
+import com.example.iptvplayer.domain.media.MediaPlaybackOrchestrator
+import com.example.iptvplayer.domain.media.StreamTypeState
+import com.example.iptvplayer.domain.time.CalendarManager
+import com.example.iptvplayer.domain.time.DateManager
+import com.example.iptvplayer.domain.time.TimeOrchestrator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.TimeZone
 import javax.inject.Inject
@@ -26,7 +32,8 @@ class DateAndTimeViewModel @Inject constructor(
     private val dateManager: DateManager,
     private val calendarManager: CalendarManager,
     private val timeOrchestrator: TimeOrchestrator,
-    @MainDispatcher private val coroutineScope: CoroutineScope
+    private val mediaPlaybackOrchestrator: MediaPlaybackOrchestrator,
+    @MainDispatcher private val viewModelScope: CoroutineScope
 ): ViewModel() {
 
     private val _currentFullDate: MutableStateFlow<String> = MutableStateFlow("Current date not available")
@@ -46,15 +53,31 @@ class DateAndTimeViewModel @Inject constructor(
         viewModelScope, SharingStarted.Eagerly, 0L
     )
 
+    val isPaused: StateFlow<Boolean> = mediaPlaybackOrchestrator.isPaused.stateIn(
+        viewModelScope, SharingStarted.Eagerly, false
+    )
+
+    val isSeeking: StateFlow<Boolean> = mediaPlaybackOrchestrator.isSeeking.stateIn(
+        viewModelScope, SharingStarted.Eagerly, false
+    )
+
+    val isLive: StateFlow<StreamTypeState> = mediaPlaybackOrchestrator.streamTypeState.stateIn(
+        viewModelScope, SharingStarted.Eagerly, StreamTypeState.LIVE
+    )
+
     init {
         val datePattern = "EEEE d MMMM HH:mm:ss"
+
+        viewModelScope.launch {
+            startCurrentTimeUpdate()
+        }
 
         combine(
             timeOrchestrator.liveTime,
             timeOrchestrator.currentTime,
-            timeOrchestrator.isLive
-        ) { liveTimeValue, currentTimeValue, isLive ->
-            if (isLive) {
+            isLive
+        ) { liveTimeValue, currentTimeValue, streamType ->
+            if (streamType == StreamTypeState.LIVE) {
                 if (liveTimeValue != 0L) {
                     formatDate(liveTimeValue, datePattern, DateType.CURRENT_FULL_DATE)
                 }
@@ -63,8 +86,21 @@ class DateAndTimeViewModel @Inject constructor(
                     formatDate(currentTimeValue, datePattern, DateType.CURRENT_FULL_DATE)
                 }
             }
-        }.launchIn(coroutineScope)
+        }.launchIn(viewModelScope)
     }
+
+    fun startCurrentTimeUpdate() {
+        viewModelScope.launch {
+            while (true) {
+                delay(1000)
+
+                if (!isPaused.value && !isSeeking.value) {
+                    timeOrchestrator.updateCurrentTime(currentTime.value + 1)
+                }
+            }
+        }
+    }
+
 
     fun getCalendar(date: Long, timeZone: TimeZone? = null): Calendar {
         return calendarManager.getCalendar(date, timeZone)
@@ -127,5 +163,9 @@ class DateAndTimeViewModel @Inject constructor(
 
     fun getFullMonthName(monthNumber: Int): String {
         return dateManager.getFullMonthName(monthNumber)
+    }
+
+    fun updateCurrentTime(time: Long) {
+        timeOrchestrator.updateCurrentTime(time)
     }
 }

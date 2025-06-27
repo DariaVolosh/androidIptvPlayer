@@ -1,4 +1,4 @@
-package com.example.iptvplayer.view.time
+package com.example.iptvplayer.domain.time
 
 import java.text.SimpleDateFormat
 import java.util.Calendar

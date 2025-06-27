@@ -1,13 +1,15 @@
-package com.example.iptvplayer.integrationTests
+package com.example.iptvplayer.integrationTests.ui
 
 import app.cash.turbine.turbineScope
+import com.example.iptvplayer.domain.media.MediaManager
+import com.example.iptvplayer.domain.media.MediaPlaybackOrchestrator
+import com.example.iptvplayer.domain.media.StreamTypeState
 import com.example.iptvplayer.domain.sharedPrefs.SharedPreferencesUseCase
-import com.example.iptvplayer.view.player.MediaManager
-import com.example.iptvplayer.view.time.CalendarManager
+import com.example.iptvplayer.domain.time.CalendarManager
+import com.example.iptvplayer.domain.time.DateManager
+import com.example.iptvplayer.domain.time.TimeManager
+import com.example.iptvplayer.domain.time.TimeOrchestrator
 import com.example.iptvplayer.view.time.DateAndTimeViewModel
-import com.example.iptvplayer.view.time.DateManager
-import com.example.iptvplayer.view.time.TimeManager
-import com.example.iptvplayer.view.time.TimeOrchestrator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -15,13 +17,13 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Before
-import org.junit.Test
-import org.mockito.ArgumentMatchers.nullable
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
-import org.mockito.MockitoAnnotations
+import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.whenever
@@ -29,12 +31,14 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.TimeZone
 
-class TimeIntegrationTest {
+@ExtendWith(MockitoExtension::class)
+class DateAndTimeViewModelAndTimeOrchestratorTest {
     private var testDispatcher = StandardTestDispatcher()
 
     @Mock private lateinit var dateManager: DateManager
     @Mock private lateinit var timeManager: TimeManager
     @Mock private lateinit var mediaManager: MediaManager
+    @Mock private lateinit var mediaPlaybackOrchestrator: MediaPlaybackOrchestrator
     @Mock private lateinit var calendarManager: CalendarManager
     @Mock private lateinit var sharedPreferencesUseCase: SharedPreferencesUseCase
 
@@ -44,19 +48,19 @@ class TimeIntegrationTest {
     private lateinit var liveTimeControlledFlow: MutableStateFlow<Long>
     private lateinit var currentTimeControlledFlow: MutableStateFlow<Long>
 
-    @Before
+    @BeforeEach
     fun setup() {
-        MockitoAnnotations.openMocks(this)
         Dispatchers.setMain(testDispatcher)
 
         liveTimeControlledFlow = MutableStateFlow(0L)
         currentTimeControlledFlow = MutableStateFlow(0L)
 
-        whenever(mediaManager.isPaused).thenReturn(MutableStateFlow(false))
-        whenever(mediaManager.isSeeking).thenReturn(MutableStateFlow(false))
+        whenever(mediaPlaybackOrchestrator.isPaused).thenReturn(MutableStateFlow(false))
+        whenever(mediaPlaybackOrchestrator.isSeeking).thenReturn(MutableStateFlow(false))
         whenever(timeManager.liveTime).thenReturn(liveTimeControlledFlow)
         whenever(timeManager.currentTime).thenReturn(currentTimeControlledFlow)
-        whenever(mediaManager.isLive).thenReturn(MutableStateFlow(true))
+        whenever(mediaPlaybackOrchestrator.streamTypeState).thenReturn(MutableStateFlow(
+            StreamTypeState.LIVE))
 
         whenever(timeManager.updateLiveTime(any())).doAnswer { mock ->
             val liveTime = mock.arguments[0] as Long
@@ -69,10 +73,10 @@ class TimeIntegrationTest {
 
         whenever(sharedPreferencesUseCase.saveLongValue(any(), any())).doAnswer {  }
 
-        whenever(dateManager.formatDate(any(), any(), nullable(TimeZone::class.java))).thenAnswer { mock ->
+        whenever(dateManager.formatDate(any(), any(), any())).thenAnswer { mock ->
             val date = mock.arguments[0] as Long
             val pattern = mock.arguments[1] as String
-            val timeZone = mock.arguments[2] as TimeZone?
+            val timeZone = mock.arguments[2] as TimeZone
 
             val formatter = SimpleDateFormat(pattern)
             if (timeZone != null) {
@@ -84,7 +88,7 @@ class TimeIntegrationTest {
         }
     }
 
-    @After
+    @AfterEach
     fun finish() {
         Dispatchers.resetMain()
     }
@@ -104,7 +108,8 @@ class TimeIntegrationTest {
                 dateManager = dateManager,
                 calendarManager = calendarManager,
                 timeOrchestrator = timeOrchestrator,
-                coroutineScope = backgroundScope
+                mediaPlaybackOrchestrator = mediaPlaybackOrchestrator,
+                viewModelScope = backgroundScope
             )
 
             val time = 1750089835L

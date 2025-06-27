@@ -1,8 +1,9 @@
-package com.example.iptvplayer.view.epg
+package com.example.iptvplayer.domain.epg
 
 import android.util.Log
 import com.example.iptvplayer.domain.sharedPrefs.SharedPreferencesUseCase
 import com.example.iptvplayer.retrofit.data.EpgListItem
+import com.example.iptvplayer.view.epg.CURRENT_EPG_INDEX_KEY
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject

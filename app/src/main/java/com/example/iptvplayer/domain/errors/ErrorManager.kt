@@ -1,7 +1,8 @@
-package com.example.iptvplayer.view.errors
+package com.example.iptvplayer.domain.errors
 
 import android.util.Log
 import com.example.iptvplayer.R
+import com.example.iptvplayer.view.errors.ErrorData
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject

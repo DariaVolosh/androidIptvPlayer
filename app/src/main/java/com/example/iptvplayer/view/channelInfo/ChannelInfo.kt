@@ -31,7 +31,7 @@ import com.example.iptvplayer.view.channelInfo.progressBar.TimeSeekbarWithTimeMa
 import com.example.iptvplayer.view.channels.ChannelsViewModel
 import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
 import com.example.iptvplayer.view.epg.EpgViewModel
-import com.example.iptvplayer.view.player.MediaViewModel
+import com.example.iptvplayer.view.media.MediaViewModel
 import com.example.iptvplayer.view.time.DateAndTimeViewModel
 import com.example.iptvplayer.view.toast.CustomToast
 import kotlinx.coroutines.delay
@@ -67,6 +67,10 @@ fun ChannelInfo(
 
     LaunchedEffect(currentFullDate) {
         Log.i("Current full date", currentFullDate)
+    }
+
+    LaunchedEffect(currentChannel) {
+        Log.i("current channel", currentChannel.toString())
     }
 
     LaunchedEffect(Unit) {

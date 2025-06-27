@@ -38,30 +38,28 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.util.UnstableApi
-import com.example.iptvplayer.retrofit.data.ChannelData
 import com.example.iptvplayer.ui.theme.IptvPlayerTheme
 import com.example.iptvplayer.view.DummyViewModel
 import com.example.iptvplayer.view.channelInfo.ChannelInfo
 import com.example.iptvplayer.view.channels.ChannelsViewModel
 import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
 import com.example.iptvplayer.view.channelsAndEpgRow.ChannelsAndEpgRow
-import com.example.iptvplayer.view.player.MediaViewModel
+import com.example.iptvplayer.view.init.InitViewModel
+import com.example.iptvplayer.view.media.MediaPlaybackViewModel
+import com.example.iptvplayer.view.media.MediaViewModel
 import com.example.iptvplayer.view.player.PlayerView
 import com.example.iptvplayer.view.programDatePicker.ProgramDatePickerModal
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     private val mediaViewModel: MediaViewModel by viewModels()
+    private val mediaPlaybackViewModel: MediaPlaybackViewModel by viewModels()
     private val channelsViewModel: ChannelsViewModel by viewModels()
     private val archiveViewModel: ArchiveViewModel by viewModels()
+    private lateinit var initViewModel: InitViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -75,6 +73,8 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
+            initViewModel = hiltViewModel()
+
             IptvPlayerTheme {
                 MainScreen(
                     onExitApp = {finish()}
@@ -85,26 +85,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        mediaViewModel.initializePlayer()
-        lifecycleScope.launch {
-            withContext(Dispatchers.IO) {
-                combine(
-                    channelsViewModel.currentChannel.filter { channel -> channel != ChannelData() },
-                    mediaViewModel.isSurfaceAttached.filter { isAttached -> isAttached}
-                ) { channel, _ ->
-                    channel
-                }.first().let { currentChannel ->
-                    Log.i("start to collect segments!!!", "START")
-                    if (mediaViewModel.isLive.value) {
-                        mediaViewModel.startTsCollectingJob(currentChannel.channelUrl)
-                    } else {
-                        if (archiveViewModel.archiveSegmentUrl.value.isNotEmpty()) {
-                            mediaViewModel.play()
-                        }
-                    }
-                }
-            }
-        }
+        mediaPlaybackViewModel.startLivePlayback()
     }
 
     override fun onStop() {

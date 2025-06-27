@@ -23,6 +23,7 @@ import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
 import com.example.iptvplayer.view.channelsAndEpgRow.CurrentDvrInfoState
 import com.example.iptvplayer.view.errors.ErrorData
 import com.example.iptvplayer.view.errors.ErrorViewModel
+import com.example.iptvplayer.view.media.MediaViewModel
 import com.example.iptvplayer.view.player.playerOverlays.ExitConfirmationData
 import com.example.iptvplayer.view.player.playerOverlays.PlayerOverlay
 import com.example.iptvplayer.view.player.playerOverlays.PlayerOverlayState
@@ -65,7 +66,7 @@ fun PlayerView(
     LaunchedEffect(archiveSegmentUrl) {
         if (archiveSegmentUrl.isNotEmpty()) {
             Log.i("archive segment url", archiveSegmentUrl)
-            mediaViewModel.startTsCollectingJob(archiveSegmentUrl)
+            mediaViewModel.startCollectingSegments(archiveSegmentUrl)
         }
     }
 

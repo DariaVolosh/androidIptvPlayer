@@ -3,11 +3,12 @@ package com.example.iptvplayer.view.channelsAndEpgRow
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.iptvplayer.domain.archive.ArchiveManager
 import com.example.iptvplayer.domain.archive.GetDvrRangesUseCase
 import com.example.iptvplayer.domain.sharedPrefs.SharedPreferencesUseCase
+import com.example.iptvplayer.domain.time.CalendarManager
+import com.example.iptvplayer.domain.time.DateManager
 import com.example.iptvplayer.retrofit.data.DvrRange
-import com.example.iptvplayer.view.time.CalendarManager
-import com.example.iptvplayer.view.time.DateManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -60,12 +61,12 @@ class ArchiveViewModel @Inject constructor(
     )
 
     val focusedChannelDvrRanges: StateFlow<List<DvrRange>> = archiveManager.focusedChannelDvrRanges.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+        viewModelScope, SharingStarted.Eagerly, emptyList()
     )
 
     // for example 3 march -> 3
     val dvrFirstAndLastDay: StateFlow<DvrDaysRange> = archiveManager.dvrFirstAndLastDay.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), DvrDaysRange()
+        viewModelScope, SharingStarted.Eagerly, DvrDaysRange()
     )
 
     val dvrFirstAndLastMonth: StateFlow<DvrMonthsRange> = archiveManager.dvrFirstAndLastMonth.stateIn(
@@ -199,7 +200,14 @@ class ArchiveViewModel @Inject constructor(
     }
 
     fun determineCurrentDvrRange(isCurrentChannel: Boolean, currentTime: Long) {
-        println("called")
         archiveManager.determineCurrentDvrRange(isCurrentChannel, currentTime)
+    }
+
+    fun getDvrRange(isCurrentChannel: Boolean): DvrRange {
+        if (isCurrentChannel) {
+            return DvrRange(0,0)
+        } else {
+            return focusedChannelDvrRanges.value.getOrNull(focusedChannelDvrRange.value) ?: DvrRange(0,0)
+        }
     }
 }

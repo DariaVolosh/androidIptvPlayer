@@ -33,7 +33,7 @@ import com.example.iptvplayer.retrofit.data.EpgListItem
 import com.example.iptvplayer.view.channels.ChannelsViewModel
 import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
 import com.example.iptvplayer.view.channelsAndEpgRow.ItemBorder
-import com.example.iptvplayer.view.player.MediaViewModel
+import com.example.iptvplayer.view.media.MediaViewModel
 import com.example.iptvplayer.view.time.DateAndTimeViewModel
 import kotlinx.coroutines.delay
 
@@ -45,7 +45,7 @@ data class EpgToBeFetched(
 @Composable
 fun EpgListAndBorder(
     modifier: Modifier,
-    token: String,
+    token: String = "",
     setCurrentTime: (Long) -> Unit
 ) {
 
@@ -229,7 +229,7 @@ fun EpgListAndBorder(
         ) {
             EpgList(
                 Modifier.fillMaxWidth(),
-                dvrRanges[currentDvrRange],
+                archiveViewModel.getDvrRange(false),
                 epgItemHeight,
                 {isMiddle -> isListMiddle = isMiddle},
                 {height -> epgItemHeight = height},

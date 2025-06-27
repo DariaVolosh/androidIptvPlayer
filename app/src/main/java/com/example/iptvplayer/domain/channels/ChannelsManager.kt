@@ -1,14 +1,15 @@
-package com.example.iptvplayer.view.channels
+package com.example.iptvplayer.domain.channels
 
-import android.util.Log
-import com.example.iptvplayer.domain.sharedPrefs.SharedPreferencesUseCase
+import com.example.iptvplayer.data.repositories.ChannelsRepository
 import com.example.iptvplayer.retrofit.data.ChannelData
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
+import javax.inject.Singleton
 
+@Singleton
 class ChannelsManager @Inject constructor(
-    private val sharedPreferencesUseCase: SharedPreferencesUseCase
+    private val channelsRepository: ChannelsRepository
 ) {
     private val _channelsData: MutableStateFlow<List<ChannelData>> = MutableStateFlow(emptyList())
     val channelsData: StateFlow<List<ChannelData>> = _channelsData
@@ -28,9 +29,7 @@ class ChannelsManager @Inject constructor(
             if (isCurrent) {
                 _currentChannelIndex.value = index
                 updateCurrentChannel()
-                sharedPreferencesUseCase.saveIntValue(CURRENT_CHANNEL_INDEX_KEY, index)
             } else {
-                Log.i("update channel index called", "$index")
                 _focusedChannelIndex.value = index
             }
         }
@@ -40,7 +39,6 @@ class ChannelsManager @Inject constructor(
         val channel = channelsData.value.getOrNull(_currentChannelIndex.value)
         channel?.let { _ ->
             _currentChannel.value = channel
-            Log.i("update focused channel", channel.toString())
         }
     }
 
@@ -50,5 +48,14 @@ class ChannelsManager @Inject constructor(
 
     fun getChannelByIndex(index: Int): ChannelData? {
         return channelsData.value.getOrNull(index)
+    }
+
+    suspend fun getChannelsData(
+        channelsErrorCallback: (String, String) -> Unit
+    ): List<ChannelData> {
+        val streamTemplates = channelsRepository.getStreamsUrlTemplates(channelsErrorCallback)
+
+        if (streamTemplates.isEmpty()) return emptyList()
+        else return channelsRepository.parseChannelsData(streamTemplates[0].template, channelsErrorCallback)
     }
 }

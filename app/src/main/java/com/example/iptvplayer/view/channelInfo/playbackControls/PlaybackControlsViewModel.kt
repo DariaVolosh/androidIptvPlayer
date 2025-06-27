@@ -4,14 +4,14 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.iptvplayer.R
+import com.example.iptvplayer.domain.archive.ArchiveManager
+import com.example.iptvplayer.domain.channels.ChannelsManager
+import com.example.iptvplayer.domain.epg.EpgManager
+import com.example.iptvplayer.domain.media.MediaPlaybackOrchestrator
+import com.example.iptvplayer.domain.time.TimeOrchestrator
 import com.example.iptvplayer.retrofit.data.ChannelData
 import com.example.iptvplayer.retrofit.data.EpgListItem
-import com.example.iptvplayer.view.channels.ChannelsManager
-import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveManager
 import com.example.iptvplayer.view.channelsAndEpgRow.CurrentDvrInfoState
-import com.example.iptvplayer.view.epg.EpgManager
-import com.example.iptvplayer.view.player.MediaManager
-import com.example.iptvplayer.view.time.TimeOrchestrator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.SharingStarted
@@ -24,7 +24,7 @@ import javax.inject.Inject
 class PlaybackControlsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val epgManager: EpgManager,
-    private val mediaManager: MediaManager,
+    private val mediaPlaybackOrchestrator: MediaPlaybackOrchestrator,
     private val archiveManager: ArchiveManager,
     private val channelsManager: ChannelsManager,
     private val timeOrchestrator: TimeOrchestrator
@@ -62,14 +62,14 @@ class PlaybackControlsViewModel @Inject constructor(
         if (isDvrAvailable && nextItem != null && nextItem is EpgListItem.Epg)
         {
             viewModelScope.launch {
-                mediaManager.updateIsSeeking(true)
-                mediaManager.updateIsLive(false)
+                mediaPlaybackOrchestrator.updateIsSeeking(true)
+                mediaPlaybackOrchestrator.updateIsLive(false)
                 timeOrchestrator.updateCurrentTime(nextItem.epgVideoTimeRangeSeconds.start)
-                mediaManager.resetPlayer()
+                mediaPlaybackOrchestrator.resetPlayer()
                 archiveManager.getArchiveUrl(currentChannel.value.channelUrl, currentTime.value)
                 epgManager.updateCurrentEpgIndex(nextEpgIndex)
                 epgManager.updateFocusedEpgIndex(nextEpgIndex)
-                mediaManager.updateIsSeeking(false)
+                mediaPlaybackOrchestrator.updateIsSeeking(false)
             }
         } else {
             archiveManager.setRewindError(context.getString(R.string.no_next_program))

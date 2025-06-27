@@ -1,8 +1,10 @@
-package com.example.iptvplayer.view.channelsAndEpgRow
+package com.example.iptvplayer.domain.archive
 
 import android.util.Log
-import com.example.iptvplayer.domain.archive.GetDvrRangesUseCase
 import com.example.iptvplayer.retrofit.data.DvrRange
+import com.example.iptvplayer.view.channelsAndEpgRow.CurrentDvrInfoState
+import com.example.iptvplayer.view.channelsAndEpgRow.DvrDaysRange
+import com.example.iptvplayer.view.channelsAndEpgRow.DvrMonthsRange
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -11,7 +13,9 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
+import javax.inject.Singleton
 
+@Singleton
 class ArchiveManager @Inject constructor(
     private val getDvrRangesUseCase: GetDvrRangesUseCase
 ) {
@@ -23,7 +27,9 @@ class ArchiveManager @Inject constructor(
         MutableStateFlow(CurrentDvrInfoState.LOADING)
     val currentChannelDvrInfoState: StateFlow<CurrentDvrInfoState> = _currentChannelDvrInfoState
 
-    private val _focusedChannelDvrInfoState: MutableStateFlow<CurrentDvrInfoState> = MutableStateFlow(CurrentDvrInfoState.LOADING)
+    private val _focusedChannelDvrInfoState: MutableStateFlow<CurrentDvrInfoState> = MutableStateFlow(
+        CurrentDvrInfoState.LOADING
+    )
     val focusedChannelDvrInfoState: StateFlow<CurrentDvrInfoState> = _focusedChannelDvrInfoState
 
     private val _archiveSegmentUrl: MutableStateFlow<String> = MutableStateFlow("")
@@ -128,11 +134,11 @@ class ArchiveManager @Inject constructor(
     }
 
     fun setDvrRanges(isCurrentChannel: Boolean, dvrRanges: List<DvrRange>) {
+        updateCurrentChannelDvrRanges(isCurrentChannel, dvrRanges)
         if (dvrRanges.isEmpty()) {
             updateDvrInfoState(isCurrentChannel, CurrentDvrInfoState.NOT_AVAILABLE_GLOBAL)
         } else {
             updateDvrInfoState(isCurrentChannel, CurrentDvrInfoState.AVAILABLE_GLOBAL)
-            updateCurrentChannelDvrRanges(isCurrentChannel, dvrRanges)
         }
     }
 
@@ -154,11 +160,15 @@ class ArchiveManager @Inject constructor(
 
                             if (currentTime <= nextRange.from) {
                                 updateChannelCurrentDvrRange(isCurrentChannel, -1)
-                                updateDvrInfoState(isCurrentChannel, CurrentDvrInfoState.GAP_DETECTED_AND_WAITING)
+                                updateDvrInfoState(isCurrentChannel,
+                                    CurrentDvrInfoState.GAP_DETECTED_AND_WAITING
+                                )
                                 return
                             }
                         } else {
-                            updateDvrInfoState(isCurrentChannel, CurrentDvrInfoState.END_OF_DVR_REACHED)
+                            updateDvrInfoState(isCurrentChannel,
+                                CurrentDvrInfoState.END_OF_DVR_REACHED
+                            )
                         }
                     }
                 }

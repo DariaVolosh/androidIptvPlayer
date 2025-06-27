@@ -28,14 +28,13 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.view.channelsAndEpgRow.ItemBorder
 import com.example.iptvplayer.view.epg.EpgViewModel
-import com.example.iptvplayer.view.player.MediaViewModel
+import com.example.iptvplayer.view.media.MediaViewModel
 import com.example.iptvplayer.view.time.DateAndTimeViewModel
 import kotlinx.coroutines.launch
 
 @Composable
 fun ChannelsListAndBorder(
     modifier: Modifier,
-    token: String
 ) {
     val localDensity = LocalDensity.current.density
 
@@ -95,7 +94,7 @@ fun ChannelsListAndBorder(
                         val focusedChannel = channelsViewModel.getChannelByIndex(focusedChannelIndex)
                         focusedChannel?.let { channel ->
                             mediaViewModel.resetPlayer()
-                            mediaViewModel.startTsCollectingJob(channel.channelUrl)
+                            mediaViewModel.startCollectingSegments(channel.channelUrl)
                         }
                     }
                 }
@@ -104,14 +103,6 @@ fun ChannelsListAndBorder(
             Key.Back -> {
                 channelsViewModel.setIsChannelClicked(true)
             }
-        }
-    }
-
-    // fetching channels data
-    LaunchedEffect(token) {
-        if (token.isNotEmpty()) {
-            Log.i("received token", token)
-            channelsViewModel.fetchChannelsData(token)
         }
     }
 
@@ -146,15 +137,6 @@ fun ChannelsListAndBorder(
                     channelsListState.animateScrollToItem(focusedChannelIndex, (-borderYOffset + 15 * localDensity).toInt())
                 }
             }
-        }
-    }
-
-    LaunchedEffect(channelsData) {
-        if (channelsData.isNotEmpty()) {
-            Log.i("channels data", "$channelsData")
-            val cachedChannelIndex = channelsViewModel.getCachedChannelIndex()
-            channelsViewModel.updateChannelIndex(cachedChannelIndex, true)
-            channelsViewModel.updateChannelIndex(cachedChannelIndex, false)
         }
     }
 

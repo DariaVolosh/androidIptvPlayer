@@ -1,17 +1,16 @@
 package com.example.iptvplayer.data.repositories
 
-import android.util.Log
+import com.example.iptvplayer.data.InputStreamProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import tv.danmaku.ijk.media.player.misc.IMediaDataSource
 import java.io.InputStream
-import java.net.URL
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class MediaDataSource @Inject constructor(
-
+    private val inputStreamProvider: InputStreamProvider
 ): IMediaDataSource {
     private var inputStream: InputStream? = null
     private var onNextSegmentRequest: () -> Unit = {}
@@ -26,21 +25,15 @@ class MediaDataSource @Inject constructor(
         size: Int
     ): Int {
         var bytesRead = 0
-       try {
+        try {
            bytesRead = inputStream?.read(buffer, offset, size) ?: 0
-       } catch (e: Exception) {
-           Log.i("lel", "readAt exception $e")
-       }
+        } catch (e: Exception) { }
 
         if (bytesRead == -1 && !nextSegmentRequested) {
             nextSegmentRequested = true
             onNextSegmentRequest()
         }
 
-        if (bytesRead != -1) {
-            Log.i("buffering", "buffering $position: position, $offset: offset, $size: size")
-            Log.i("LOL", "bytes read: $bytesRead $inputStream")
-        }
         return if (bytesRead == -1) 0 else bytesRead
     }
 
@@ -52,21 +45,14 @@ class MediaDataSource @Inject constructor(
 
     }
 
-    suspend fun setMediaUrl(url: String, onUrlSet: (MediaDataSource) -> Unit) {
+    suspend fun setMediaUrl(url: String) {
         withContext(Dispatchers.IO) {
             try {
-                Log.i("data source!!! instance", this@MediaDataSource.toString())
-
-                Log.i("emission set media url", "setMediaUrl $url")
-                val connection = URL(url).openConnection()
-                inputStream = connection.getInputStream()
-                Log.i("segments", "segment read $url")
-                Log.i("inputStream", inputStream.toString())
-                onUrlSet(this@MediaDataSource)
-                Log.i("lel", "setMediaUrl $url ${this@MediaDataSource}")
+                inputStream = inputStreamProvider.getStream(url)
+                println(inputStream.toString())
                 nextSegmentRequested = false
             } catch (e: Exception) {
-                Log.i("exception openin file", e.message.toString())
+
             }
         }
     }
@@ -86,11 +72,10 @@ class MediaRepository @Inject constructor(
     }
 
     fun getMediaDataSource(): MediaDataSource {
-        Log.i("GET MEDIA DATA SOURCE", mediaDataSource.toString())
         return mediaDataSource
     }
 
-    suspend fun setMediaUrl(url: String, onUrlSet: (MediaDataSource) -> Unit) {
-        mediaDataSource.setMediaUrl(url, onUrlSet)
+    suspend fun setMediaUrl(url: String) {
+        mediaDataSource.setMediaUrl(url)
     }
 }

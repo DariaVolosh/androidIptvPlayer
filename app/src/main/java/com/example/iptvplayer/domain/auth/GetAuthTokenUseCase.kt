@@ -10,5 +10,8 @@ class GetAuthTokenUseCase @Inject constructor(
     suspend fun getAuthToken(
         requestBody: RequestBody,
         authErrorCallback: (String, String) -> Unit
-    ) = "Bearer ${authRepository.getAuthToken(requestBody, authErrorCallback)}"
+    ): String {
+        val token = "Bearer ${authRepository.getAuthToken(requestBody, authErrorCallback)}"
+        return token
+    }
 }

@@ -32,7 +32,7 @@ import com.example.iptvplayer.retrofit.data.EpgListItem
 import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
 import com.example.iptvplayer.view.channelsAndEpgRow.CurrentDvrInfoState
 import com.example.iptvplayer.view.epg.EpgViewModel
-import com.example.iptvplayer.view.player.MediaViewModel
+import com.example.iptvplayer.view.media.MediaViewModel
 import com.example.iptvplayer.view.time.DateAndTimeViewModel
 import com.example.iptvplayer.view.time.DateType
 import kotlinx.coroutines.delay
@@ -207,7 +207,7 @@ fun PlaybackControls(
                         epgViewModel.updateEpgIndex(liveProgramIndex, false)
                     }
                     mediaViewModel.resetPlayer()
-                    mediaViewModel.startTsCollectingJob(channelUrl)
+                    mediaViewModel.startCollectingSegments(channelUrl)
                     mediaViewModel.updateIsSeeking(false)
                 }
             } else {
