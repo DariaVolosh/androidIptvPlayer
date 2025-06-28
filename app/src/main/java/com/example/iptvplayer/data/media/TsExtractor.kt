@@ -1,12 +1,16 @@
 package com.example.iptvplayer.data.media
 
+import com.example.iptvplayer.R
 import com.example.iptvplayer.data.repositories.FileUtilsRepository
+import com.example.iptvplayer.domain.errors.ErrorManager
+import com.example.iptvplayer.view.errors.ErrorData
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class TsExtractor @Inject constructor(
-    private val fileUtilsRepository: FileUtilsRepository
+    private val fileUtilsRepository: FileUtilsRepository,
+    private val errorManager: ErrorManager
 ) {
 
     fun extractBaseUrl(rootUrl: String): String {
@@ -18,7 +22,16 @@ class TsExtractor @Inject constructor(
     }
 
     suspend fun extractTsSegmentUrls(url: String): List<String> {
-        val fileContent = fileUtilsRepository.readFile(url) { title, description -> }
+        val fileContent = fileUtilsRepository.readFile(url) { title, description ->
+            errorManager.publishError(
+                ErrorData(
+                    errorTitle = title,
+                    errorDescription =  description,
+                    errorIcon = R.drawable.error_icon
+                )
+            )
+        }
+
         val baseUrl = extractBaseUrl(url)
 
         val tsSegments = mutableListOf<String>()

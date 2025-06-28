@@ -53,6 +53,7 @@ fun PlayerView(
     val isSeeking by mediaViewModel.isSeeking.collectAsState()
     val newSegmentsNeeded by mediaViewModel.newSegmentsNeeded.collectAsState()
     val streamType by mediaPlaybackViewModel.streamType.collectAsState()
+    val isPaused by mediaPlaybackViewModel.isPaused.collectAsState()
 
     val archiveSegmentUrl by archiveViewModel.archiveSegmentUrl.collectAsState()
     val currentDvrInfoState by archiveViewModel.currentChannelDvrInfoState.collectAsState()
@@ -88,10 +89,10 @@ fun PlayerView(
             Log.i("is playback started! if", "true")
             if (!isSeeking) {
                 Log.i("is seeking! if", "false")
-                isPlayerOverlayDisplayed = false
                 surfaceHolder?.surface?.let { surface ->
                     mediaPlaybackViewModel.setPlayerSurface(surface)
                 }
+                isPlayerOverlayDisplayed = false
                 errorViewModel.resetError()
                 return@LaunchedEffect
             }
@@ -138,8 +139,8 @@ fun PlayerView(
         }
     }
 
-    LaunchedEffect(newSegmentsNeeded, streamType, currentChannel) {
-        if (newSegmentsNeeded && streamType == StreamTypeState.ARCHIVE && currentChannel != ChannelData()) {
+    LaunchedEffect(newSegmentsNeeded, streamType, currentChannel, isPaused) {
+        if (newSegmentsNeeded && streamType == StreamTypeState.ARCHIVE && currentChannel != ChannelData() && !isPaused) {
             println("new segments needed")
             val lastSegment = mediaPlaybackViewModel.getLastSegmentFromQueue()
             val nextSegmentsStartTime = getLastSegmentUrlEndTime(lastSegment)
@@ -148,7 +149,6 @@ fun PlayerView(
             Log.i("next segments start time", nextSegmentsStartTime.toString())
 
             if (lastSegment.isEmpty()) {
-                //Log.i("new segments time", dateAndTimeViewModel.formatDate(nextSegmentsStartTime, "EEEE d MMMM HH:mm:ss"))
                 archiveViewModel.getArchiveUrl(currentChannel.channelUrl, dateAndTimeViewModel.currentTime.value)
             } else {
                 archiveViewModel.getArchiveUrl(currentChannel.channelUrl, nextSegmentsStartTime)

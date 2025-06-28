@@ -11,6 +11,8 @@ import com.example.iptvplayer.domain.media.MediaPlaybackOrchestrator
 import com.example.iptvplayer.domain.time.TimeOrchestrator
 import com.example.iptvplayer.retrofit.data.ChannelData
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -55,6 +57,8 @@ class ChannelsViewModel @Inject constructor(
     private val _isChannelInfoShown: MutableStateFlow<Boolean> = MutableStateFlow(true)
     val isChannelInfoShown: StateFlow<Boolean> = _isChannelInfoShown
 
+    private var debouncedChannelSwitchJob: Job? = null
+
     fun updateIsChannelInfoShown(isShown: Boolean) {
         _isChannelInfoShown.value = isShown
     }
@@ -82,7 +86,8 @@ class ChannelsViewModel @Inject constructor(
     }
 
     fun switchChannel(isPrevious: Boolean) {
-        viewModelScope.launch {
+        debouncedChannelSwitchJob?.cancel()
+        debouncedChannelSwitchJob = viewModelScope.launch {
             timeOrchestrator.updateCurrentTime(timeOrchestrator.liveTime.value)
             mediaPlaybackOrchestrator.updateIsLive(true)
 
@@ -91,6 +96,8 @@ class ChannelsViewModel @Inject constructor(
             channelsManager.updateChannelIndex(focusedChannelIndex, true)
             channelsManager.updateChannelIndex(focusedChannelIndex, false)
             val updatedCurrentChannel = channelsManager.getChannelByIndex(focusedChannelIndex)
+
+            delay(200)
 
             updatedCurrentChannel?.let { _ ->
                 mediaPlaybackOrchestrator.startLivePlayback()

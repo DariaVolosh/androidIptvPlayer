@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.R
+import com.example.iptvplayer.domain.media.StreamTypeState
 import com.example.iptvplayer.retrofit.data.EpgListItem
 import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
 import com.example.iptvplayer.view.channelsAndEpgRow.CurrentDvrInfoState
@@ -192,7 +193,7 @@ fun PlaybackControls(
         if (channelUrl.isNotEmpty()) {
             resetSecondsNotInteracted()
 
-            if (!mediaViewModel.isLive.value) {
+            if (mediaPlaybackViewModel.streamType.value == StreamTypeState.ARCHIVE) {
                 coroutineScope.launch {
                     mediaViewModel.updateIsSeeking(true)
                     mediaViewModel.updateIsLive(true)
@@ -206,8 +207,6 @@ fun PlaybackControls(
                         epgViewModel.updateEpgIndex(liveProgramIndex, true)
                         epgViewModel.updateEpgIndex(liveProgramIndex, false)
                     }
-                    mediaViewModel.resetPlayer()
-                    mediaViewModel.startCollectingSegments(channelUrl)
                     mediaViewModel.updateIsSeeking(false)
                 }
             } else {

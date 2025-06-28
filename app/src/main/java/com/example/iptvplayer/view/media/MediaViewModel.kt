@@ -147,7 +147,9 @@ class MediaViewModel @Inject constructor(
 
     fun resetPlayer() {
         //cancelTsCollectingJob()
-        mediaPlaybackOrchestrator.resetPlayer()
+        viewModelScope.launch {
+            mediaPlaybackOrchestrator.resetPlayer()
+        }
     }
 
     fun startCollectingSegments(channelUrl: String) {

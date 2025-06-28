@@ -9,6 +9,7 @@ import com.example.iptvplayer.domain.channels.ChannelsManager
 import com.example.iptvplayer.domain.media.MediaManager
 import com.example.iptvplayer.domain.media.MediaPlaybackOrchestrator
 import com.example.iptvplayer.domain.sharedPrefs.SharedPreferencesUseCase
+import com.example.iptvplayer.domain.time.IS_LIVE_KEY
 import com.example.iptvplayer.retrofit.data.ChannelData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -107,8 +108,6 @@ class MediaPlaybackOrchestratorTest {
             orchestratorScope = backgroundScope
         )
 
-
-
         val mockTsSegments = List(4) { index -> "mockTsSegmentUrl${index + 1}" }
 
         for (i in mockTsSegments.indices) {
@@ -196,6 +195,7 @@ class MediaPlaybackOrchestratorTest {
             whenever(tsExtractor.extractTsSegmentUrls(any())).thenReturn(mockTsSegments)
             whenever(mediaManager.ijkPlayer).thenReturn(MutableStateFlow(ijkMediaPlayer))
             whenever(mediaPlaybackRepository.getMediaDataSource()).thenReturn(mediaDataSource)
+            whenever(sharedPreferencesUseCase.getBooleanValue(IS_LIVE_KEY)).thenReturn(true)
 
             mediaPlaybackOrchestrator = MediaPlaybackOrchestrator(
                 channelsManager = channelsManager,
@@ -215,8 +215,6 @@ class MediaPlaybackOrchestratorTest {
             assertNull(segmentsCollectingJobCollector.awaitItem())
             assertEquals(0, mediaPlaybackOrchestrator.getUrlQueueSize())
 
-            mediaPlaybackOrchestrator.startLivePlayback()
-
             currentChannelControlledFlow.value = ChannelData(name = "name")
             assertEquals(ChannelData(name = "name"), currentChannelDataCollector.awaitItem())
             assertEquals(4, mediaPlaybackOrchestrator.getUrlQueueSize())
@@ -231,7 +229,7 @@ class MediaPlaybackOrchestratorTest {
     fun startPlaylistParsingAvailable_isUrlQueuePopulated() = runTest {
         turbineScope {
             val mockTsSegments = List(4) { index -> "mockTsSegmentUrl${index + 1}" }
-
+            whenever(sharedPreferencesUseCase.getBooleanValue(IS_LIVE_KEY)).thenReturn(true)
             whenever(mediaManager.ijkPlayer).thenReturn(MutableStateFlow(ijkMediaPlayer))
             whenever(mediaPlaybackRepository.getMediaDataSource()).thenReturn(mediaDataSource)
 

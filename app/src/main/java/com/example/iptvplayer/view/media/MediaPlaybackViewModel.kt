@@ -11,6 +11,7 @@ import com.example.iptvplayer.domain.media.StreamTypeState
 import com.example.iptvplayer.view.channelsAndEpgRow.CurrentDvrInfoState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -51,9 +52,12 @@ class MediaPlaybackViewModel @Inject constructor(
         viewModelScope, SharingStarted.Eagerly, StreamTypeState.INITIALIZING
     )
 
-    fun updateMediaPlaybackState(updatedState: MediaPlaybackState) {
-        _mediaPlaybackState.value = updatedState
-    }
+    val isPaused: StateFlow<Boolean> = mediaPlaybackOrchestrator.isPaused.stateIn(
+        viewModelScope, SharingStarted.Eagerly, false
+    )
+
+    private var startLivePlaybackJob: Job? = null
+    private var startArchivePlaybackJob: Job? = null
 
     fun startPlayback() {
         viewModelScope.launch {
@@ -64,20 +68,22 @@ class MediaPlaybackViewModel @Inject constructor(
                     }
                     StreamTypeState.LIVE -> {
                         startLivePlayback()
+                        return@collect
                     }
                     StreamTypeState.ARCHIVE -> {
                         startArchivePlayback()
+                        return@collect
                     }
                 }
             }
         }
     }
 
-    fun startLivePlayback() {
-        mediaPlaybackOrchestrator.startLivePlayback()
+    suspend fun startLivePlayback() {
+        mediaPlaybackOrchestrator.startArchivePlayback()
     }
 
-    fun startArchivePlayback() {
+    suspend fun startArchivePlayback() {
         mediaPlaybackOrchestrator.startArchivePlayback()
     }
 

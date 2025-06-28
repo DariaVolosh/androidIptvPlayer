@@ -46,7 +46,6 @@ class MediaPlaybackOrchestrator @Inject constructor(
         MutableStateFlow(StreamTypeState.INITIALIZING)
     val streamTypeState: StateFlow<StreamTypeState> = _streamTypeState
 
-
     val currentChannel: StateFlow<ChannelData> = channelsManager.currentChannel.stateIn(
         orchestratorScope, SharingStarted.Eagerly, ChannelData()
     )
@@ -55,10 +54,12 @@ class MediaPlaybackOrchestrator @Inject constructor(
         orchestratorScope, SharingStarted.Eagerly, ""
     )
 
+    var isOrchestratorInitialized: MutableStateFlow<Boolean> = MutableStateFlow(false)
+
     private val urlQueue = LinkedList<String>()
-    private val emittedSegmentUrls = mutableSetOf<String>()
+    private val emittedSegmentUrls = mutableListOf<String>()
     private var segmentRequestJob: Job? = null
-    private var isPlayerInitializedForPlayback: Boolean = false
+    private val LIVE_SEGMENTS_BUFFER_THREESHOLD = 20
     private val DVR_SEGMENTS_THREESHOLD = 5 // we fetch 180 seconds of ts segments ~30 segments
     private val LIVE_SEGMENTS_THREESHOLD = 1 // we fetch 24 seconds of live ts segments ~4 segments
 
@@ -90,33 +91,43 @@ class MediaPlaybackOrchestrator @Inject constructor(
                 if (cachedIsLive) StreamTypeState.LIVE
                 else StreamTypeState.ARCHIVE
             )
-        }
 
-        initializePlayerForPlayback()
-    }
-
-    private fun initializePlayerForPlayback() {
-        orchestratorScope.launch {
-            mediaManager.ijkPlayer.first {
-                    ijkPlayer -> ijkPlayer != null
-            }.let {
-                mediaManager.setOnPreparedListener { _isDataSourceSet.value = true }
-                mediaManager.setOnInfoListener { mp, what, extra ->
-                    when (what) {
-                        IjkMediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START -> {
-                            _isPlaybackStarted.value = true
-                            true
-                        }
-                        else -> false
-                    }
-                }
-                val dataSource = mediaPlaybackRepository.getMediaDataSource()
-                mediaManager.setDataSource(dataSource)
-                dataSource.setOnNextSegmentRequestedCallback { onSegmentRequest(dataSource) }
-
-                isPlayerInitializedForPlayback = true
+            if (cachedIsLive) {
+                startLivePlayback()
+            } else {
+                startArchivePlayback()
             }
         }
+    }
+
+    private suspend fun initializePlayerForPlayback() {
+        mediaManager.ijkPlayer.first {
+                ijkPlayer -> ijkPlayer != null
+        }.let {
+            mediaManager.setOnPreparedListener { _isDataSourceSet.value = true }
+            mediaManager.setOnInfoListener { mp, what, extra ->
+                when (what) {
+                    IjkMediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START -> {
+                        _isPlaybackStarted.value = true
+                        startPlayerPlayback()
+                        true
+                    }
+                    else -> false
+                }
+            }
+
+            val dataSource = mediaPlaybackRepository.getMediaDataSource()
+            mediaManager.setDataSource(dataSource)
+            dataSource.setOnNextSegmentRequestedCallback { onSegmentRequest(dataSource) }
+
+            if (!isOrchestratorInitialized.value) {
+                isOrchestratorInitialized.value = true
+            }
+        }
+    }
+
+    fun discardOldestHalfSegments() {
+        emittedSegmentUrls.subList(0, LIVE_SEGMENTS_BUFFER_THREESHOLD / 2).clear()
     }
 
     fun updateAreNewSegmentsNeeded(areNeeded: Boolean) {
@@ -178,44 +189,60 @@ class MediaPlaybackOrchestrator @Inject constructor(
         }
     }
 
-    suspend fun startLiveSegmentsLoading(url: String) {
-        while (true) {
-            extractTsSegments(url)
-            delay(4000)
+    fun startLiveSegmentsLoading(url: String) =
+        orchestratorScope.launch {
+            while (true) {
+                println("extract $url")
+                extractTsSegments(url)
+                delay(4000)
+            }
         }
-    }
 
-    suspend fun startArchiveSegmentsLoading(archiveUrl: String) {
-        extractTsSegments(archiveUrl)
-    }
+    fun startArchiveSegmentsLoading(archiveUrl: String) =
+        orchestratorScope.launch {
+            extractTsSegments(archiveUrl)
+        }
 
-    fun startArchivePlayback() {
-        println("called archive callback")
-        if (isPlayerInitializedForPlayback) {
+    suspend fun startArchivePlayback() {
+        if (!isOrchestratorInitialized.value) {
+            initializePlayerForPlayback()
+        } else {
+            resetPlaybackInformation()
             resetPlayer()
         }
-        _segmentsLoadingJob.value = orchestratorScope.launch {
-            archiveUrl.collect { archiveUrl ->
-                println("collected archive url $archiveUrl")
-                if (archiveUrl.isNotEmpty()) {
-                    startArchiveSegmentsLoading(archiveUrl)
-                }
+
+        archiveUrl.collect { archiveUrl ->
+            println("collected archive url $archiveUrl")
+            if (archiveUrl.isNotEmpty()) {
+                _segmentsLoadingJob.value = startArchiveSegmentsLoading(archiveUrl)
             }
         }
     }
 
-    fun startLivePlayback() {
-        if (isPlayerInitializedForPlayback) {
+    suspend fun startLivePlayback() {
+        println("start playback")
+
+        if (!isOrchestratorInitialized.value) {
+            initializePlayerForPlayback()
+        } else {
+            resetPlaybackInformation()
             resetPlayer()
         }
 
-        _segmentsLoadingJob.value = orchestratorScope.launch {
-            currentChannel.first {
+        currentChannel.first {
                 channel -> channel != ChannelData()
-            }.let { currentChannel ->
-                startLiveSegmentsLoading(currentChannel.channelUrl)
-            }
+        }.let { currentChannel ->
+            _segmentsLoadingJob.value = startLiveSegmentsLoading(currentChannel.channelUrl)
         }
+    }
+
+    private fun resetPlaybackInformation() {
+        urlQueue.clear()
+        emittedSegmentUrls.clear()
+        _segmentsLoadingJob.value?.cancel()
+        _isDataSourceSet.value = false
+        _isPlaybackStarted.value = false
+        _newSegmentsNeeded.value = true
     }
 
     fun updateStreamTypeState(updatedState: StreamTypeState) {
@@ -229,20 +256,12 @@ class MediaPlaybackOrchestrator @Inject constructor(
 
     fun pausePlayerPlayback() {
         _isPaused.value = true
-        _segmentsLoadingJob.value?.cancel()
         updateIsLive(false)
         mediaManager.pause()
     }
 
-    fun resetPlayer() {
-        urlQueue.clear()
-        _segmentsLoadingJob.value?.cancel()
-        emittedSegmentUrls.clear()
+    suspend fun resetPlayer() {
         mediaManager.resetPlayer()
-
-        _isDataSourceSet.value = false
-        _isPlaybackStarted.value = false
-        _newSegmentsNeeded.value = true
         initializePlayerForPlayback()
     }
 
@@ -260,6 +279,9 @@ class MediaPlaybackOrchestrator @Inject constructor(
 
     fun addUrlToQueue(url: String) {
         println("url added to queue $url")
+        if (getUrlQueueSize() >= LIVE_SEGMENTS_BUFFER_THREESHOLD) {
+            discardOldestHalfSegments()
+        }
         urlQueue.add(url)
     }
 

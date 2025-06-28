@@ -5,6 +5,7 @@ import com.example.iptvplayer.data.repositories.FileUtilsRepository
 import com.example.iptvplayer.data.repositories.MediaPlaybackRepository
 import com.example.iptvplayer.domain.archive.ArchiveManager
 import com.example.iptvplayer.domain.channels.ChannelsManager
+import com.example.iptvplayer.domain.errors.ErrorManager
 import com.example.iptvplayer.domain.media.MediaManager
 import com.example.iptvplayer.domain.media.MediaPlaybackOrchestrator
 import com.example.iptvplayer.domain.sharedPrefs.SharedPreferencesUseCase
@@ -34,6 +35,7 @@ class MediaPlaybackOrchestratorAndTsExtractorTest {
     @Mock private lateinit var archiveManager: ArchiveManager
     @Mock private lateinit var mediaPlaybackRepository: MediaPlaybackRepository
     @Mock private lateinit var sharedPreferencesUseCase: SharedPreferencesUseCase
+    @Mock private lateinit var errorManager: ErrorManager
 
     private lateinit var tsExtractor: TsExtractor
     private lateinit var mediaPlaybackOrchestrator: MediaPlaybackOrchestrator
@@ -43,7 +45,8 @@ class MediaPlaybackOrchestratorAndTsExtractorTest {
         Dispatchers.setMain(testDispatcher)
 
         tsExtractor = TsExtractor(
-            fileUtilsRepository = fileUtilsRepository
+            fileUtilsRepository = fileUtilsRepository,
+            errorManager = errorManager
         )
     }
 

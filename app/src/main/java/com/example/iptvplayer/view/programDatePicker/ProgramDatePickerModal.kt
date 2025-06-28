@@ -27,6 +27,7 @@ import com.example.iptvplayer.R
 import com.example.iptvplayer.retrofit.data.ChannelData
 import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
 import com.example.iptvplayer.view.epg.EpgViewModel
+import com.example.iptvplayer.view.media.MediaPlaybackViewModel
 import com.example.iptvplayer.view.media.MediaViewModel
 import com.example.iptvplayer.view.programDatePicker.datePicker.DayPicker
 import com.example.iptvplayer.view.programDatePicker.timePicker.TimePicker
@@ -44,6 +45,7 @@ fun ProgramDatePickerModal(
     val mediaViewModel: MediaViewModel = hiltViewModel()
     val epgViewModel: EpgViewModel = hiltViewModel()
     val dateAndTimeViewModel: DateAndTimeViewModel = hiltViewModel()
+    val mediaPlaybackViewModel: MediaPlaybackViewModel = hiltViewModel()
 
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -72,7 +74,6 @@ fun ProgramDatePickerModal(
                 mediaViewModel.updateCurrentTime(newTotalDate)
                 mediaViewModel.updateIsLive(false)
                 epgViewModel.searchEpgByTime(newTotalDate)
-                mediaViewModel.resetPlayer()
                 archiveViewModel.getArchiveUrl(currentChannel.channelUrl, newTotalDate)
                 hideProgramDatePicker()
                 showChannelInfo()

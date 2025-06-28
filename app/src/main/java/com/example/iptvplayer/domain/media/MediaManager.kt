@@ -55,8 +55,8 @@ class MediaManager @Inject constructor(
     }
 
     fun resetPlayer() {
+        println("player reset")
         ijkPlayer.value?.reset()
-        println("reset player")
     }
 
     fun setPlayerSurface(surface: Surface) {

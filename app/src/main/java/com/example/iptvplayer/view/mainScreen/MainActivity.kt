@@ -91,7 +91,7 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         if (mediaViewModel.isLive.value) {
-            mediaViewModel.resetPlayer()
+            //mediaViewModel.resetPlayer()
         } else {
             mediaViewModel.updateIsLive(false)
             mediaViewModel.cancelTsCollectingJob()
