@@ -11,7 +11,6 @@ import com.example.iptvplayer.domain.media.MediaPlaybackOrchestrator
 import com.example.iptvplayer.domain.time.TimeOrchestrator
 import com.example.iptvplayer.retrofit.data.ChannelData
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -93,10 +92,8 @@ class ChannelsViewModel @Inject constructor(
             channelsManager.updateChannelIndex(focusedChannelIndex, false)
             val updatedCurrentChannel = channelsManager.getChannelByIndex(focusedChannelIndex)
 
-            updatedCurrentChannel?.let { channel ->
-                delay(500)
-                mediaPlaybackOrchestrator.resetPlayer()
-                //mediaPlaybackOrchestrator.startLivePlayback(channel.channelUrl)
+            updatedCurrentChannel?.let { _ ->
+                mediaPlaybackOrchestrator.startLivePlayback()
                 updateIsChannelInfoShown(true)
             }
         }

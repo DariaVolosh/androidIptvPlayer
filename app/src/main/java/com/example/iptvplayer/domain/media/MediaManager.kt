@@ -1,5 +1,6 @@
 package com.example.iptvplayer.domain.media
 
+import android.view.Surface
 import com.example.iptvplayer.data.IjkPlayerFactory
 import com.example.iptvplayer.data.repositories.MediaDataSource
 import com.example.iptvplayer.di.IoDispatcher
@@ -20,7 +21,6 @@ class MediaManager @Inject constructor(
     @IoDispatcher managerScope: CoroutineScope
 ) {
     // player instance
-// THIS IS THE SINGLE SOURCE OF TRUTH FOR YOUR PLAYER INSTANCE
     private val _ijkPlayer = MutableStateFlow<IjkMediaPlayer?>(null)
     val ijkPlayer: StateFlow<IjkMediaPlayer?> = _ijkPlayer
 
@@ -48,11 +48,18 @@ class MediaManager @Inject constructor(
     }
 
     fun setDataSource(dataSource: MediaDataSource) {
+        println("set data source $dataSource")
+        println("set data source ${ijkPlayer.value}")
         ijkPlayer.value?.setDataSource(dataSource)
         ijkPlayer.value?.prepareAsync()
     }
 
     fun resetPlayer() {
         ijkPlayer.value?.reset()
+        println("reset player")
+    }
+
+    fun setPlayerSurface(surface: Surface) {
+        _ijkPlayer.value?.setSurface(surface)
     }
 }

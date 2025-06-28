@@ -85,7 +85,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        mediaPlaybackViewModel.startLivePlayback()
+        mediaPlaybackViewModel.startPlayback()
     }
 
     override fun onStop() {

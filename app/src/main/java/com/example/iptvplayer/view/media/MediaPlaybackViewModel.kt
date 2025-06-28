@@ -1,5 +1,6 @@
 package com.example.iptvplayer.view.media
 
+import android.view.Surface
 import androidx.lifecycle.ViewModel
 import com.example.iptvplayer.di.IoDispatcher
 import com.example.iptvplayer.domain.archive.ArchiveManager
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 enum class MediaPlaybackState {
@@ -37,19 +39,58 @@ class MediaPlaybackViewModel @Inject constructor(
         viewModelScope, SharingStarted.Eagerly, CurrentDvrInfoState.LOADING
     )
 
-    val streamTypeState: StateFlow<StreamTypeState> = mediaPlaybackOrchestrator.streamTypeState.stateIn(
-        viewModelScope, SharingStarted.Eagerly, StreamTypeState.INITIALIZING
-    )
-
     val channelsState: StateFlow<ChannelsState> = channelsOrchestrator.channelsState.stateIn(
         viewModelScope, SharingStarted.Eagerly, ChannelsState.FETCHING
+    )
+
+    val isPlaybackStarted: StateFlow<Boolean> = mediaPlaybackOrchestrator.isPlaybackStarted.stateIn(
+        viewModelScope, SharingStarted.Eagerly, false
+    )
+
+    val streamType: StateFlow<StreamTypeState> = mediaPlaybackOrchestrator.streamTypeState.stateIn(
+        viewModelScope, SharingStarted.Eagerly, StreamTypeState.INITIALIZING
     )
 
     fun updateMediaPlaybackState(updatedState: MediaPlaybackState) {
         _mediaPlaybackState.value = updatedState
     }
 
+    fun startPlayback() {
+        viewModelScope.launch {
+            streamType.collect { streamType ->
+                when (streamType) {
+                    StreamTypeState.INITIALIZING, StreamTypeState.ERROR -> {
+
+                    }
+                    StreamTypeState.LIVE -> {
+                        startLivePlayback()
+                    }
+                    StreamTypeState.ARCHIVE -> {
+                        startArchivePlayback()
+                    }
+                }
+            }
+        }
+    }
+
     fun startLivePlayback() {
         mediaPlaybackOrchestrator.startLivePlayback()
+    }
+
+    fun startArchivePlayback() {
+        mediaPlaybackOrchestrator.startArchivePlayback()
+    }
+
+    fun pausePlayback() {
+        mediaPlaybackOrchestrator.pausePlayerPlayback()
+    }
+
+    fun getLastSegmentFromQueue(): String {
+        return mediaPlaybackOrchestrator.getLastTsSegmentFromQueue()
+    }
+
+    fun setPlayerSurface(surface: Surface) {
+        println("surface set view model? $surface")
+        mediaPlaybackOrchestrator.setPlayerSurface(surface)
     }
 }

@@ -176,6 +176,7 @@ class ArchiveViewModel @Inject constructor(
 
 
     fun getArchiveUrl(channelUrl: String, currentTime: Long) {
+        println("get archive url $channelUrl")
         viewModelScope.launch {
             archiveManager.getArchiveUrl(channelUrl, currentTime)
         }

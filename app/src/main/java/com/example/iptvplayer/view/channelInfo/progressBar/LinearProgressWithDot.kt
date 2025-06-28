@@ -28,6 +28,7 @@ import com.example.iptvplayer.R
 import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
 import com.example.iptvplayer.view.channelsAndEpgRow.CurrentDvrInfoState
 import com.example.iptvplayer.view.epg.EpgViewModel
+import com.example.iptvplayer.view.media.MediaPlaybackViewModel
 import com.example.iptvplayer.view.media.MediaViewModel
 import com.example.iptvplayer.view.time.DateAndTimeViewModel
 import java.util.Locale
@@ -46,6 +47,7 @@ fun LinearProgressWithDot(
     val epgViewModel: EpgViewModel = hiltViewModel()
     val mediaViewModel: MediaViewModel = hiltViewModel()
     val dateAndTimeViewModel: DateAndTimeViewModel = hiltViewModel()
+    val mediaPlaybackViewModel: MediaPlaybackViewModel = hiltViewModel()
 
     val seekSeconds by mediaViewModel.seekSecondsFlow.collectAsState(0)
     val currentTime by dateAndTimeViewModel.currentTime.collectAsState()
@@ -139,9 +141,9 @@ fun LinearProgressWithDot(
             } else {
                 Log.i("is seeking ${mediaViewModel.isSeeking.value}", "real")
                 if (isSeeking) {
-                    mediaViewModel.resetPlayer()
                     archiveViewModel.getArchiveUrl(channelUrl, currentTime)
                     mediaViewModel.updateIsSeeking(false)
+                    mediaPlaybackViewModel.startArchivePlayback()
                 }
             }
         }

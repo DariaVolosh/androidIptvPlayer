@@ -2,14 +2,12 @@ package com.example.iptvplayer.integrationTests.domain
 
 import com.example.iptvplayer.data.IjkPlayerFactory
 import com.example.iptvplayer.data.media.TsExtractor
-import com.example.iptvplayer.data.repositories.MediaRepository
+import com.example.iptvplayer.data.repositories.MediaPlaybackRepository
 import com.example.iptvplayer.domain.archive.ArchiveManager
 import com.example.iptvplayer.domain.channels.ChannelsManager
 import com.example.iptvplayer.domain.media.GetTsSegmentsUseCase
-import com.example.iptvplayer.domain.media.HandleNextSegmentRequestedUseCase
 import com.example.iptvplayer.domain.media.MediaManager
 import com.example.iptvplayer.domain.media.MediaPlaybackOrchestrator
-import com.example.iptvplayer.domain.media.SetMediaUrlUseCase
 import com.example.iptvplayer.domain.sharedPrefs.SharedPreferencesUseCase
 import com.example.iptvplayer.retrofit.data.ChannelData
 import kotlinx.coroutines.Dispatchers
@@ -28,13 +26,11 @@ class MediaPlaybackOrchestratorAndMediaManagerIntegrationTest {
     @Mock private lateinit var channelsManager: ChannelsManager
     @Mock private lateinit var archiveManager: ArchiveManager
     @Mock private lateinit var getTsSegmentsUseCase: GetTsSegmentsUseCase
-    @Mock private lateinit var mediaRepository: MediaRepository
+    @Mock private lateinit var mediaPlaybackRepository: MediaPlaybackRepository
 
     private lateinit var mediaPlaybackOrchestrator: MediaPlaybackOrchestrator
 
     @Mock private lateinit var sharedPreferencesUseCase: SharedPreferencesUseCase
-    @Mock private lateinit var handleNextSegmentRequestedUseCase: HandleNextSegmentRequestedUseCase
-    @Mock private lateinit var setMediaUrlUseCase: SetMediaUrlUseCase
     @Mock private lateinit var ijkPlayerFactory: IjkPlayerFactory
     @Mock private lateinit var tsExtractor: TsExtractor
 
@@ -53,4 +49,6 @@ class MediaPlaybackOrchestratorAndMediaManagerIntegrationTest {
         whenever(archiveManager.archiveSegmentUrl).thenReturn(MutableStateFlow(""))
         whenever(getTsSegmentsUseCase.extractTsSegments(any(), any(), any())).thenReturn(controlledTsSegmentsFlow)
     }
+
+
 }

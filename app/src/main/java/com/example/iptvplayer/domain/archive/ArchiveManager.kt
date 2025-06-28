@@ -123,7 +123,7 @@ class ArchiveManager @Inject constructor(
         val baseUrl = url.substring(0, url.lastIndexOf("/") + 1)
         val token = url.substring(url.lastIndexOf("=") + 1, url.length)
 
-        val archiveUrl = baseUrl + "index-$currentTime-60.m3u8?token=$token"
+        val archiveUrl = baseUrl + "index-$currentTime-180.m3u8?token=$token"
         Log.i("base url", "$baseUrl $token $archiveUrl")
         // checking again, because if the rewind was not continuous, time did not change,
         // therefore still in present, rewinding to current time would result in

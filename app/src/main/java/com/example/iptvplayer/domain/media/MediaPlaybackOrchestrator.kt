@@ -1,8 +1,11 @@
 package com.example.iptvplayer.domain.media
 
+import android.view.Surface
 import com.example.iptvplayer.data.media.TsExtractor
-import com.example.iptvplayer.data.repositories.MediaRepository
+import com.example.iptvplayer.data.repositories.MediaDataSource
+import com.example.iptvplayer.data.repositories.MediaPlaybackRepository
 import com.example.iptvplayer.di.IoDispatcher
+import com.example.iptvplayer.domain.archive.ArchiveManager
 import com.example.iptvplayer.domain.channels.ChannelsManager
 import com.example.iptvplayer.domain.sharedPrefs.SharedPreferencesUseCase
 import com.example.iptvplayer.domain.time.IS_LIVE_KEY
@@ -32,11 +35,10 @@ enum class StreamTypeState {
 class MediaPlaybackOrchestrator @Inject constructor(
     private val channelsManager: ChannelsManager,
     private val mediaManager: MediaManager,
-    private val mediaRepository: MediaRepository,
+    private val archiveManager: ArchiveManager,
+    private val mediaPlaybackRepository: MediaPlaybackRepository,
     private val tsExtractor: TsExtractor,
     private val sharedPreferencesUseCase: SharedPreferencesUseCase,
-    private val handleNextSegmentRequestedUseCase: HandleNextSegmentRequestedUseCase,
-    private val setMediaUrlUseCase: SetMediaUrlUseCase,
     @IoDispatcher private val orchestratorScope: CoroutineScope
 ) {
 
@@ -49,13 +51,19 @@ class MediaPlaybackOrchestrator @Inject constructor(
         orchestratorScope, SharingStarted.Eagerly, ChannelData()
     )
 
+    val archiveUrl: StateFlow<String> = archiveManager.archiveSegmentUrl.stateIn(
+        orchestratorScope, SharingStarted.Eagerly, ""
+    )
+
     private val urlQueue = LinkedList<String>()
+    private val emittedSegmentUrls = mutableSetOf<String>()
     private var segmentRequestJob: Job? = null
+    private var isPlayerInitializedForPlayback: Boolean = false
     private val DVR_SEGMENTS_THREESHOLD = 5 // we fetch 180 seconds of ts segments ~30 segments
     private val LIVE_SEGMENTS_THREESHOLD = 1 // we fetch 24 seconds of live ts segments ~4 segments
 
-    private val _segmentsCollectingJob: MutableStateFlow<Job?> = MutableStateFlow(null)
-    val segmentsCollectingJob: StateFlow<Job?> = _segmentsCollectingJob
+    private val _segmentsLoadingJob: MutableStateFlow<Job?> = MutableStateFlow(null)
+    val segmentsLoadingJob: StateFlow<Job?> = _segmentsLoadingJob
 
     private val _newSegmentsNeeded: MutableStateFlow<Boolean> = MutableStateFlow(true)
     var newSegmentsNeeded: StateFlow<Boolean> = _newSegmentsNeeded
@@ -76,6 +84,7 @@ class MediaPlaybackOrchestrator @Inject constructor(
     init {
         orchestratorScope.launch {
             val cachedIsLive = sharedPreferencesUseCase.getBooleanValue(IS_LIVE_KEY)
+            println("$cachedIsLive isLIVE")
 
             updateStreamTypeState(
                 if (cachedIsLive) StreamTypeState.LIVE
@@ -83,9 +92,13 @@ class MediaPlaybackOrchestrator @Inject constructor(
             )
         }
 
+        initializePlayerForPlayback()
+    }
+
+    private fun initializePlayerForPlayback() {
         orchestratorScope.launch {
             mediaManager.ijkPlayer.first {
-                ijkPlayer -> ijkPlayer != null
+                    ijkPlayer -> ijkPlayer != null
             }.let {
                 mediaManager.setOnPreparedListener { _isDataSourceSet.value = true }
                 mediaManager.setOnInfoListener { mp, what, extra ->
@@ -97,10 +110,11 @@ class MediaPlaybackOrchestrator @Inject constructor(
                         else -> false
                     }
                 }
-                mediaManager.setDataSource(mediaRepository.getMediaDataSource())
-                handleNextSegmentRequestedUseCase.setOnNextSegmentRequestedCallback {
-                    onSegmentRequest()
-                }
+                val dataSource = mediaPlaybackRepository.getMediaDataSource()
+                mediaManager.setDataSource(dataSource)
+                dataSource.setOnNextSegmentRequestedCallback { onSegmentRequest(dataSource) }
+
+                isPlayerInitializedForPlayback = true
             }
         }
     }
@@ -129,13 +143,15 @@ class MediaPlaybackOrchestrator @Inject constructor(
             else -> false
         }
 
-    fun onSegmentRequest() {
+    fun onSegmentRequest(mediaDataSource: MediaDataSource) {
         segmentRequestJob?.cancel()
         segmentRequestJob = orchestratorScope.launch {
             while (true) {
                 urlQueue.poll()?.let { url ->
+                    println("url polled $url")
+                    println("queue size ${urlQueue.size}")
                     updateAreNewSegmentsNeeded(newSegmentsNeeded())
-                    setMediaUrlUseCase.setMediaUrl(url)
+                    mediaDataSource.setMediaUrl(url)
                     segmentRequestJob?.cancel()
                 }
 
@@ -144,7 +160,7 @@ class MediaPlaybackOrchestrator @Inject constructor(
         }
     }
 
-    private suspend fun extractTsSegments(url: String) {
+    suspend fun extractTsSegments(url: String) {
         val nestedUrls = tsExtractor.extractNestedPlaylistUrls(url)
 
         if (nestedUrls.isNotEmpty()) {
@@ -154,22 +170,46 @@ class MediaPlaybackOrchestrator @Inject constructor(
         } else {
             val tsSegments = tsExtractor.extractTsSegmentUrls(url)
             for (tsSegment in tsSegments) {
-                addUrlToQueue(tsSegment)
+                if (tsSegment !in emittedSegmentUrls) {
+                    emittedSegmentUrls.add(tsSegment)
+                    addUrlToQueue(tsSegment)
+                }
             }
         }
     }
 
-    private fun startLiveSegmentsLoading(url: String) {
-        _segmentsCollectingJob.value = orchestratorScope.launch {
-            while (true) {
-                extractTsSegments(url)
-                delay(4000)
+    suspend fun startLiveSegmentsLoading(url: String) {
+        while (true) {
+            extractTsSegments(url)
+            delay(4000)
+        }
+    }
+
+    suspend fun startArchiveSegmentsLoading(archiveUrl: String) {
+        extractTsSegments(archiveUrl)
+    }
+
+    fun startArchivePlayback() {
+        println("called archive callback")
+        if (isPlayerInitializedForPlayback) {
+            resetPlayer()
+        }
+        _segmentsLoadingJob.value = orchestratorScope.launch {
+            archiveUrl.collect { archiveUrl ->
+                println("collected archive url $archiveUrl")
+                if (archiveUrl.isNotEmpty()) {
+                    startArchiveSegmentsLoading(archiveUrl)
+                }
             }
         }
     }
 
     fun startLivePlayback() {
-        orchestratorScope.launch {
+        if (isPlayerInitializedForPlayback) {
+            resetPlayer()
+        }
+
+        _segmentsLoadingJob.value = orchestratorScope.launch {
             currentChannel.first {
                 channel -> channel != ChannelData()
             }.let { currentChannel ->
@@ -189,19 +229,29 @@ class MediaPlaybackOrchestrator @Inject constructor(
 
     fun pausePlayerPlayback() {
         _isPaused.value = true
+        _segmentsLoadingJob.value?.cancel()
+        updateIsLive(false)
         mediaManager.pause()
     }
 
     fun resetPlayer() {
         urlQueue.clear()
+        _segmentsLoadingJob.value?.cancel()
+        emittedSegmentUrls.clear()
+        mediaManager.resetPlayer()
+
         _isDataSourceSet.value = false
         _isPlaybackStarted.value = false
         _newSegmentsNeeded.value = true
-        mediaManager.resetPlayer()
+        initializePlayerForPlayback()
     }
 
     fun getLastTsSegmentFromQueue(): String {
-        return urlQueue.last
+        if (urlQueue.size == 0) {
+            return ""
+        } else {
+            return urlQueue.last
+        }
     }
 
     fun getUrlQueueSize(): Int {
@@ -209,6 +259,16 @@ class MediaPlaybackOrchestrator @Inject constructor(
     }
 
     fun addUrlToQueue(url: String) {
+        println("url added to queue $url")
         urlQueue.add(url)
+    }
+
+    fun pollUrl(): String {
+        return urlQueue.poll() ?: ""
+    }
+
+    fun setPlayerSurface(surface: Surface) {
+        println("surface set orchestrator? $surface")
+        mediaManager.setPlayerSurface(surface)
     }
 }

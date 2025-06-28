@@ -1,5 +1,6 @@
 package com.example.iptvplayer.data.repositories
 
+import com.example.iptvplayer.data.DefaultInputStreamProvider
 import com.example.iptvplayer.data.InputStreamProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -14,7 +15,7 @@ class MediaDataSource @Inject constructor(
 ): IMediaDataSource {
     private var inputStream: InputStream? = null
     private var onNextSegmentRequest: () -> Unit = {}
-    private var nextSegmentRequested = true
+    private var nextSegmentRequested = false
 
     //private var totalBytes = 0
 
@@ -29,7 +30,9 @@ class MediaDataSource @Inject constructor(
            bytesRead = inputStream?.read(buffer, offset, size) ?: 0
         } catch (e: Exception) { }
 
-        if (bytesRead == -1 && !nextSegmentRequested) {
+        println("bytes read $bytesRead")
+
+        if (bytesRead <= 0 && !nextSegmentRequested) {
             nextSegmentRequested = true
             onNextSegmentRequest()
         }
@@ -48,8 +51,8 @@ class MediaDataSource @Inject constructor(
     suspend fun setMediaUrl(url: String) {
         withContext(Dispatchers.IO) {
             try {
+                println("set media url in data source $url ${this@MediaDataSource}")
                 inputStream = inputStreamProvider.getStream(url)
-                println(inputStream.toString())
                 nextSegmentRequested = false
             } catch (e: Exception) {
 
@@ -63,19 +66,10 @@ class MediaDataSource @Inject constructor(
 }
 
 @Singleton
-class MediaRepository @Inject constructor(
-    private val mediaDataSource: MediaDataSource,
+class MediaPlaybackRepository @Inject constructor(
+
 ) {
-
-    fun setOnNextSegmentRequestedCallback(callback: () -> Unit) {
-        mediaDataSource.setOnNextSegmentRequestedCallback(callback)
-    }
-
     fun getMediaDataSource(): MediaDataSource {
-        return mediaDataSource
-    }
-
-    suspend fun setMediaUrl(url: String) {
-        mediaDataSource.setMediaUrl(url)
+        return MediaDataSource(DefaultInputStreamProvider())
     }
 }

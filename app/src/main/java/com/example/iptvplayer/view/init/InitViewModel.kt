@@ -1,6 +1,5 @@
 package com.example.iptvplayer.view.init
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.example.iptvplayer.di.IoDispatcher
 import com.example.iptvplayer.domain.auth.AuthOrchestrator
@@ -42,8 +41,6 @@ class InitViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            Log.i("lol", "called")
-
             authOrchestrator.getBackendToken()
             authState.collect { authState ->
                 when (authState) {

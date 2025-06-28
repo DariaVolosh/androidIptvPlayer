@@ -8,7 +8,7 @@ import com.example.iptvplayer.data.repositories.ChannelsRepository
 import com.example.iptvplayer.data.repositories.FileUtilsRepository
 import com.example.iptvplayer.data.repositories.M3U8PlaylistRepository
 import com.example.iptvplayer.data.repositories.MediaDataSource
-import com.example.iptvplayer.data.repositories.MediaRepository
+import com.example.iptvplayer.data.repositories.MediaPlaybackRepository
 import com.example.iptvplayer.domain.archive.ArchiveManager
 import com.example.iptvplayer.domain.auth.AuthManager
 import com.example.iptvplayer.domain.auth.AuthOrchestrator
@@ -16,10 +16,8 @@ import com.example.iptvplayer.domain.channels.ChannelsManager
 import com.example.iptvplayer.domain.errors.ErrorManager
 import com.example.iptvplayer.domain.media.GetMediaDataSourceUseCase
 import com.example.iptvplayer.domain.media.GetTsSegmentsUseCase
-import com.example.iptvplayer.domain.media.HandleNextSegmentRequestedUseCase
 import com.example.iptvplayer.domain.media.MediaManager
 import com.example.iptvplayer.domain.media.MediaPlaybackOrchestrator
-import com.example.iptvplayer.domain.media.SetMediaUrlUseCase
 import com.example.iptvplayer.domain.sharedPrefs.SharedPreferencesUseCase
 import com.example.iptvplayer.domain.time.DateManager
 import com.example.iptvplayer.domain.time.TimeOrchestrator
@@ -62,8 +60,6 @@ class PlaybackIntegrationTest {
     @Mock private lateinit var ijkPlayerFactory: IjkPlayerFactory
     // real instances of media manager and its dependencies, since they are all needed for our test
     private lateinit var getMediaDataSourceUseCase: GetMediaDataSourceUseCase
-    private lateinit var handleNextSegmentRequestedUseCase: HandleNextSegmentRequestedUseCase
-    private lateinit var setMediaUrlUseCase: SetMediaUrlUseCase
     private lateinit var mediaManager: MediaManager
 
     // real instance of playlist repository
@@ -73,7 +69,7 @@ class PlaybackIntegrationTest {
     private lateinit var fileUtilsRepository: FileUtilsRepository
 
     // real instance of media repository
-    private lateinit var mediaRepository: MediaRepository
+    private lateinit var mediaPlaybackRepository: MediaPlaybackRepository
 
     // mock of input stream provider
     @Mock private lateinit var inputStreamProvider: InputStreamProvider
@@ -105,8 +101,8 @@ class PlaybackIntegrationTest {
         mediaDataSource = MediaDataSource(
             inputStreamProvider = inputStreamProvider
         )
-        mediaRepository = MediaRepository(
-            mediaDataSource = mediaDataSource
+        mediaPlaybackRepository = MediaPlaybackRepository(
+
         )
         m3U8PlaylistRepository = M3U8PlaylistRepository()
         fileUtilsRepository = FileUtilsRepository(
@@ -120,17 +116,11 @@ class PlaybackIntegrationTest {
 
         // use cases
         getMediaDataSourceUseCase = GetMediaDataSourceUseCase(
-            mediaRepository = mediaRepository
+            mediaPlaybackRepository = mediaPlaybackRepository
         )
         getTsSegmentsUseCase = GetTsSegmentsUseCase(
             playlistRepository = m3U8PlaylistRepository,
             fileUtilsRepository = fileUtilsRepository
-        )
-        handleNextSegmentRequestedUseCase = HandleNextSegmentRequestedUseCase(
-            mediaRepository = mediaRepository
-        )
-        setMediaUrlUseCase = SetMediaUrlUseCase(
-            mediaRepository = mediaRepository
         )
 
         // managers

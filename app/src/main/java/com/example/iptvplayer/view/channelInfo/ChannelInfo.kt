@@ -26,11 +26,13 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.iptvplayer.domain.media.StreamTypeState
 import com.example.iptvplayer.view.channelInfo.playbackControls.PlaybackControls
 import com.example.iptvplayer.view.channelInfo.progressBar.TimeSeekbarWithTimeMarkers
 import com.example.iptvplayer.view.channels.ChannelsViewModel
 import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
 import com.example.iptvplayer.view.epg.EpgViewModel
+import com.example.iptvplayer.view.media.MediaPlaybackViewModel
 import com.example.iptvplayer.view.media.MediaViewModel
 import com.example.iptvplayer.view.time.DateAndTimeViewModel
 import com.example.iptvplayer.view.toast.CustomToast
@@ -45,6 +47,7 @@ fun ChannelInfo(
 ) {
     val archiveViewModel: ArchiveViewModel = hiltViewModel()
     val mediaViewModel: MediaViewModel = hiltViewModel()
+    val mediaPlaybackViewModel: MediaPlaybackViewModel = hiltViewModel()
     val epgViewModel: EpgViewModel = hiltViewModel()
     val channelsViewModel: ChannelsViewModel = viewModel()
     val dateAndTimeViewModel: DateAndTimeViewModel = hiltViewModel()
@@ -54,7 +57,7 @@ fun ChannelInfo(
     var secondsNotInteracted by remember { mutableIntStateOf(0) }
 
     val currentTime by dateAndTimeViewModel.currentTime.collectAsState()
-    val isLiveProgram by mediaViewModel.isLive.collectAsState()
+    val streamType by mediaPlaybackViewModel.streamType.collectAsState()
     val dvrRange by archiveViewModel.currentChannelDvrRanges.collectAsState()
 
     val currentEpgIndex by epgViewModel.currentEpgIndex.collectAsState()
@@ -163,7 +166,17 @@ fun ChannelInfo(
                     )
 
                     Text(
-                        text = if (isLiveProgram) "live" else "record",
+                        text = when(streamType) {
+                            StreamTypeState.LIVE -> {
+                                "live"
+                            }
+                            StreamTypeState.ARCHIVE -> {
+                                "record"
+                            }
+                            StreamTypeState.INITIALIZING, StreamTypeState.ERROR -> {
+                                ""
+                            }
+                        },
                         color = Color.Red,
                         fontSize = 20.sp
                     )

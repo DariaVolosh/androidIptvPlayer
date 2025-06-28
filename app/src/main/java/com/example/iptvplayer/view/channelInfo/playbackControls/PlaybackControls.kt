@@ -32,6 +32,7 @@ import com.example.iptvplayer.retrofit.data.EpgListItem
 import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
 import com.example.iptvplayer.view.channelsAndEpgRow.CurrentDvrInfoState
 import com.example.iptvplayer.view.epg.EpgViewModel
+import com.example.iptvplayer.view.media.MediaPlaybackViewModel
 import com.example.iptvplayer.view.media.MediaViewModel
 import com.example.iptvplayer.view.time.DateAndTimeViewModel
 import com.example.iptvplayer.view.time.DateType
@@ -58,6 +59,7 @@ fun PlaybackControls(
 
     val archiveViewModel: ArchiveViewModel = hiltViewModel()
     val mediaViewModel: MediaViewModel = hiltViewModel()
+    val mediaPlaybackViewModel: MediaPlaybackViewModel = hiltViewModel()
     val epgViewModel: EpgViewModel = hiltViewModel()
     val playbackControlsViewModel: PlaybackControlsViewModel = hiltViewModel()
     val dateAndTimeViewModel: DateAndTimeViewModel = hiltViewModel()
@@ -167,9 +169,7 @@ fun PlaybackControls(
             ) {
             Log.i("playback controls", "pause handled")
             resetSecondsNotInteracted()
-            mediaViewModel.updateIsLive(false)
-            mediaViewModel.cancelTsCollectingJob()
-            mediaViewModel.pause()
+            mediaPlaybackViewModel.pausePlayback()
         } else {
             archiveViewModel.setRewindError(context.getString(R.string.archive_is_not_available))
         }

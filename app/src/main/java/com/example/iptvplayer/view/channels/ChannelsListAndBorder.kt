@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.view.channelsAndEpgRow.ItemBorder
 import com.example.iptvplayer.view.epg.EpgViewModel
+import com.example.iptvplayer.view.media.MediaPlaybackViewModel
 import com.example.iptvplayer.view.media.MediaViewModel
 import com.example.iptvplayer.view.time.DateAndTimeViewModel
 import kotlinx.coroutines.launch
@@ -42,6 +43,7 @@ fun ChannelsListAndBorder(
     val mediaViewModel: MediaViewModel = hiltViewModel()
     val epgViewModel: EpgViewModel = hiltViewModel()
     val dateAndTimeViewModel: DateAndTimeViewModel = hiltViewModel()
+    val mediaPlaybackViewModel: MediaPlaybackViewModel = hiltViewModel()
 
     val isChannelClicked by channelsViewModel.isChannelClicked.collectAsState()
     val focusedChannelIndex by channelsViewModel.focusedChannelIndex.collectAsState()
@@ -92,9 +94,8 @@ fun ChannelsListAndBorder(
                         channelsViewModel.updateChannelIndex(focusedChannelIndex, true)
 
                         val focusedChannel = channelsViewModel.getChannelByIndex(focusedChannelIndex)
-                        focusedChannel?.let { channel ->
-                            mediaViewModel.resetPlayer()
-                            mediaViewModel.startCollectingSegments(channel.channelUrl)
+                        focusedChannel?.let { _ ->
+                            mediaPlaybackViewModel.startLivePlayback()
                         }
                     }
                 }

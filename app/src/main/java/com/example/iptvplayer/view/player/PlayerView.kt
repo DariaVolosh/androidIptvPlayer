@@ -17,12 +17,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.R
+import com.example.iptvplayer.domain.media.StreamTypeState
 import com.example.iptvplayer.retrofit.data.ChannelData
 import com.example.iptvplayer.view.channels.ChannelsViewModel
 import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
 import com.example.iptvplayer.view.channelsAndEpgRow.CurrentDvrInfoState
 import com.example.iptvplayer.view.errors.ErrorData
 import com.example.iptvplayer.view.errors.ErrorViewModel
+import com.example.iptvplayer.view.media.MediaPlaybackViewModel
 import com.example.iptvplayer.view.media.MediaViewModel
 import com.example.iptvplayer.view.player.playerOverlays.ExitConfirmationData
 import com.example.iptvplayer.view.player.playerOverlays.PlayerOverlay
@@ -40,6 +42,7 @@ fun PlayerView(
 ) {
     val context = LocalContext.current
     val mediaViewModel: MediaViewModel = hiltViewModel()
+    val mediaPlaybackViewModel: MediaPlaybackViewModel = hiltViewModel()
     val archiveViewModel: ArchiveViewModel = hiltViewModel()
     val channelsViewModel: ChannelsViewModel = hiltViewModel()
     val errorViewModel: ErrorViewModel = hiltViewModel()
@@ -49,7 +52,7 @@ fun PlayerView(
     val isPlaybackStarted by mediaViewModel.isPlaybackStarted.collectAsState()
     val isSeeking by mediaViewModel.isSeeking.collectAsState()
     val newSegmentsNeeded by mediaViewModel.newSegmentsNeeded.collectAsState()
-    val isLive by mediaViewModel.isLive.collectAsState()
+    val streamType by mediaPlaybackViewModel.streamType.collectAsState()
 
     val archiveSegmentUrl by archiveViewModel.archiveSegmentUrl.collectAsState()
     val currentDvrInfoState by archiveViewModel.currentChannelDvrInfoState.collectAsState()
@@ -62,13 +65,6 @@ fun PlayerView(
     var surfaceHolder by remember { mutableStateOf<SurfaceHolder?>(null) }
     var playerOverlayState by remember { mutableStateOf(PlayerOverlayState.SHOW_LOADING_PROGRESS_BAR) }
     var isPlayerOverlayDisplayed by remember { mutableStateOf(true) }
-
-    LaunchedEffect(archiveSegmentUrl) {
-        if (archiveSegmentUrl.isNotEmpty()) {
-            Log.i("archive segment url", archiveSegmentUrl)
-            mediaViewModel.startCollectingSegments(archiveSegmentUrl)
-        }
-    }
 
     LaunchedEffect(isBackPressed) {
         isPlayerOverlayDisplayed = isBackPressed
@@ -93,6 +89,9 @@ fun PlayerView(
             if (!isSeeking) {
                 Log.i("is seeking! if", "false")
                 isPlayerOverlayDisplayed = false
+                surfaceHolder?.surface?.let { surface ->
+                    mediaPlaybackViewModel.setPlayerSurface(surface)
+                }
                 errorViewModel.resetError()
                 return@LaunchedEffect
             }
@@ -139,10 +138,12 @@ fun PlayerView(
         }
     }
 
-    LaunchedEffect(newSegmentsNeeded, isLive, currentChannel) {
-        if (newSegmentsNeeded && !isLive && currentChannel != ChannelData()) {
-            val lastSegment = mediaViewModel.getLastSegmentFromQueue()
+    LaunchedEffect(newSegmentsNeeded, streamType, currentChannel) {
+        if (newSegmentsNeeded && streamType == StreamTypeState.ARCHIVE && currentChannel != ChannelData()) {
+            println("new segments needed")
+            val lastSegment = mediaPlaybackViewModel.getLastSegmentFromQueue()
             val nextSegmentsStartTime = getLastSegmentUrlEndTime(lastSegment)
+            println("last segment $lastSegment")
 
             Log.i("next segments start time", nextSegmentsStartTime.toString())
 
@@ -150,7 +151,6 @@ fun PlayerView(
                 //Log.i("new segments time", dateAndTimeViewModel.formatDate(nextSegmentsStartTime, "EEEE d MMMM HH:mm:ss"))
                 archiveViewModel.getArchiveUrl(currentChannel.channelUrl, dateAndTimeViewModel.currentTime.value)
             } else {
-
                 archiveViewModel.getArchiveUrl(currentChannel.channelUrl, nextSegmentsStartTime)
             }
         }
@@ -166,12 +166,11 @@ fun PlayerView(
         }
     }
 
-
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
 
-       if (isPlayerOverlayDisplayed) {
+      if (isPlayerOverlayDisplayed) {
            Log.i("is overlay displayed", isPlayerOverlayDisplayed.toString())
            PlayerOverlay(
                playerOverlayState,
@@ -190,17 +189,14 @@ fun PlayerView(
                 SurfaceView(context).apply {
                     holder.addCallback(object : SurfaceHolder.Callback {
                         override fun surfaceCreated(holder: SurfaceHolder) {
-                            Log.i("surface created?", holder.toString())
-                            mediaViewModel.ijkPlayer.value?.setSurface(holder.surface)
-                            mediaViewModel.updateIsSurfaceAttached(true)
+                            surfaceHolder = holder
                         }
 
                         override fun surfaceChanged(
                             holder: SurfaceHolder, format: Int,
                             width: Int, height: Int
                         ) {
-                            Log.i("SURFACE SIZE", "$format $width $height")
-                            mediaViewModel.ijkPlayer.value?.setSurface(holder.surface)
+                            surfaceHolder = holder
                         }
 
                         override fun surfaceDestroyed(holder: SurfaceHolder) {
@@ -212,6 +208,7 @@ fun PlayerView(
             },
             modifier = Modifier.fillMaxSize(),
             update = {
+
             }
         )
     }
