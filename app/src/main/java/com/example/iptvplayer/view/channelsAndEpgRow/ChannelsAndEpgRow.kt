@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.iptvplayer.view.archive.ArchiveViewModel
 import com.example.iptvplayer.view.auth.AuthViewModel
 import com.example.iptvplayer.view.channels.ChannelsListAndBorder
 import com.example.iptvplayer.view.channels.ChannelsViewModel

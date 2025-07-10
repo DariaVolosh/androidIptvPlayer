@@ -45,7 +45,11 @@
     <string name="preview_not_available">Preview is not available</string>
     <string name="preview_not_available_descr">Could not fetch current stream frame</string>
 
-    <string name="timezone_misconfig_description">Time settings are misconfigured. To ensure application works correctly, please verify that your device\'s date, time, and timezone settings are accurate</string>
+    <string name="timezone_misconfig">Time settings are misconfigured</string>
+    <string name="timezone_misconfig_description">To ensure application works correctly, please verify that your device\'s date, time, and timezone settings are accurate</string>
+    
+    <string name="archive_gap">Gap in archive stream recording detected</string>
+    <string name="archive_gap_description">Playback will be resumed from the nearest available point. A very small segment of content may have been skipped.</string>
 
     <string name="archive_is_not_available">Archive is not available</string>
     <string name="no_previous_program">Previous program is not available</string>
@@ -54,4 +58,6 @@
     <string name="no_next_program">Next program is not available</string>
     <string name="already_in_live">Already in live</string>
     <string name="date_is_not_available">Chosen date is not available</string>
+
+    <string name="continue_button_label">Continue</string>
 </resources>

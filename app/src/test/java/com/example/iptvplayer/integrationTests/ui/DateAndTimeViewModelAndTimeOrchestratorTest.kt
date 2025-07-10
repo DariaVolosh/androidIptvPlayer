@@ -1,6 +1,8 @@
 package com.example.iptvplayer.integrationTests.ui
 
+import android.content.Context
 import app.cash.turbine.turbineScope
+import com.example.iptvplayer.domain.errors.ErrorManager
 import com.example.iptvplayer.domain.media.MediaManager
 import com.example.iptvplayer.domain.media.MediaPlaybackOrchestrator
 import com.example.iptvplayer.domain.media.StreamTypeState
@@ -17,8 +19,8 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import org.junit.Assert.assertEquals
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -35,6 +37,8 @@ import java.util.TimeZone
 class DateAndTimeViewModelAndTimeOrchestratorTest {
     private var testDispatcher = StandardTestDispatcher()
 
+    @Mock private lateinit var context: Context
+    @Mock private lateinit var errorManager: ErrorManager
     @Mock private lateinit var dateManager: DateManager
     @Mock private lateinit var timeManager: TimeManager
     @Mock private lateinit var mediaManager: MediaManager
@@ -55,6 +59,7 @@ class DateAndTimeViewModelAndTimeOrchestratorTest {
         liveTimeControlledFlow = MutableStateFlow(0L)
         currentTimeControlledFlow = MutableStateFlow(0L)
 
+        whenever(context.getString(any())).thenReturn("")
         whenever(mediaPlaybackOrchestrator.isPaused).thenReturn(MutableStateFlow(false))
         whenever(mediaPlaybackOrchestrator.isSeeking).thenReturn(MutableStateFlow(false))
         whenever(timeManager.liveTime).thenReturn(liveTimeControlledFlow)
@@ -99,8 +104,11 @@ class DateAndTimeViewModelAndTimeOrchestratorTest {
             timeOrchestrator = TimeOrchestrator(
                 dateManager = dateManager,
                 timeManager = timeManager,
+                calendarManager = calendarManager,
+                errorManager = errorManager,
                 mediaManager = mediaManager,
                 sharedPreferencesUseCase = sharedPreferencesUseCase,
+                context = context,
                 orchestratorScope = backgroundScope
             )
 
@@ -115,9 +123,8 @@ class DateAndTimeViewModelAndTimeOrchestratorTest {
             val time = 1750089835L
             val currentFullDateCollector = dateAndTimeViewModel.currentFullDate.testIn(this)
 
-            whenever(timeManager.getGmtTime()).thenReturn(time)
+            whenever(timeManager.getNetworkCurrentTime()).thenReturn(time)
 
-            var seconds = 0
             advanceTimeBy(1000)
             assertEquals("Current date not available", currentFullDateCollector.awaitItem())
 

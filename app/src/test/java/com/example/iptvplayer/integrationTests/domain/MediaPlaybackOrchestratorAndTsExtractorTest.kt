@@ -1,5 +1,6 @@
 package com.example.iptvplayer.integrationTests.domain
 
+import android.content.Context
 import com.example.iptvplayer.data.media.TsExtractor
 import com.example.iptvplayer.data.repositories.FileUtilsRepository
 import com.example.iptvplayer.data.repositories.MediaPlaybackRepository
@@ -29,6 +30,7 @@ import org.mockito.kotlin.whenever
 class MediaPlaybackOrchestratorAndTsExtractorTest {
     private val testDispatcher =  StandardTestDispatcher()
 
+    @Mock private lateinit var context: Context
     @Mock private lateinit var fileUtilsRepository: FileUtilsRepository
     @Mock private lateinit var channelsManager: ChannelsManager
     @Mock private lateinit var mediaManager: MediaManager
@@ -73,9 +75,11 @@ class MediaPlaybackOrchestratorAndTsExtractorTest {
             channelsManager = channelsManager,
             mediaManager = mediaManager,
             archiveManager = archiveManager,
+            errorManager = errorManager,
             mediaPlaybackRepository = mediaPlaybackRepository,
             tsExtractor = tsExtractor,
             sharedPreferencesUseCase = sharedPreferencesUseCase,
+            context = context,
             orchestratorScope = backgroundScope
         )
 

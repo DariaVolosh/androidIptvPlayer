@@ -19,7 +19,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.view.time.DateAndTimeViewModel
-import java.util.Calendar
 
 @Composable
 fun TimePicker(
@@ -33,15 +32,16 @@ fun TimePicker(
 ) {
 
     val dateAndTimeViewModel: DateAndTimeViewModel = hiltViewModel()
+
     var hours by remember {
         mutableIntStateOf(
-            dateAndTimeViewModel.getCalendar(requestCurrentTime()).get(Calendar.HOUR_OF_DAY)
+            dateAndTimeViewModel.getCalendarHour(requestCurrentTime())
         )
     }
 
     var minutes by remember {
         mutableIntStateOf(
-            dateAndTimeViewModel.getCalendar(requestCurrentTime()).get(Calendar.MINUTE)
+            dateAndTimeViewModel.getCalendarMinute(requestCurrentTime())
         )
     }
 

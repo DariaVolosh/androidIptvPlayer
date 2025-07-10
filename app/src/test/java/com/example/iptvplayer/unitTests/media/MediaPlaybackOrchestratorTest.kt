@@ -1,22 +1,27 @@
 package com.example.iptvplayer.unitTests.media
 
+import android.content.Context
 import app.cash.turbine.turbineScope
 import com.example.iptvplayer.data.media.TsExtractor
 import com.example.iptvplayer.data.repositories.MediaDataSource
 import com.example.iptvplayer.data.repositories.MediaPlaybackRepository
 import com.example.iptvplayer.domain.archive.ArchiveManager
 import com.example.iptvplayer.domain.channels.ChannelsManager
+import com.example.iptvplayer.domain.errors.ErrorManager
 import com.example.iptvplayer.domain.media.MediaManager
 import com.example.iptvplayer.domain.media.MediaPlaybackOrchestrator
 import com.example.iptvplayer.domain.sharedPrefs.SharedPreferencesUseCase
 import com.example.iptvplayer.domain.time.IS_LIVE_KEY
 import com.example.iptvplayer.retrofit.data.ChannelData
+import com.example.iptvplayer.view.archive.CurrentDvrInfoState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -39,6 +44,8 @@ import tv.danmaku.ijk.media.player.IjkMediaPlayer
 class MediaPlaybackOrchestratorTest {
     private val testDispatcher = StandardTestDispatcher()
 
+    @Mock private lateinit var context: Context
+    @Mock private lateinit var errorManager: ErrorManager
     @Mock
     private lateinit var sharedPreferencesUseCase: SharedPreferencesUseCase
     @Mock
@@ -67,6 +74,12 @@ class MediaPlaybackOrchestratorTest {
         currentChannelControlledFlow = MutableStateFlow(ChannelData())
         whenever(channelsManager.currentChannel).thenReturn(currentChannelControlledFlow)
         whenever(archiveManager.archiveSegmentUrl).thenReturn(MutableStateFlow(""))
+        whenever(archiveManager.currentChannelDvrInfoState).thenReturn(MutableStateFlow(CurrentDvrInfoState.LOADING))
+    }
+
+    @AfterEach
+    fun finish() {
+        Dispatchers.resetMain()
     }
 
     @Test
@@ -76,9 +89,11 @@ class MediaPlaybackOrchestratorTest {
                 channelsManager = channelsManager,
                 mediaManager = mediaManager,
                 archiveManager = archiveManager,
+                errorManager = errorManager,
                 mediaPlaybackRepository = mediaPlaybackRepository,
                 tsExtractor = tsExtractor,
                 sharedPreferencesUseCase = sharedPreferencesUseCase,
+                context = context,
                 orchestratorScope = backgroundScope
             )
 
@@ -95,16 +110,15 @@ class MediaPlaybackOrchestratorTest {
 
     @Test
     fun onSegmentRequest_urlQueueIsPopulated_urlsArePolledFromUrlQueue() = runTest {
-        whenever(mediaManager.ijkPlayer).thenReturn(MutableStateFlow(ijkMediaPlayer))
-        whenever(mediaPlaybackRepository.getMediaDataSource()).thenReturn(mediaDataSource)
-
         mediaPlaybackOrchestrator = MediaPlaybackOrchestrator(
             channelsManager = channelsManager,
             mediaManager = mediaManager,
             archiveManager = archiveManager,
+            errorManager = errorManager,
             mediaPlaybackRepository = mediaPlaybackRepository,
             tsExtractor = tsExtractor,
             sharedPreferencesUseCase = sharedPreferencesUseCase,
+            context = context,
             orchestratorScope = backgroundScope
         )
 
@@ -136,15 +150,19 @@ class MediaPlaybackOrchestratorTest {
 
             whenever(mediaManager.ijkPlayer).thenReturn(ijkPlayerFlow)
             whenever(mediaPlaybackRepository.getMediaDataSource()).thenReturn(mediaDataSource)
+            whenever(tsExtractor.extractNestedPlaylistUrls(any())).thenReturn(emptyList())
+            whenever(tsExtractor.extractTsSegmentUrls(any())).thenReturn(emptyList())
             whenever(mediaDataSource.setOnNextSegmentRequestedCallback(any())).thenAnswer {  }
 
             mediaPlaybackOrchestrator = MediaPlaybackOrchestrator(
                 channelsManager = channelsManager,
                 mediaManager = mediaManager,
                 archiveManager = archiveManager,
+                errorManager = errorManager,
                 mediaPlaybackRepository = mediaPlaybackRepository,
                 tsExtractor = tsExtractor,
                 sharedPreferencesUseCase = sharedPreferencesUseCase,
+                context = context,
                 orchestratorScope = backgroundScope
             )
 
@@ -157,6 +175,7 @@ class MediaPlaybackOrchestratorTest {
             val segmentsCollectingJob = mediaPlaybackOrchestrator.segmentsLoadingJob.testIn(this)
             val isSeekingCollector = mediaPlaybackOrchestrator.isSeeking.testIn(this)
             val isPausedCollector = mediaPlaybackOrchestrator.isPaused.testIn(this)
+            val currentChannelCollector = mediaPlaybackOrchestrator.currentChannel.testIn(this)
 
             verify(tsExtractor, never()).extractNestedPlaylistUrls(any())
             verify(mediaDataSource, never()).setMediaUrl(any())
@@ -169,7 +188,11 @@ class MediaPlaybackOrchestratorTest {
             assertTrue(newSegmentsNeededCollector.awaitItem())
 
             ijkPlayerFlow.value = ijkMediaPlayer
+            currentChannelControlledFlow.value = ChannelData(name = "name")
+            mediaPlaybackOrchestrator.startLivePlayback()
             advanceTimeBy(1)
+            assertEquals(ChannelData(), currentChannelCollector.awaitItem())
+            assertEquals(ChannelData(name = "name"), currentChannelCollector.awaitItem())
 
             verify(mediaManager, times(1)).setOnPreparedListener(onPreparedListener.capture())
             verify(mediaManager, times(1)).setOnInfoListener(onInfoListener.capture())
@@ -183,6 +206,7 @@ class MediaPlaybackOrchestratorTest {
             isSeekingCollector.cancelAndIgnoreRemainingEvents()
             isPausedCollector.cancelAndIgnoreRemainingEvents()
             segmentsCollectingJob.cancelAndIgnoreRemainingEvents()
+            currentChannelCollector.cancelAndIgnoreRemainingEvents()
         }
     }
 
@@ -201,9 +225,11 @@ class MediaPlaybackOrchestratorTest {
                 channelsManager = channelsManager,
                 mediaManager = mediaManager,
                 archiveManager = archiveManager,
+                errorManager = errorManager,
                 mediaPlaybackRepository = mediaPlaybackRepository,
                 tsExtractor = tsExtractor,
                 sharedPreferencesUseCase = sharedPreferencesUseCase,
+                context = context,
                 orchestratorScope = backgroundScope
             )
 
@@ -216,7 +242,12 @@ class MediaPlaybackOrchestratorTest {
             assertEquals(0, mediaPlaybackOrchestrator.getUrlQueueSize())
 
             currentChannelControlledFlow.value = ChannelData(name = "name")
+            mediaPlaybackOrchestrator.startLivePlayback()
+
             assertEquals(ChannelData(name = "name"), currentChannelDataCollector.awaitItem())
+
+            advanceTimeBy(1)
+
             assertEquals(4, mediaPlaybackOrchestrator.getUrlQueueSize())
             assertEquals(mockTsSegments[3], mediaPlaybackOrchestrator.getLastTsSegmentFromQueue())
 
@@ -230,16 +261,16 @@ class MediaPlaybackOrchestratorTest {
         turbineScope {
             val mockTsSegments = List(4) { index -> "mockTsSegmentUrl${index + 1}" }
             whenever(sharedPreferencesUseCase.getBooleanValue(IS_LIVE_KEY)).thenReturn(true)
-            whenever(mediaManager.ijkPlayer).thenReturn(MutableStateFlow(ijkMediaPlayer))
-            whenever(mediaPlaybackRepository.getMediaDataSource()).thenReturn(mediaDataSource)
 
             mediaPlaybackOrchestrator = MediaPlaybackOrchestrator(
                 channelsManager = channelsManager,
                 mediaManager = mediaManager,
                 archiveManager = archiveManager,
+                errorManager = errorManager,
                 mediaPlaybackRepository = mediaPlaybackRepository,
                 tsExtractor = tsExtractor,
                 sharedPreferencesUseCase = sharedPreferencesUseCase,
+                context = context,
                 orchestratorScope = backgroundScope
             )
 
@@ -252,5 +283,10 @@ class MediaPlaybackOrchestratorTest {
                 assertEquals(i + 1, mediaPlaybackOrchestrator.getUrlQueueSize())
             }
         }
+    }
+
+    @Test
+    fun startLiveSegmentsLoading_urlAvailable_populatesUrlQueue() {
+
     }
 }

@@ -87,16 +87,14 @@ fun ChannelsListAndBorder(
             }
 
             Key.DirectionCenter -> {
-                coroutineScope.launch {
-                    if (currentChannelIndex != focusedChannelIndex || !mediaViewModel.isLive.value) {
-                        mediaViewModel.updateCurrentTime(dateAndTimeViewModel.liveTime.value)
-                        mediaViewModel.updateIsLive(true)
-                        channelsViewModel.updateChannelIndex(focusedChannelIndex, true)
+                if (currentChannelIndex != focusedChannelIndex || !mediaViewModel.isLive.value) {
+                    mediaViewModel.updateCurrentTime(dateAndTimeViewModel.liveTime.value)
+                    mediaViewModel.updateIsLive(true)
+                    channelsViewModel.updateChannelIndex(focusedChannelIndex, true)
 
-                        val focusedChannel = channelsViewModel.getChannelByIndex(focusedChannelIndex)
-                        focusedChannel?.let { _ ->
-                            mediaPlaybackViewModel.startLivePlayback()
-                        }
+                    val focusedChannel = channelsViewModel.getChannelByIndex(focusedChannelIndex)
+                    focusedChannel?.let { _ ->
+                        mediaPlaybackViewModel.startPlayback()
                     }
                 }
             }

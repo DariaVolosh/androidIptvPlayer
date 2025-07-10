@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -29,6 +30,7 @@ import com.example.iptvplayer.view.errors.ErrorData
 fun ErrorPopup(
     errorData: ErrorData
 ) {
+
     val gradientBorderColor = Color(0xFf7F6969).copy(0.3f)
 
     Box(
@@ -70,6 +72,19 @@ fun ErrorPopup(
                 fontWeight = FontWeight(300),
                 color = MaterialTheme.colorScheme.onSecondary
             )
+
+            if (errorData.errorDismissButton != null) {
+                Button(
+                    onClick = errorData.errorDismissButton.onDismissCallback
+                ) {
+                    Text(
+                        text = stringResource(errorData.errorDismissButton.buttonText),
+                        color = MaterialTheme.colorScheme.onSecondary,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight(300)
+                    )
+                }
+            }
         }
     }
 }

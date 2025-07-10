@@ -14,8 +14,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.iptvplayer.view.channelsAndEpgRow.DvrDaysRange
-import com.example.iptvplayer.view.channelsAndEpgRow.DvrMonthsRange
+import com.example.iptvplayer.view.archive.DvrDaysRange
+import com.example.iptvplayer.view.archive.DvrMonthsRange
 import com.example.iptvplayer.view.time.DateAndTimeViewModel
 
 @Composable
@@ -41,6 +41,7 @@ fun DayPicker(
     }
 
     LaunchedEffect(dvrFirstAndLastDays, dvrFirstAndLastMonths) {
+        println("dvr first day $dvrFirstAndLastDays $dvrFirstAndLastMonths")
         if (dvrFirstAndLastDays.firstDay != 0 && dvrFirstAndLastMonths.firstMonth != 0) {
             val days = mutableListOf<ArchiveDate>()
 

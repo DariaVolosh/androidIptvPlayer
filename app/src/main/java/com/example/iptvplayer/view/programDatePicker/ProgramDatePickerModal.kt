@@ -25,14 +25,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.R
 import com.example.iptvplayer.retrofit.data.ChannelData
-import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
+import com.example.iptvplayer.view.archive.ArchiveViewModel
 import com.example.iptvplayer.view.epg.EpgViewModel
 import com.example.iptvplayer.view.media.MediaPlaybackViewModel
 import com.example.iptvplayer.view.media.MediaViewModel
 import com.example.iptvplayer.view.programDatePicker.datePicker.DayPicker
 import com.example.iptvplayer.view.programDatePicker.timePicker.TimePicker
 import com.example.iptvplayer.view.time.DateAndTimeViewModel
-import kotlinx.coroutines.launch
 
 @Composable
 fun ProgramDatePickerModal(
@@ -70,14 +69,13 @@ fun ProgramDatePickerModal(
         val firstDvrRange = dvrRanges[0]
         val lastDvrRange = dvrRanges[dvrRanges.size-1]
         if (newTotalDate >= firstDvrRange.from && newTotalDate <= lastDvrRange.from + lastDvrRange.duration) {
-            coroutineScope.launch {
-                mediaViewModel.updateCurrentTime(newTotalDate)
-                mediaViewModel.updateIsLive(false)
-                epgViewModel.searchEpgByTime(newTotalDate)
-                archiveViewModel.getArchiveUrl(currentChannel.channelUrl, newTotalDate)
-                hideProgramDatePicker()
-                showChannelInfo()
-            }
+            mediaViewModel.updateCurrentTime(newTotalDate)
+            mediaViewModel.updateIsLive(false)
+            epgViewModel.searchEpgByTime(newTotalDate)
+            archiveViewModel.getArchiveUrl(currentChannel.channelUrl, newTotalDate)
+            hideProgramDatePicker()
+            showChannelInfo()
+            mediaPlaybackViewModel.startPlayback()
         } else {
             Toast.makeText(context, context.getString(R.string.date_is_not_available), Toast.LENGTH_LONG)
                 .show()

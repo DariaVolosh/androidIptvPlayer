@@ -30,8 +30,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.retrofit.data.ChannelData
 import com.example.iptvplayer.retrofit.data.EpgListItem
+import com.example.iptvplayer.view.archive.ArchiveViewModel
 import com.example.iptvplayer.view.channels.ChannelsViewModel
-import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
 import com.example.iptvplayer.view.channelsAndEpgRow.ItemBorder
 import com.example.iptvplayer.view.media.MediaViewModel
 import com.example.iptvplayer.view.time.DateAndTimeViewModel
@@ -112,7 +112,6 @@ fun EpgListAndBorder(
                     epgViewModel.updateEpgIndex(focusedEpgIndex, true)
                     channelsViewModel.updateChannelIndex(channelsViewModel.focusedChannelIndex.value, true)
 
-                    mediaViewModel.resetPlayer()
                     mediaViewModel.updateIsLive(false)
 
                     setCurrentTime(focusedEpg.epgVideoTimeRangeSeconds.start)
