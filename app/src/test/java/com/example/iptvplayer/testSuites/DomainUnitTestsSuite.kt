@@ -1,6 +1,6 @@
 package com.example.iptvplayer.testSuites
 
-import com.example.iptvplayer.unitTests.archive.ArchiveManagerTest
+import com.example.iptvplayer.integrationTests.domain.ArchiveOrchestratorAndArchiveManagerTest
 import com.example.iptvplayer.unitTests.channels.ChannelsManagerTest
 import com.example.iptvplayer.unitTests.channels.ChannelsOrchestratorTest
 import com.example.iptvplayer.unitTests.media.MediaManagerTest
@@ -15,7 +15,7 @@ import org.junit.platform.suite.api.Suite
     ChannelsOrchestratorTest::class,
     TimeOrchestratorTest::class,
     // unit tests - managers
-    ArchiveManagerTest::class,
+    ArchiveOrchestratorAndArchiveManagerTest::class,
     ChannelsManagerTest::class,
     MediaManagerTest::class,
     TimeManagerTest::class

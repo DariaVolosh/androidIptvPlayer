@@ -12,25 +12,21 @@ class DateManager @Inject constructor(
 ) {
     fun parseDate(date: String, pattern: String, timeZone: TimeZone = TimeZone.getTimeZone("GMT+4")): Long {
         val formatter = SimpleDateFormat(pattern)
-        if (timeZone != null) {
-            formatter.timeZone = timeZone
-        }
+        formatter.timeZone = TimeZone.getTimeZone("GMT+4")
         return (formatter.parse(date)?.time?.div(1000)) ?: 0
     }
 
     fun formatDate(date: Long, pattern: String, timeZone: TimeZone = TimeZone.getTimeZone("GMT+4")): String {
-        println("formatDate - timestamp: $date, pattern: $pattern")
         val formatter = SimpleDateFormat(pattern)
-        if (timeZone != null) {
-            formatter.timeZone = timeZone
-        }
+        formatter.timeZone = TimeZone.getTimeZone("GMT+4")
 
         val formattedString = formatter.format(Date(date * 1000))
+        println("formatDate - timestamp: $date, pattern: $pattern $formattedString")
         return formattedString
     }
 
     fun dateToEpochSeconds(day: Int, month: Int, year: Int, hour: Int, minute: Int): Long {
-        val calendar = Calendar.getInstance()
+        val calendar = Calendar.getInstance(TimeZone.getTimeZone("GMT+4"))
         calendar.apply {
             set(Calendar.DAY_OF_MONTH, day)
             set(Calendar.MONTH, month - 1)
@@ -43,7 +39,7 @@ class DateManager @Inject constructor(
     }
 
     fun getDaysOfMonth(month: Int): Int {
-        val calendar = Calendar.getInstance()
+        val calendar = Calendar.getInstance(TimeZone.getTimeZone("GMT+4"))
         calendar.set(Calendar.YEAR, 2025)
         calendar.set(Calendar.MONTH, month-1)
 
@@ -51,7 +47,7 @@ class DateManager @Inject constructor(
     }
 
     fun getDayOfWeek(month: Int, day: Int): String {
-        val calendar = Calendar.getInstance()
+        val calendar = Calendar.getInstance(TimeZone.getTimeZone("GMT+4"))
         calendar.apply {
             set(Calendar.MONTH, month - 1)
             set(Calendar.DAY_OF_MONTH, day)
@@ -61,7 +57,7 @@ class DateManager @Inject constructor(
     }
 
     fun getFullMonthName(monthNumber: Int): String {
-        val calendar = Calendar.getInstance()
+        val calendar = Calendar.getInstance(TimeZone.getTimeZone("GMT+4"))
         calendar.set(Calendar.MONTH, monthNumber - 1)
         return calendar.getDisplayName(Calendar.MONTH, Calendar.LONG, Locale.getDefault()) ?: ""
     }

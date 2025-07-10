@@ -1,15 +1,21 @@
 package com.example.iptvplayer.domain.media
 
+import android.content.Context
 import android.view.Surface
+import com.example.iptvplayer.R
 import com.example.iptvplayer.data.media.TsExtractor
 import com.example.iptvplayer.data.repositories.MediaDataSource
 import com.example.iptvplayer.data.repositories.MediaPlaybackRepository
 import com.example.iptvplayer.di.IoDispatcher
 import com.example.iptvplayer.domain.archive.ArchiveManager
 import com.example.iptvplayer.domain.channels.ChannelsManager
+import com.example.iptvplayer.domain.errors.ErrorManager
 import com.example.iptvplayer.domain.sharedPrefs.SharedPreferencesUseCase
 import com.example.iptvplayer.domain.time.IS_LIVE_KEY
 import com.example.iptvplayer.retrofit.data.ChannelData
+import com.example.iptvplayer.view.archive.CurrentDvrInfoState
+import com.example.iptvplayer.view.errors.ErrorData
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -36,9 +42,11 @@ class MediaPlaybackOrchestrator @Inject constructor(
     private val channelsManager: ChannelsManager,
     private val mediaManager: MediaManager,
     private val archiveManager: ArchiveManager,
+    private val errorManager: ErrorManager,
     private val mediaPlaybackRepository: MediaPlaybackRepository,
     private val tsExtractor: TsExtractor,
     private val sharedPreferencesUseCase: SharedPreferencesUseCase,
+    @ApplicationContext private val context: Context,
     @IoDispatcher private val orchestratorScope: CoroutineScope
 ) {
 
@@ -52,6 +60,10 @@ class MediaPlaybackOrchestrator @Inject constructor(
 
     val archiveUrl: StateFlow<String> = archiveManager.archiveSegmentUrl.stateIn(
         orchestratorScope, SharingStarted.Eagerly, ""
+    )
+
+    val currentChannelDvrInfoState: StateFlow<CurrentDvrInfoState> = archiveManager.currentChannelDvrInfoState.stateIn(
+        orchestratorScope, SharingStarted.Eagerly, CurrentDvrInfoState.LOADING
     )
 
     var isOrchestratorInitialized: MutableStateFlow<Boolean> = MutableStateFlow(false)
@@ -91,11 +103,32 @@ class MediaPlaybackOrchestrator @Inject constructor(
                 if (cachedIsLive) StreamTypeState.LIVE
                 else StreamTypeState.ARCHIVE
             )
+        }
 
-            if (cachedIsLive) {
-                startLivePlayback()
-            } else {
-                startArchivePlayback()
+        orchestratorScope.launch {
+            currentChannelDvrInfoState.collect { dvrInfoState ->
+                when(dvrInfoState) {
+                    CurrentDvrInfoState.GAP_DETECTED_AND_WAITING -> {
+                        pausePlayerPlayback()
+
+                        errorManager.publishError(
+                            ErrorData(
+                                errorTitle =  context.getString(R.string.archive_gap),
+                                errorDescription =  context.getString(R.string.archive_gap_description),
+                                errorIcon = R.drawable.error_icon,
+                            )
+                        )
+                    }
+
+                    CurrentDvrInfoState.PLAYING_IN_RANGE -> {
+                        startPlayback()
+                        errorManager.resetError()
+                    }
+
+                    else -> {
+
+                    }
+                }
             }
         }
     }
@@ -104,6 +137,7 @@ class MediaPlaybackOrchestrator @Inject constructor(
         mediaManager.ijkPlayer.first {
                 ijkPlayer -> ijkPlayer != null
         }.let {
+            println("CALLED INIT")
             mediaManager.setOnPreparedListener { _isDataSourceSet.value = true }
             mediaManager.setOnInfoListener { mp, what, extra ->
                 when (what) {
@@ -115,6 +149,8 @@ class MediaPlaybackOrchestrator @Inject constructor(
                     else -> false
                 }
             }
+
+            println("called")
 
             val dataSource = mediaPlaybackRepository.getMediaDataSource()
             mediaManager.setDataSource(dataSource)
@@ -203,6 +239,18 @@ class MediaPlaybackOrchestrator @Inject constructor(
             extractTsSegments(archiveUrl)
         }
 
+    suspend fun startPlayback() {
+        _streamTypeState.first { streamType ->
+            streamType == StreamTypeState.LIVE || streamType == StreamTypeState.ARCHIVE
+        }.let { streamType ->
+            if (streamType == StreamTypeState.LIVE) {
+                startLivePlayback()
+            } else {
+                startArchivePlayback()
+            }
+        }
+    }
+
     suspend fun startArchivePlayback() {
         if (!isOrchestratorInitialized.value) {
             initializePlayerForPlayback()
@@ -222,6 +270,7 @@ class MediaPlaybackOrchestrator @Inject constructor(
     suspend fun startLivePlayback() {
         println("start playback")
 
+        println("${isOrchestratorInitialized.value} init?")
         if (!isOrchestratorInitialized.value) {
             initializePlayerForPlayback()
         } else {
@@ -232,6 +281,7 @@ class MediaPlaybackOrchestrator @Inject constructor(
         currentChannel.first {
                 channel -> channel != ChannelData()
         }.let { currentChannel ->
+            println("current channel $currentChannel")
             _segmentsLoadingJob.value = startLiveSegmentsLoading(currentChannel.channelUrl)
         }
     }
@@ -279,7 +329,7 @@ class MediaPlaybackOrchestrator @Inject constructor(
 
     fun addUrlToQueue(url: String) {
         println("url added to queue $url")
-        if (getUrlQueueSize() >= LIVE_SEGMENTS_BUFFER_THREESHOLD) {
+        if (emittedSegmentUrls.size >= LIVE_SEGMENTS_BUFFER_THREESHOLD) {
             discardOldestHalfSegments()
         }
         urlQueue.add(url)

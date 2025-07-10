@@ -2,9 +2,9 @@ package com.example.iptvplayer.domain.archive
 
 import android.util.Log
 import com.example.iptvplayer.retrofit.data.DvrRange
-import com.example.iptvplayer.view.channelsAndEpgRow.CurrentDvrInfoState
-import com.example.iptvplayer.view.channelsAndEpgRow.DvrDaysRange
-import com.example.iptvplayer.view.channelsAndEpgRow.DvrMonthsRange
+import com.example.iptvplayer.view.archive.CurrentDvrInfoState
+import com.example.iptvplayer.view.archive.DvrDaysRange
+import com.example.iptvplayer.view.archive.DvrMonthsRange
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -72,6 +72,7 @@ class ArchiveManager @Inject constructor(
     }
 
     fun updateChannelCurrentDvrRange(isCurrent: Boolean, rangeIndex: Int) {
+        println("update range $rangeIndex")
         if (isCurrent) _currentChannelDvrRange.value = rangeIndex
         else _focusedChannelDvrRange.value = rangeIndex
     }
@@ -123,7 +124,16 @@ class ArchiveManager @Inject constructor(
         val baseUrl = url.substring(0, url.lastIndexOf("/") + 1)
         val token = url.substring(url.lastIndexOf("=") + 1, url.length)
 
-        val archiveUrl = baseUrl + "index-$currentTime-180.m3u8?token=$token"
+        val currentDvrRange = currentChannelDvrRanges.value[currentChannelDvrRange.value]
+        val currentDvrRangeStopTime = currentDvrRange.from + currentDvrRange.duration
+
+        var archiveBufferedSecondsLength = 180L
+
+        if (currentTime + 180 > currentDvrRangeStopTime) {
+            archiveBufferedSecondsLength = 180 - ((currentTime + 180) - 180)
+        }
+
+        val archiveUrl = baseUrl + "index-$currentTime-$archiveBufferedSecondsLength.m3u8?token=$token"
         Log.i("base url", "$baseUrl $token $archiveUrl")
         // checking again, because if the rewind was not continuous, time did not change,
         // therefore still in present, rewinding to current time would result in
@@ -138,41 +148,8 @@ class ArchiveManager @Inject constructor(
         if (dvrRanges.isEmpty()) {
             updateDvrInfoState(isCurrentChannel, CurrentDvrInfoState.NOT_AVAILABLE_GLOBAL)
         } else {
+            println("available global?")
             updateDvrInfoState(isCurrentChannel, CurrentDvrInfoState.AVAILABLE_GLOBAL)
-        }
-    }
-
-    fun determineCurrentDvrRange(isCurrentChannel: Boolean, currentTime: Long) {
-        var currentRanges = if (isCurrentChannel) currentChannelDvrRanges else focusedChannelDvrRanges
-        var currentState = if (isCurrentChannel) currentChannelDvrInfoState else focusedChannelDvrInfoState
-        if (currentState.value != CurrentDvrInfoState.LOADING) {
-            for (i in currentRanges.value.indices) {
-                val range = currentRanges.value[i]
-
-                if (currentTime >= range.from) {
-                    if (currentTime <= range.from + range.duration) {
-                        updateChannelCurrentDvrRange(isCurrentChannel, i)
-                        updateDvrInfoState(isCurrentChannel, CurrentDvrInfoState.PLAYING_IN_RANGE)
-                        return
-                    } else {
-                        if (i+1 < currentRanges.value.size) {
-                            val nextRange = currentRanges.value[i+1]
-
-                            if (currentTime <= nextRange.from) {
-                                updateChannelCurrentDvrRange(isCurrentChannel, -1)
-                                updateDvrInfoState(isCurrentChannel,
-                                    CurrentDvrInfoState.GAP_DETECTED_AND_WAITING
-                                )
-                                return
-                            }
-                        } else {
-                            updateDvrInfoState(isCurrentChannel,
-                                CurrentDvrInfoState.END_OF_DVR_REACHED
-                            )
-                        }
-                    }
-                }
-            }
         }
     }
 }

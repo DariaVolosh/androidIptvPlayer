@@ -8,7 +8,6 @@ import com.example.iptvplayer.domain.channels.ChannelsOrchestrator
 import com.example.iptvplayer.domain.channels.ChannelsState
 import com.example.iptvplayer.domain.media.MediaPlaybackOrchestrator
 import com.example.iptvplayer.domain.media.StreamTypeState
-import com.example.iptvplayer.view.channelsAndEpgRow.CurrentDvrInfoState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -36,10 +35,6 @@ class MediaPlaybackViewModel @Inject constructor(
         MutableStateFlow(MediaPlaybackState.INITIALIZING)
     val mediaPlaybackState: StateFlow<MediaPlaybackState> = _mediaPlaybackState
 
-    val currentChannelDvrInfoState: StateFlow<CurrentDvrInfoState> = archiveManager.currentChannelDvrInfoState.stateIn(
-        viewModelScope, SharingStarted.Eagerly, CurrentDvrInfoState.LOADING
-    )
-
     val channelsState: StateFlow<ChannelsState> = channelsOrchestrator.channelsState.stateIn(
         viewModelScope, SharingStarted.Eagerly, ChannelsState.FETCHING
     )
@@ -56,35 +51,14 @@ class MediaPlaybackViewModel @Inject constructor(
         viewModelScope, SharingStarted.Eagerly, false
     )
 
-    private var startLivePlaybackJob: Job? = null
-    private var startArchivePlaybackJob: Job? = null
+    private var startPlaybackJob: Job? = null
 
     fun startPlayback() {
-        viewModelScope.launch {
-            streamType.collect { streamType ->
-                when (streamType) {
-                    StreamTypeState.INITIALIZING, StreamTypeState.ERROR -> {
+        startPlaybackJob?.cancel()
 
-                    }
-                    StreamTypeState.LIVE -> {
-                        startLivePlayback()
-                        return@collect
-                    }
-                    StreamTypeState.ARCHIVE -> {
-                        startArchivePlayback()
-                        return@collect
-                    }
-                }
-            }
+        startPlaybackJob = viewModelScope.launch {
+            mediaPlaybackOrchestrator.startPlayback()
         }
-    }
-
-    suspend fun startLivePlayback() {
-        mediaPlaybackOrchestrator.startArchivePlayback()
-    }
-
-    suspend fun startArchivePlayback() {
-        mediaPlaybackOrchestrator.startArchivePlayback()
     }
 
     fun pausePlayback() {

@@ -30,6 +30,10 @@ class TimeManager @Inject constructor(
         _liveTime.value = time
     }
 
-    suspend fun getGmtTime(): Long =
+    fun getDeviceCurrentTime(): Long {
+        return System.currentTimeMillis() / 1000
+    }
+
+    suspend fun getNetworkCurrentTime(): Long =
         ntpClient.getGmtTime()
 }

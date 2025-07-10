@@ -30,7 +30,7 @@ import com.example.iptvplayer.domain.media.StreamTypeState
 import com.example.iptvplayer.view.channelInfo.playbackControls.PlaybackControls
 import com.example.iptvplayer.view.channelInfo.progressBar.TimeSeekbarWithTimeMarkers
 import com.example.iptvplayer.view.channels.ChannelsViewModel
-import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
+import com.example.iptvplayer.view.archive.ArchiveViewModel
 import com.example.iptvplayer.view.epg.EpgViewModel
 import com.example.iptvplayer.view.media.MediaPlaybackViewModel
 import com.example.iptvplayer.view.media.MediaViewModel

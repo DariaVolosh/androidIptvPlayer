@@ -28,6 +28,7 @@ class MediaManager @Inject constructor(
         managerScope.launch {
             delay(1)
             _ijkPlayer.value = ijkPlayerFactory.create()
+            println("player instantiated")
         }
     }
 

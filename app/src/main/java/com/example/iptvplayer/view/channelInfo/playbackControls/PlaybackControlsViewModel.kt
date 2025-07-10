@@ -11,7 +11,7 @@ import com.example.iptvplayer.domain.media.MediaPlaybackOrchestrator
 import com.example.iptvplayer.domain.time.TimeOrchestrator
 import com.example.iptvplayer.retrofit.data.ChannelData
 import com.example.iptvplayer.retrofit.data.EpgListItem
-import com.example.iptvplayer.view.channelsAndEpgRow.CurrentDvrInfoState
+import com.example.iptvplayer.view.archive.CurrentDvrInfoState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.SharingStarted
@@ -65,7 +65,6 @@ class PlaybackControlsViewModel @Inject constructor(
                 mediaPlaybackOrchestrator.updateIsSeeking(true)
                 mediaPlaybackOrchestrator.updateIsLive(false)
                 timeOrchestrator.updateCurrentTime(nextItem.epgVideoTimeRangeSeconds.start)
-                mediaPlaybackOrchestrator.resetPlayer()
                 archiveManager.getArchiveUrl(currentChannel.value.channelUrl, currentTime.value)
                 epgManager.updateCurrentEpgIndex(nextEpgIndex)
                 epgManager.updateFocusedEpgIndex(nextEpgIndex)

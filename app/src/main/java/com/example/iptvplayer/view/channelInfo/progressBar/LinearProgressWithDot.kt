@@ -25,8 +25,8 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.R
-import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
-import com.example.iptvplayer.view.channelsAndEpgRow.CurrentDvrInfoState
+import com.example.iptvplayer.view.archive.ArchiveViewModel
+import com.example.iptvplayer.view.archive.CurrentDvrInfoState
 import com.example.iptvplayer.view.epg.EpgViewModel
 import com.example.iptvplayer.view.media.MediaPlaybackViewModel
 import com.example.iptvplayer.view.media.MediaViewModel
@@ -55,6 +55,7 @@ fun LinearProgressWithDot(
 
     val dvrRanges by archiveViewModel.currentChannelDvrRanges.collectAsState()
     val currentDvrInfoState by archiveViewModel.currentChannelDvrInfoState.collectAsState()
+    val currentDvrRange by archiveViewModel.currentChannelDvrRange.collectAsState()
 
     val currentEpg by epgViewModel.currentEpg.collectAsState()
     val currentEpgIndex by epgViewModel.currentEpgIndex.collectAsState()
@@ -143,13 +144,14 @@ fun LinearProgressWithDot(
                 if (isSeeking) {
                     archiveViewModel.getArchiveUrl(channelUrl, currentTime)
                     mediaViewModel.updateIsSeeking(false)
-                    mediaPlaybackViewModel.startArchivePlayback()
+                    mediaPlaybackViewModel.startPlayback()
                 }
             }
         }
     }
 
     LaunchedEffect(currentTime) {
+        println("current dvr range $currentDvrRange")
         archiveViewModel.determineCurrentDvrRange(true, currentTime)
         Log.i("currentEpgIndex", currentEpgIndex.toString())
         // epg is available, use epg timestamps

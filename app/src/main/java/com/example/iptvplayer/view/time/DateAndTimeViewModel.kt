@@ -17,7 +17,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.util.Calendar
 import java.util.TimeZone
 import javax.inject.Inject
 
@@ -101,11 +100,6 @@ class DateAndTimeViewModel @Inject constructor(
         }
     }
 
-
-    fun getCalendar(date: Long, timeZone: TimeZone? = null): Calendar {
-        return calendarManager.getCalendar(date, timeZone)
-    }
-
     fun formatDate(
         date: Long,
         datePattern: String,
@@ -163,6 +157,14 @@ class DateAndTimeViewModel @Inject constructor(
 
     fun getFullMonthName(monthNumber: Int): String {
         return dateManager.getFullMonthName(monthNumber)
+    }
+
+    fun getCalendarHour(date: Long): Int {
+        return timeOrchestrator.getCalendarHour(date)
+    }
+
+    fun getCalendarMinute(date: Long): Int {
+        return timeOrchestrator.getCalendarMinute(date)
     }
 
     fun updateCurrentTime(time: Long) {

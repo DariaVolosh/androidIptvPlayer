@@ -21,4 +21,8 @@ class ErrorManager @Inject constructor(
         Log.i("published error", error.toString())
         _error.value = error
     }
+
+    fun resetError() {
+        _error.value = ErrorData("", "", R.drawable.error_icon)
+    }
 }

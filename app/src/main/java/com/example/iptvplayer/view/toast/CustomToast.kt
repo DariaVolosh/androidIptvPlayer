@@ -23,7 +23,7 @@ import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.iptvplayer.view.channels.ChannelsViewModel
-import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
+import com.example.iptvplayer.view.archive.ArchiveViewModel
 import kotlinx.coroutines.delay
 
 @Composable

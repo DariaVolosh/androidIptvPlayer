@@ -1,9 +1,10 @@
-package com.example.iptvplayer.view.channelsAndEpgRow
+package com.example.iptvplayer.view.archive
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
+import com.example.iptvplayer.di.IoDispatcher
 import com.example.iptvplayer.domain.archive.ArchiveManager
+import com.example.iptvplayer.domain.archive.ArchiveOrchestrator
 import com.example.iptvplayer.domain.archive.GetDvrRangesUseCase
 import com.example.iptvplayer.domain.sharedPrefs.SharedPreferencesUseCase
 import com.example.iptvplayer.domain.time.CalendarManager
@@ -50,14 +51,16 @@ class ArchiveViewModel @Inject constructor(
     private val archiveManager: ArchiveManager,
     private val calendarManager: CalendarManager,
     private val dateManager: DateManager,
-    private val sharedPreferencesUseCase: SharedPreferencesUseCase
+    private val archiveOrchestrator: ArchiveOrchestrator,
+    private val sharedPreferencesUseCase: SharedPreferencesUseCase,
+    @IoDispatcher private val viewModelScope: CoroutineScope
 ): ViewModel() {
     val archiveSegmentUrl: StateFlow<String> = archiveManager.archiveSegmentUrl.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), ""
     )
 
     val currentChannelDvrRanges: StateFlow<List<DvrRange>> = archiveManager.currentChannelDvrRanges.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
+        viewModelScope, SharingStarted.Eagerly, emptyList()
     )
 
     val focusedChannelDvrRanges: StateFlow<List<DvrRange>> = archiveManager.focusedChannelDvrRanges.stateIn(
@@ -70,7 +73,7 @@ class ArchiveViewModel @Inject constructor(
     )
 
     val dvrFirstAndLastMonth: StateFlow<DvrMonthsRange> = archiveManager.dvrFirstAndLastMonth.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), DvrMonthsRange()
+        viewModelScope, SharingStarted.Eagerly, DvrMonthsRange()
     )
 
     val rewindError: StateFlow<String> = archiveManager.rewindError.stateIn(
@@ -78,11 +81,11 @@ class ArchiveViewModel @Inject constructor(
     )
 
     val currentChannelDvrRange: StateFlow<Int> = archiveManager.currentChannelDvrRange.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), -1
+        viewModelScope, SharingStarted.Eagerly, -1
     )
 
     val currentChannelDvrInfoState: StateFlow<CurrentDvrInfoState> = archiveManager.currentChannelDvrInfoState.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), CurrentDvrInfoState.LOADING
+        viewModelScope, SharingStarted.Eagerly, CurrentDvrInfoState.LOADING
     )
 
     val focusedChannelDvrInfoState: StateFlow<CurrentDvrInfoState> = archiveManager.focusedChannelDvrInfoState.stateIn(
@@ -201,7 +204,9 @@ class ArchiveViewModel @Inject constructor(
     }
 
     fun determineCurrentDvrRange(isCurrentChannel: Boolean, currentTime: Long) {
-        archiveManager.determineCurrentDvrRange(isCurrentChannel, currentTime)
+        viewModelScope.launch {
+            archiveOrchestrator.determineCurrentDvrRange(isCurrentChannel, currentTime)
+        }
     }
 
     fun getDvrRange(isCurrentChannel: Boolean): DvrRange {

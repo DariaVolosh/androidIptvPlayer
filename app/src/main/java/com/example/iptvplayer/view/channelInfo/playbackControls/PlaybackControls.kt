@@ -30,8 +30,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.iptvplayer.R
 import com.example.iptvplayer.domain.media.StreamTypeState
 import com.example.iptvplayer.retrofit.data.EpgListItem
-import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
-import com.example.iptvplayer.view.channelsAndEpgRow.CurrentDvrInfoState
+import com.example.iptvplayer.view.archive.ArchiveViewModel
+import com.example.iptvplayer.view.archive.CurrentDvrInfoState
 import com.example.iptvplayer.view.epg.EpgViewModel
 import com.example.iptvplayer.view.media.MediaPlaybackViewModel
 import com.example.iptvplayer.view.media.MediaViewModel
@@ -131,7 +131,6 @@ fun PlaybackControls(
             coroutineScope.launch {
                 mediaViewModel.updateIsSeeking(true)
                 mediaViewModel.updateIsLive(false)
-                mediaViewModel.resetPlayer()
                 mediaViewModel.updateCurrentTime(prevItem.epgVideoTimeRangeSeconds.start)
                 archiveViewModel.getArchiveUrl(channelUrl, dateAndTimeViewModel.currentTime.value)
                 epgViewModel.updateEpgIndex(prevEpgIndex, true)
@@ -194,21 +193,20 @@ fun PlaybackControls(
             resetSecondsNotInteracted()
 
             if (mediaPlaybackViewModel.streamType.value == StreamTypeState.ARCHIVE) {
-                coroutineScope.launch {
-                    mediaViewModel.updateIsSeeking(true)
-                    mediaViewModel.updateIsLive(true)
-                    dateAndTimeViewModel.formatDate(dateAndTimeViewModel.liveTime.value, datePattern, DateType.CURRENT_FULL_DATE)
-                    mediaViewModel.updateCurrentTime(dateAndTimeViewModel.liveTime.value)
-                    val liveProgramIndex = epgViewModel.currentEpgLiveProgram.value
-                    Log.i("live program index", liveProgramIndex.toString())
-                    if (liveProgramIndex == -1) {
-                        epgViewModel.resetEpgIndex(true)
-                    } else {
-                        epgViewModel.updateEpgIndex(liveProgramIndex, true)
-                        epgViewModel.updateEpgIndex(liveProgramIndex, false)
-                    }
-                    mediaViewModel.updateIsSeeking(false)
+                mediaViewModel.updateIsSeeking(true)
+                mediaViewModel.updateIsLive(true)
+                dateAndTimeViewModel.formatDate(dateAndTimeViewModel.liveTime.value, datePattern, DateType.CURRENT_FULL_DATE)
+                mediaViewModel.updateCurrentTime(dateAndTimeViewModel.liveTime.value)
+                mediaPlaybackViewModel.startPlayback()
+                val liveProgramIndex = epgViewModel.currentEpgLiveProgram.value
+                Log.i("live program index", liveProgramIndex.toString())
+                if (liveProgramIndex == -1) {
+                    epgViewModel.resetEpgIndex(true)
+                } else {
+                    epgViewModel.updateEpgIndex(liveProgramIndex, true)
+                    epgViewModel.updateEpgIndex(liveProgramIndex, false)
                 }
+                mediaViewModel.updateIsSeeking(false)
             } else {
                 archiveViewModel.setRewindError(context.getString(R.string.already_in_live))
             }

@@ -16,13 +16,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.iptvplayer.R
 import com.example.iptvplayer.domain.media.StreamTypeState
 import com.example.iptvplayer.retrofit.data.ChannelData
+import com.example.iptvplayer.view.archive.ArchiveViewModel
+import com.example.iptvplayer.view.archive.CurrentDvrInfoState
 import com.example.iptvplayer.view.channels.ChannelsViewModel
-import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
-import com.example.iptvplayer.view.channelsAndEpgRow.CurrentDvrInfoState
-import com.example.iptvplayer.view.errors.ErrorData
 import com.example.iptvplayer.view.errors.ErrorViewModel
 import com.example.iptvplayer.view.media.MediaPlaybackViewModel
 import com.example.iptvplayer.view.media.MediaViewModel
@@ -57,6 +55,7 @@ fun PlayerView(
 
     val archiveSegmentUrl by archiveViewModel.archiveSegmentUrl.collectAsState()
     val currentDvrInfoState by archiveViewModel.currentChannelDvrInfoState.collectAsState()
+    val currentDvrRange by archiveViewModel.currentChannelDvrRange.collectAsState()
 
     val currentChannel by channelsViewModel.currentChannel.collectAsState()
     val currentTime by dateAndTimeViewModel.currentTime.collectAsState()
@@ -85,7 +84,7 @@ fun PlayerView(
         Log.i("is playback started", isPlaybackStarted.toString())
         Log.i("is seeking", isSeeking.toString())
 
-        if (isPlaybackStarted) {
+        if (isPlaybackStarted && currentDvrInfoState != CurrentDvrInfoState.GAP_DETECTED_AND_WAITING) {
             Log.i("is playback started! if", "true")
             if (!isSeeking) {
                 Log.i("is seeking! if", "false")
@@ -139,8 +138,8 @@ fun PlayerView(
         }
     }
 
-    LaunchedEffect(newSegmentsNeeded, streamType, currentChannel, isPaused) {
-        if (newSegmentsNeeded && streamType == StreamTypeState.ARCHIVE && currentChannel != ChannelData() && !isPaused) {
+    LaunchedEffect(newSegmentsNeeded, streamType, currentChannel, isPaused, currentDvrRange) {
+        if (newSegmentsNeeded && streamType == StreamTypeState.ARCHIVE && currentChannel != ChannelData() && !isPaused && currentDvrRange != -1) {
             println("new segments needed")
             val lastSegment = mediaPlaybackViewModel.getLastSegmentFromQueue()
             val nextSegmentsStartTime = getLastSegmentUrlEndTime(lastSegment)
@@ -153,16 +152,6 @@ fun PlayerView(
             } else {
                 archiveViewModel.getArchiveUrl(currentChannel.channelUrl, nextSegmentsStartTime)
             }
-        }
-    }
-
-    LaunchedEffect(currentDvrInfoState) {
-        if (currentDvrInfoState == CurrentDvrInfoState.GAP_DETECTED_AND_WAITING) {
-            errorViewModel.publishError(ErrorData(
-                context.getString(R.string.no_archive),
-                context.getString(R.string.no_archive_descr),
-                R.drawable.error_icon
-            ))
         }
     }
 

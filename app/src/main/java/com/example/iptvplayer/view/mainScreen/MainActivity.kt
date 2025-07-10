@@ -40,9 +40,9 @@ import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.util.UnstableApi
 import com.example.iptvplayer.ui.theme.IptvPlayerTheme
 import com.example.iptvplayer.view.DummyViewModel
+import com.example.iptvplayer.view.archive.ArchiveViewModel
 import com.example.iptvplayer.view.channelInfo.ChannelInfo
 import com.example.iptvplayer.view.channels.ChannelsViewModel
-import com.example.iptvplayer.view.channelsAndEpgRow.ArchiveViewModel
 import com.example.iptvplayer.view.channelsAndEpgRow.ChannelsAndEpgRow
 import com.example.iptvplayer.view.init.InitViewModel
 import com.example.iptvplayer.view.media.MediaPlaybackViewModel
@@ -77,7 +77,9 @@ class MainActivity : ComponentActivity() {
 
             IptvPlayerTheme {
                 MainScreen(
-                    onExitApp = {finish()}
+                    onExitApp = {
+                        finish()
+                    }
                 )
             }
         }

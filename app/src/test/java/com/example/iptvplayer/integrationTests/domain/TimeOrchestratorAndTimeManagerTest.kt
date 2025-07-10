@@ -1,7 +1,8 @@
-package com.example.iptvplayer.unitTests.time
+package com.example.iptvplayer.integrationTests.domain
 
 import android.content.Context
 import app.cash.turbine.turbineScope
+import com.example.iptvplayer.data.NtpTimeClient
 import com.example.iptvplayer.domain.errors.ErrorManager
 import com.example.iptvplayer.domain.media.MediaManager
 import com.example.iptvplayer.domain.sharedPrefs.SharedPreferencesUseCase
@@ -10,7 +11,6 @@ import com.example.iptvplayer.domain.time.DateManager
 import com.example.iptvplayer.domain.time.TimeManager
 import com.example.iptvplayer.domain.time.TimeOrchestrator
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
@@ -24,17 +24,16 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
 import org.mockito.kotlin.any
-import org.mockito.kotlin.doAnswer
+import org.mockito.kotlin.times
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
-
 @ExtendWith(MockitoExtension::class)
-class TimeOrchestratorTest {
-    private var testDispatcher = StandardTestDispatcher()
+class TimeOrchestratorAndTimeManagerTest {
+    private val testDispatcher = StandardTestDispatcher()
 
     @Mock private lateinit var context: Context
     @Mock private lateinit var sharedPreferencesUseCase: SharedPreferencesUseCase
-    @Mock private lateinit var timeManager: TimeManager
     @Mock private lateinit var calendarManager: CalendarManager
     @Mock private lateinit var errorManager: ErrorManager
     @Mock private lateinit var dateManager: DateManager
@@ -42,30 +41,18 @@ class TimeOrchestratorTest {
 
     private lateinit var timeOrchestrator: TimeOrchestrator
 
-    private lateinit var liveTimeControlledFlow: MutableStateFlow<Long>
-    private lateinit var currentTimeControlledFlow: MutableStateFlow<Long>
+    @Mock private lateinit var ntpTimeClient: NtpTimeClient
+    private lateinit var timeManager: TimeManager
 
     @BeforeEach
     fun setup() {
         Dispatchers.setMain(testDispatcher)
 
-        liveTimeControlledFlow = MutableStateFlow(0L)
-        currentTimeControlledFlow = MutableStateFlow(0L)
+        timeManager = TimeManager(
+            ntpClient = ntpTimeClient
+        )
 
         whenever(context.getString(any())).thenReturn("")
-        whenever(timeManager.liveTime).thenReturn(liveTimeControlledFlow)
-        whenever(timeManager.currentTime).thenReturn(currentTimeControlledFlow)
-
-       whenever(timeManager.updateLiveTime(any())).doAnswer { mock ->
-            val liveTime = mock.arguments[0] as Long
-            liveTimeControlledFlow.value = liveTime
-        }
-        whenever(timeManager.updateCurrentTime(any())).doAnswer { mock ->
-            val currentTime = mock.arguments[0] as Long
-            currentTimeControlledFlow.value = currentTime
-        }
-
-        whenever(sharedPreferencesUseCase.saveLongValue(any(), any())).doAnswer {  }
     }
 
     @AfterEach
@@ -74,8 +61,12 @@ class TimeOrchestratorTest {
     }
 
     @Test
-    fun updateTime_liveTimeAvailable_liveTimeUpdatedEverySecond() = runTest {
+    fun startLiveTimeUpdate_clockSkewDetected_warningMessageShownAndLiveTimeUpdatedToNetworkTime() = runTest {
         turbineScope {
+            // date in the past (skew is more than 1 minute)
+            val networkTime = 1751206298L
+            whenever(timeManager.getNetworkCurrentTime()).thenReturn(networkTime)
+
             timeOrchestrator = TimeOrchestrator(
                 dateManager = dateManager,
                 timeManager = timeManager,
@@ -86,23 +77,22 @@ class TimeOrchestratorTest {
                 context = context,
                 orchestratorScope = backgroundScope
             )
-            val time = 1749935831L
-            whenever(timeManager.getNetworkCurrentTime()).thenReturn(time)
-            val liveTimeCollector = timeOrchestrator.liveTime.testIn(this)
 
-            assertEquals(0L, liveTimeCollector.awaitItem())
+            val orchestratorLiveTimeCollector = timeOrchestrator.liveTime.testIn(this)
+            val managerLiveTimeCollector = timeManager.liveTime.testIn(this)
 
-            assertEquals(time, liveTimeCollector.awaitItem())
+            assertEquals(0L, orchestratorLiveTimeCollector.awaitItem())
+            assertEquals(0L, managerLiveTimeCollector.awaitItem())
 
-            var seconds = 0
+            advanceTimeBy(1)
 
-            while (seconds < 50) {
-                advanceTimeBy(1000)
-                seconds++
-                assertEquals(time + seconds, liveTimeCollector.awaitItem())
-            }
+            verify(errorManager, times(1)).publishError(any())
 
-            liveTimeCollector.cancelAndIgnoreRemainingEvents()
+            assertEquals(networkTime, orchestratorLiveTimeCollector.awaitItem())
+            assertEquals(networkTime, managerLiveTimeCollector.awaitItem())
+
+            orchestratorLiveTimeCollector.cancelAndIgnoreRemainingEvents()
+            managerLiveTimeCollector.cancelAndIgnoreRemainingEvents()
         }
     }
 }
